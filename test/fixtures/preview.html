@@ -442,11 +442,14 @@
            每个工作区一层分组、每个行再包一层 _root。柜面必须从行往上找到
            「装下全部行」的那一层；只取 parentElement 就会圈住第一行的包裹层，
            第一块板 36px、其余行 251px，正是真页面上炸过的那个形状。
-           当前工作区的会话就排在它自己那一组里，所以两级格子共用一层柜面。 -->
+           当前工作区的会话就排在它自己那一组里，所以两级格子共用一层柜面。
+           下面两组也带 aria-expanded="true"：应用允许同时展开多个目录，
+           `aria-expanded` 只说明「抽屉开着」，不是「当前工作区」。把它当选中
+           信号，真页面上的七块板会一起翻成奶油色——这里留一份同样的现场。 -->
       <div class="_listArea_3zjx">
         <div class="_groupSection_5g2">
           <span class="_root_38jqx">
-            <div class="nav-item _projectRow_8kd1 _selected_2f" data-row-key="workspace:ds">
+            <div class="nav-item _projectRow_8kd1 _selected_2f" data-row-key="workspace:ds" aria-expanded="true">
               <span class="_title_3hb">ds</span>
             </div>
           </span>
@@ -473,14 +476,20 @@
         </div>
         <div class="_groupSection_5g2">
           <span class="_root_38jqx">
-            <div class="nav-item _projectRow_8kd1" data-row-key="workspace:dsh-theme-arknights">
+            <div class="nav-item _projectRow_8kd1" data-row-key="workspace:dsh-theme-arknights" aria-expanded="true">
               <span class="_title_3hb">dsh-theme-arknights</span>
             </div>
+          </span>
+          <span class="_root_38jqx">
+            <div class="nav-item _sessionRow_1zx9 _panelRow_6q"><span class="_title_3hb">另一个展开目录的会话</span></div>
+          </span>
+          <span class="_root_38jqx">
+            <div class="nav-item _sessionRow_1zx9 _panelRow_6q"><span class="_title_3hb">柜面不该排进来的第二块</span></div>
           </span>
         </div>
         <div class="_groupSection_5g2">
           <span class="_root_38jqx">
-            <div class="nav-item _projectRow_8kd1" data-row-key="workspace:docs">
+            <div class="nav-item _projectRow_8kd1" data-row-key="workspace:docs" aria-expanded="true">
               <span class="_title_3hb">docs / screenshots</span>
             </div>
           </span>

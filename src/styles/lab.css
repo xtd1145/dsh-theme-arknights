@@ -502,6 +502,37 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'][dat
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 
+/* 进阶版在当前板右上角画一枚 L 形角标。莱茵柜面用奶油亮板 + 黑牌表示选中，
+   角标叠上去就是每块板都多一只角；lab 档不画它。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'][data-ak-active='true']::after {
+  content: none;
+}
+
+/* 悬停铭牌：36px 的板面写不下工作区名，名字跟随指针出现在板子旁边。
+   固定定位挂在 body 上，不归柜面的滚动容器裁切。 */
+.ak-sector-tip {
+  position: fixed;
+  z-index: 40;
+  max-width: 210px;
+  padding: 3px 6px 2px;
+  border-left: 2px solid var(--edge-accent);
+  background: var(--lab-plaque);
+  color: var(--lab-plaque-ink);
+  font-family: var(--ak-mono);
+  font-size: 8.5px;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.42);
+}
+
+.ak-sector-tip[hidden] {
+  display: none;
+}
+
 /* 抬头里那一排小计数在 lab 档退场：大读数已经写了「共几列」，同一只计数器
    不该在同一块面板上出现两次。 */
 body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-sector-head__top [data-ak-part='count'] {
@@ -571,6 +602,12 @@ body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-sector-head__keys
  * 板宽定死 86px：两格正好排满 fixture 的 208px 轨道，在真页面那条更窄的
  * （约 187px）上留出十来个像素的余量。
  * ------------------------------------------------------------------------- */
+
+/* 只画当前目录那一组。应用允许同时展开多个目录，但柜面上只应该有一套轨道；
+   其余组的会话行留在 DOM 里（应用还要用），只是不占柜面的格位。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'] [class*='_sessionRow']:not([data-ak-block]) {
+  display: none;
+}
 
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-block] {
   position: relative;

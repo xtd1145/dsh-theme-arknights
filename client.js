@@ -4010,6 +4010,12 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
     let terminalSectorHeadEl = null
     let terminalFooterEl = null
     let terminalMenuRoots = null
+    /* 用户在柜面上点了哪一格。点击目录行只展开会话，并不会把工作区设成
+       当前部署；柜面需要把这个「正在浏览」的目录也当成当前格，否则点了
+       没有视觉回应、展开出来的会话也还在墙下看不见。 */
+    let terminalOpenedKey = ''
+    let terminalTipEl = null
+    let sectorTipBound = false
 
     /* 只关心会改变终端结构的区域：侧栏、空状态输入区、打开中的菜单。
        流式输出会持续改消息 DOM，把它排除掉，观察器就不必为每个 token
@@ -4330,7 +4336,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
        行内的编号是一个真实 span（不是伪元素），所以可以和原生图标、文字
        一起参与 flex 排版；重渲染后由扫描补回。 */
     const paintWorkspaceRows = (sidebar) => {
-      if (sidebar === null) return { count: 0, activeSector: '', plateName: '', field: null }
+      if (sidebar === null) return { count: 0, activeSector: '', plateName: '', field: null, activeRow: null, openGroup: null }
       /* 空 key 是 DSH 的“未分组”会话桶，不是可部署工作区：它是一枚 34px 高的
          折叠头，进了柜面就是一条横贯整行的板子。单独标出来，由 lab 层收掉。 */
       const rows = []
@@ -4341,10 +4347,14 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         }
         rows.push(row)
       })
+      const field = akCabinetField(rows, 'column-field')
+      const lab = document.body !== null && document.body.classList.contains('theme-arknights-lab')
+      if (!lab) {
+        terminalOpenedKey = ''
+      }
       const deployed = readDeployedWorkspace()
-      let activeSector = ''
-      let activeName = ''
       let firstName = ''
+      let deployedRow = null
       rows.forEach((row, index) => {
         const sector = terminalPad(index + 1)
         akMark(row, 'sector-row')
@@ -4360,22 +4370,68 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         }
         akSetText(code, sector)
 
+        /* aria-expanded 只说明这个目录被展开，不说明它是当前工作区。用户可能
+           同时展开好几个目录；把它当选中信号会让每一块板都点亮（真页面截图
+           里七块板全是奶油色、编号全翻黑牌，就是这个原因）。 */
         const structuralActive = row.className.indexOf('_selected') !== -1
           || row.className.indexOf('folderActive') !== -1
           || row.getAttribute('aria-selected') === 'true'
           || row.getAttribute('aria-current') !== null
-          || row.getAttribute('aria-expanded') === 'true'
           || row.getAttribute('data-state') === 'selected'
           || row.querySelector('[class*="_folderActive"]') !== null
         const title = row.querySelector('[class*="_title"]')
         const name = title === null ? '' : (title.textContent || '').trim()
-        const active = deployed === null ? structuralActive : deployed !== '' && name === deployed
-        akSetAttr(row, 'data-ak-active', active ? 'true' : 'false')
-        if (active && activeSector === '') activeSector = sector
-        if (active && activeName === '') activeName = name
+        /* 名字写在 data 属性上：36px 的板面放不下，但悬停铭牌要读它。
+           不能用 title 属性，原生 tooltip 会和我们自己的黑牌叠在一起。 */
+        akSetAttr(row, 'data-ak-name', name)
         if (index === 0) firstName = name
+        /* 有 hero 时以 hero 里选中的工作区为准；没有 hero（对话页）时退回
+           结构信号。structuralActive 可能有多个候选，只认第一个。 */
+        const deployedMatch = deployed !== null && deployed !== '' && name === deployed
+        if (deployedMatch && deployedRow === null) deployedRow = row
+        if (deployed === null && structuralActive && deployedRow === null) deployedRow = row
       })
-      const field = akCabinetField(rows, 'column-field')
+
+      /* 用户刚点过的目录优先：点击只展开会话，不会把工作区设为当前部署。
+         如果点击把它自己收起来了（aria-expanded=false），这次点击就是折叠，
+         不能继续点亮它。 */
+      let clickedRow = null
+      if (lab && terminalOpenedKey !== '') {
+        for (const row of rows) {
+          if (row.getAttribute('data-row-key') === terminalOpenedKey) { clickedRow = row; break }
+        }
+        if (clickedRow === null) terminalOpenedKey = ''
+      }
+      let openRow = null
+      if (clickedRow !== null) {
+        if (clickedRow.getAttribute('aria-expanded') === 'false') {
+          terminalOpenedKey = ''
+        } else {
+          openRow = clickedRow
+        }
+      }
+
+      const activeRow = openRow !== null ? openRow : deployedRow
+      rows.forEach((row) => {
+        akSetAttr(row, 'data-ak-active', row === activeRow ? 'true' : 'false')
+      })
+      const activeSector = activeRow === null ? '' : String(activeRow.getAttribute('data-ak-sector') || '')
+      const activeName = activeRow === null ? '' : String(activeRow.getAttribute('data-ak-name') || '')
+      const plateName = activeName === '' ? firstName : activeName
+
+      /* 当前目录的会话住在它自己那一组里。从当前行往上找第一层「已经装着
+         会话行」的祖先；找到柜面本身还没找到，就说明这一组没有会话。之后
+         paintSessionBlocks 只看这一组，别的展开目录的会话不混进柜面。 */
+      let openGroup = null
+      const boundary = field !== null ? field : sidebar
+      if (activeRow !== null) {
+        let node = activeRow.parentElement
+        while (node !== null && node !== boundary && node !== document.body) {
+          if (node.querySelectorAll('[class*="_sessionRow"]').length > 0) { openGroup = node; break }
+          node = node.parentElement
+        }
+      }
+
       if (field !== null) {
         const activeColumn = activeSector === '' ? '01' : activeSector
         akSetAttr(field, 'data-ak-columns', terminalPad(rows.length))
@@ -4385,7 +4441,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       }
       /* plateName 由扫描层交给分区抬头，不写在这里：铭牌钉在柜面顶沿、档案板的
          正上方那一行（参考就是这么排的），36px 的板面放不下一个工作区名。 */
-      return { count: rows.length, activeSector, plateName: activeName === '' ? firstName : activeName, field }
+      return { count: rows.length, activeSector, plateName, field, activeRow, openGroup }
     }
 
     /* ---- 会话短档案板 ----------------------------------------------------
@@ -4397,9 +4453,24 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
        块身份也用 data-ak-block，不再占一个 data-ak-tui 槽位：会话行同时带
        应用的 `_panelRow` 类，paintChrome 会把那一层标成 'panel-row'。两个
        角色挤同一个属性时后写的赢，板子样式会静默失效——截图门禁真的抓到过。 */
-    const paintSessionBlocks = (sidebar) => {
+    const paintSessionBlocks = (sidebar, state) => {
       if (sidebar === null) return { count: 0, active: '', field: null }
-      const rows = Array.prototype.slice.call(sidebar.querySelectorAll('[class*="_sessionRow"]'))
+      const all = Array.prototype.slice.call(sidebar.querySelectorAll('[class*="_sessionRow"]'))
+      const lab = document.body !== null && document.body.classList.contains('theme-arknights-lab')
+      /* 参考的柜面只有一套轨道：当前档案的会话。DSH 允许同时展开多个目录，
+         但柜面如果把每组的会话都排进来，读数会变成「05 个块」，而用户点的
+         那组只占其中一段。这里只留当前目录这一组；搜索态没有工作区行时才
+         退回全部。 */
+      let rows = all
+      if (lab && state !== undefined && state !== null && state.count > 0) {
+        rows = state.openGroup === null ? [] : all.filter((row) => state.openGroup.contains(row))
+      }
+      all.forEach((row) => {
+        if (rows.indexOf(row) === -1) {
+          row.removeAttribute('data-ak-block')
+          row.removeAttribute('data-ak-active')
+        }
+      })
       let active = ''
       rows.forEach((row, index) => {
         const block = terminalPad(index + 1)
@@ -4412,7 +4483,8 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         akSetAttr(row, 'data-ak-active', selected ? 'true' : 'false')
         if (selected && active === '') active = block
       })
-      const field = findCabinetField(rows) || (rows.length > 0 ? akCabinetField(rows, 'column-field') : null)
+      const field = (state !== undefined && state !== null && state.field !== null ? state.field : null)
+        || findCabinetField(rows) || (rows.length > 0 ? akCabinetField(rows, 'column-field') : null)
       if (field !== null) {
         rows.forEach((row) => {
           let node = row.parentElement
@@ -4437,6 +4509,86 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         }
       }
       return { count: rows.length, active, field }
+    }
+
+    /* ---- 悬停铭牌 --------------------------------------------------------
+       36px 的板面写不下名字，参考里名字也归一块独立的黑牌。这里把同一块
+       黑牌做成跟随指针的浮层：悬停任意一格时在它旁边出现，名字长也不挤
+       柜面。用 fixed 定位挂在 body 上，不被柜面的滚动容器裁掉。 */
+    const hideSectorTip = () => {
+      if (terminalTipEl !== null) terminalTipEl.hidden = true
+    }
+
+    const showSectorTip = (row) => {
+      const name = String(row.getAttribute('data-ak-name') || '').trim()
+      if (name === '' || typeof document === 'undefined' || document.body === null) {
+        hideSectorTip()
+        return
+      }
+      if (terminalTipEl === null || !terminalTipEl.isConnected) {
+        terminalTipEl = document.createElement('div')
+        terminalTipEl.className = 'ak-sector-tip'
+        terminalTipEl.setAttribute('aria-hidden', 'true')
+        document.body.appendChild(terminalTipEl)
+      }
+      terminalTipEl.textContent = name
+      terminalTipEl.hidden = false
+      /* 先亮出来再量尺寸：display:none 的元素量出来是 0。右侧放不下就翻
+         到板子左边，上下再夹回视口。 */
+      const rect = row.getBoundingClientRect()
+      const tip = terminalTipEl.getBoundingClientRect()
+      let left = rect.right + 7
+      if (left + tip.width > window.innerWidth - 6) left = rect.left - tip.width - 7
+      if (left < 6) left = 6
+      let top = rect.top + (rect.height - tip.height) / 2
+      if (top + tip.height > window.innerHeight - 6) top = window.innerHeight - tip.height - 6
+      if (top < 6) top = 6
+      terminalTipEl.style.left = left + 'px'
+      terminalTipEl.style.top = top + 'px'
+    }
+
+    const bindSectorTip = () => {
+      if (sectorTipBound || typeof document === 'undefined') return
+      sectorTipBound = true
+      document.addEventListener('pointerover', (event) => {
+        if (!isEnabled() || !isTerminalLayout()) return
+        if (document.body === null || !document.body.classList.contains('theme-arknights-lab')) return
+        const node = event.target
+        const row = node !== null && node !== undefined && node.closest !== undefined
+          ? node.closest("[data-ak-tui='sector-row']") : null
+        if (row !== null) showSectorTip(row)
+      })
+      document.addEventListener('pointerout', (event) => {
+        const node = event.target
+        const row = node !== null && node !== undefined && node.closest !== undefined
+          ? node.closest("[data-ak-tui='sector-row']") : null
+        if (row === null) return
+        const next = event.relatedTarget
+        if (next !== null && next !== undefined && row.contains(next)) return
+        hideSectorTip()
+      })
+      document.addEventListener('scroll', hideSectorTip, true)
+      window.addEventListener('blur', hideSectorTip)
+    }
+
+    /* 点击目录 = 在柜面上打开这一格。应用的点击只切换 aria-expanded，
+       不会把工作区设成当前部署；主题记下这一格，点亮它、把铭牌换成它，
+       柜面只排这一组的会话。 */
+    const bindTerminalClicks = (sidebar) => {
+      if (sidebar === null || sidebar.getAttribute('data-ak-clicks') === 'on') return
+      sidebar.setAttribute('data-ak-clicks', 'on')
+      sidebar.addEventListener('click', (event) => {
+        if (!isEnabled() || !isTerminalLayout()) return
+        if (document.body === null || !document.body.classList.contains('theme-arknights-lab')) return
+        const node = event.target
+        const row = node !== null && node !== undefined && node.closest !== undefined
+          ? node.closest("[data-ak-tui='sector-row']") : null
+        if (row === null || !sidebar.contains(row)) return
+        terminalOpenedKey = String(row.getAttribute('data-row-key') || '')
+        hideSectorTip()
+        /* 应用在同一个 tick 里改 aria-expanded、渲染会话；等它落定再扫。 */
+        scheduleTerminalScan(160)
+      }, true)
     }
 
     const paintHero = (activeSector) => {
@@ -4504,7 +4656,9 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       if (!isEnabled() || !isTerminalLayout()) return
       if (typeof document === 'undefined' || document.body === null) return
       try {
+        bindSectorTip()
         const sidebar = document.querySelector('[data-slot="sidebar"]')
+        bindTerminalClicks(sidebar)
         const logo = sidebar === null ? null : sidebar.querySelector('[class*="_logoRow"]')
         const sidebarRoot = logo === null ? null : logo.parentElement
 
@@ -4539,7 +4693,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         }
 
         const rowsState = paintWorkspaceRows(workspaces)
-        paintSessionBlocks(sidebar)
+        paintSessionBlocks(sidebar, rowsState)
         /* 铭牌：参考的柜面把当前档案的名字钉在一块黑底小牌上，这块牌比 36px 的
            板子宽得多，所以它钉在抬头里、柜面正上方，而不是钉在某一块板上。 */
         if (terminalSectorHeadEl !== null) {
@@ -4570,16 +4724,19 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       terminalSectorHeadEl = null
       terminalFooterEl = null
       terminalMenuRoots = null
+      terminalOpenedKey = ''
+      terminalTipEl = null
       if (typeof document === 'undefined' || document.body === null) return
-      document.querySelectorAll('.ak-terminal-deck, .ak-terminal-sector-head, .ak-sector-code, .ak-deploy-menu__head, .ak-terminal-footer').forEach((node) => {
+      document.querySelectorAll('.ak-terminal-deck, .ak-terminal-sector-head, .ak-sector-code, .ak-sector-tip, .ak-deploy-menu__head, .ak-terminal-footer').forEach((node) => {
         if (node.parentNode !== null) node.parentNode.removeChild(node)
       })
       document.querySelectorAll('.ak-deploy-menu').forEach((node) => node.classList.remove('ak-deploy-menu'))
       document.querySelectorAll('[data-ak-tui]').forEach((node) => node.removeAttribute('data-ak-tui'))
+      document.querySelectorAll('[data-ak-clicks]').forEach((node) => node.removeAttribute('data-ak-clicks'))
       /* 柜列与方块的计数写在 data 属性上（样式表用 attr() 读出来当读数），
          它们同样是运行时标注，卸装时必须一并收回。 */
       for (const name of ['data-ak-sector', 'data-ak-active', 'data-ak-blank',
-        'data-ak-block', 'data-ak-blocks', 'data-ak-columns',
+        'data-ak-name', 'data-ak-block', 'data-ak-blocks', 'data-ak-columns',
         'data-ak-active-block', 'data-ak-active-column']) {
         document.querySelectorAll('[' + name + ']').forEach((node) => node.removeAttribute(name))
       }
@@ -10120,6 +10277,37 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'][dat
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 
+/* 进阶版在当前板右上角画一枚 L 形角标。莱茵柜面用奶油亮板 + 黑牌表示选中，
+   角标叠上去就是每块板都多一只角；lab 档不画它。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'][data-ak-active='true']::after {
+  content: none;
+}
+
+/* 悬停铭牌：36px 的板面写不下工作区名，名字跟随指针出现在板子旁边。
+   固定定位挂在 body 上，不归柜面的滚动容器裁切。 */
+.ak-sector-tip {
+  position: fixed;
+  z-index: 40;
+  max-width: 210px;
+  padding: 3px 6px 2px;
+  border-left: 2px solid var(--edge-accent);
+  background: var(--lab-plaque);
+  color: var(--lab-plaque-ink);
+  font-family: var(--ak-mono);
+  font-size: 8.5px;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.42);
+}
+
+.ak-sector-tip[hidden] {
+  display: none;
+}
+
 /* 抬头里那一排小计数在 lab 档退场：大读数已经写了「共几列」，同一只计数器
    不该在同一块面板上出现两次。 */
 body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-sector-head__top [data-ak-part='count'] {
@@ -10189,6 +10377,12 @@ body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-sector-head__keys
  * 板宽定死 86px：两格正好排满 fixture 的 208px 轨道，在真页面那条更窄的
  * （约 187px）上留出十来个像素的余量。
  * ------------------------------------------------------------------------- */
+
+/* 只画当前目录那一组。应用允许同时展开多个目录，但柜面上只应该有一套轨道；
+   其余组的会话行留在 DOM 里（应用还要用），只是不占柜面的格位。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'] [class*='_sessionRow']:not([data-ak-block]) {
+  display: none;
+}
 
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-block] {
   position: relative;

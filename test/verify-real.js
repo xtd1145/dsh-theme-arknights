@@ -248,6 +248,7 @@ async function main() {
       if (!document.body.classList.contains('theme-arknights-lab')) return { lab: false }
       const field = document.querySelector("[data-ak-tui='column-field']")
       const rows = Array.from(document.querySelectorAll("[data-ak-tui='sector-row']"))
+      const activeRows = rows.filter((r) => r.getAttribute('data-ak-active') === 'true')
       const blocks = Array.from(document.querySelectorAll('[data-ak-block]'))
       const plate = document.querySelector('.ak-terminal-sector-head__plate')
       const sidebar = document.querySelector("[data-ak-tui='sidebar']")
@@ -260,6 +261,9 @@ async function main() {
         rows: rows.length,
         widths: rows.map((r) => Math.round(r.getBoundingClientRect().width)),
         heights: rows.map((r) => Math.round(r.getBoundingClientRect().height)),
+        names: rows.map((r) => String(r.getAttribute('data-ak-name') || '').trim()),
+        activeCount: activeRows.length,
+        activeNames: activeRows.map((r) => String(r.getAttribute('data-ak-name') || '').trim()),
         field: field === null ? null : Object.assign(box(field), {
           rows: field.querySelectorAll("[data-ak-tui='sector-row']").length,
           blocks: field.querySelectorAll('[data-ak-block]').length,
@@ -278,6 +282,112 @@ async function main() {
     console.log('  工作区板 : ' + cabinet.rows + ' 块，宽 ' + JSON.stringify(cabinet.widths))
     console.log('  会话板   : ' + cabinet.blocks + ' 块')
     console.log('  柜面     : ' + JSON.stringify(cabinet.field) + '  铭牌: ' + cabinet.plate)
+  }
+
+  /* ---- 点击一个折叠目录：它必须成为唯一的当前板，铭牌跟着换，柜面只排
+     它这一组的会话；再点一次收回，页面回到部署工作区。这一步走的是真实的
+     鼠标事件，覆盖「点击后没有反应、展开的会话淹在墙下」那次真机 bug。 */
+  let clickProbe = null
+  let clickRestored = null
+  let clickTarget = null
+  let hoverTip = null
+  if (cabinet.lab === true) {
+    clickTarget = await evaluate(`
+      (() => {
+        const field = document.querySelector("[data-ak-tui='column-field']")
+        if (field === null) return null
+        const fr = field.getBoundingClientRect()
+        const rows = Array.from(document.querySelectorAll("[data-ak-tui='sector-row']"))
+        const row = rows.find((r) => r.getAttribute('data-ak-active') !== 'true'
+          && r.getAttribute('aria-expanded') === 'false'
+          && (() => {
+            const b = r.getBoundingClientRect()
+            return b.top >= fr.top && b.bottom <= fr.bottom && b.width > 0 && b.height > 0
+          })())
+        if (row === undefined) return null
+        const b = row.getBoundingClientRect()
+        return {
+          key: row.getAttribute('data-row-key'),
+          name: String(row.getAttribute('data-ak-name') || '').trim(),
+          x: Math.round(b.x + b.width / 2),
+          y: Math.round(b.y + b.height / 2),
+        }
+      })()
+    `)
+    if (clickTarget === null) {
+      console.log('\n  没有可点击的折叠目录（可能全部展开），跳过点击验证')
+    } else {
+      console.log('\n=== 点击目录（' + clickTarget.name + '）')
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: clickTarget.x, y: clickTarget.y })
+      await sleep(400)
+      hoverTip = await evaluate(`
+        (() => {
+          const tip = document.querySelector('.ak-sector-tip')
+          if (tip === null) return null
+          const r = tip.getBoundingClientRect()
+          return {
+            text: tip.textContent.trim(),
+            hidden: tip.hidden,
+            inView: r.left >= 0 && r.top >= 0
+              && r.right <= window.innerWidth && r.bottom <= window.innerHeight,
+          }
+        })()
+      `)
+      console.log('  悬停铭牌: ' + JSON.stringify(hoverTip))
+      const readClickState = () => evaluate(`
+        (() => {
+          const key = ${JSON.stringify(clickTarget.key)}
+          const field = document.querySelector("[data-ak-tui='column-field']")
+          const rows = Array.from(document.querySelectorAll("[data-ak-tui='sector-row']"))
+          const active = rows.filter((r) => r.getAttribute('data-ak-active') === 'true')
+          const target = rows.find((r) => r.getAttribute('data-row-key') === key) || null
+          const plate = document.querySelector('.ak-terminal-sector-head__plate')
+          const blocks = Array.from(document.querySelectorAll('[data-ak-block]'))
+          let group = null
+          if (target !== null) {
+            let node = target.parentElement
+            while (node !== null && node !== field && node !== document.body) {
+              if (node.querySelectorAll("[class*='_sessionRow']").length > 0) { group = node; break }
+              node = node.parentElement
+            }
+          }
+          const sessionRows = field === null
+            ? [] : Array.from(field.querySelectorAll("[class*='_sessionRow']"))
+          return {
+            activeCount: active.length,
+            activeName: active.length === 0 ? '' : String(active[0].getAttribute('data-ak-name') || '').trim(),
+            plate: plate === null ? '' : plate.textContent.trim(),
+            expanded: target === null ? null : target.getAttribute('aria-expanded'),
+            blocks: blocks.length,
+            inGroup: group === null ? blocks.length === 0 : blocks.every((b) => group.contains(b)),
+            visibleForeign: sessionRows.filter((r) => !r.hasAttribute('data-ak-block')
+              && getComputedStyle(r).display !== 'none').length,
+            hiddenForeign: sessionRows.filter((r) => !r.hasAttribute('data-ak-block')
+              && getComputedStyle(r).display === 'none').length,
+          }
+        })()
+      `)
+      const mouse = async (type) => send('Input.dispatchMouseEvent', {
+        type, x: clickTarget.x, y: clickTarget.y, button: 'left', clickCount: 1,
+      })
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: clickTarget.x, y: clickTarget.y })
+      await mouse('mousePressed')
+      await mouse('mouseReleased')
+      await sleep(2000)
+      clickProbe = await readClickState()
+      console.log('  展开后 : active=' + clickProbe.activeCount + ' name=' + clickProbe.activeName
+        + ' plate=' + clickProbe.plate + ' blocks=' + clickProbe.blocks
+        + ' 全在本组=' + clickProbe.inGroup + ' 可见外来会话=' + clickProbe.visibleForeign
+        + ' 藏起=' + clickProbe.hiddenForeign)
+      /* 再点一次收回。坐标不变：柜面现在不会因为展开而自动滚动。 */
+      await mouse('mousePressed')
+      await mouse('mouseReleased')
+      await sleep(2000)
+      clickRestored = await readClickState()
+      console.log('  收回后 : active=' + clickRestored.activeCount + ' name=' + clickRestored.activeName
+        + ' plate=' + clickRestored.plate + ' blocks=' + clickRestored.blocks
+        + ' expanded=' + clickRestored.expanded)
+    }
   }
 
   /* ---- 判定 ---- */
@@ -306,6 +416,32 @@ async function main() {
     check('柜面铭牌有字', String(cabinet.plate).trim() !== '', '「' + cabinet.plate + '」')
     check('柜面没有横向溢出', cabinet.field !== null && cabinet.field.spillX <= 1, String(cabinet.field === null ? '-' : cabinet.field.spillX))
     check('侧栏抬到应用整页纹理之上', cabinet.sidebarZ === '5', 'z-index=' + cabinet.sidebarZ)
+    check('每块工作区板都有名字', cabinet.rows > 0 && cabinet.names.every((n) => n !== ''),
+      JSON.stringify(cabinet.names))
+    check('只有一块当前板', cabinet.activeCount === 1, '实际 ' + cabinet.activeCount
+      + ' 块 ' + JSON.stringify(cabinet.activeNames))
+    check('柜面铭牌跟随当前板', cabinet.activeCount === 1 && cabinet.plate === cabinet.activeNames[0],
+      '「' + cabinet.plate + '」 vs 「' + cabinet.activeNames[0] + '」')
+    if (clickTarget !== null && clickProbe !== null && clickRestored !== null) {
+      check('悬停显示工作区名字', hoverTip !== null && hoverTip.hidden === false
+        && hoverTip.text === clickTarget.name && hoverTip.inView === true,
+        JSON.stringify(hoverTip) + ' vs 「' + clickTarget.name + '」')
+      check('点击目录后成为唯一当前板', clickProbe.activeCount === 1
+        && clickProbe.activeName === clickTarget.name, 'active=' + clickProbe.activeCount
+        + ' name=' + clickProbe.activeName)
+      check('点击后铭牌跟随该目录', clickProbe.plate === clickTarget.name,
+        '「' + clickProbe.plate + '」 vs 「' + clickTarget.name + '」')
+      check('点击后柜面只排该目录的会话', clickProbe.inGroup === true
+        && clickProbe.visibleForeign === 0, '全在本组=' + clickProbe.inGroup
+        + ' 可见外来会话=' + clickProbe.visibleForeign)
+      check('再点一次回到部署工作区', clickRestored.expanded === 'false'
+        && clickRestored.activeCount === 1
+        && clickRestored.activeName === cabinet.activeNames[0]
+        && clickRestored.plate === cabinet.plate
+        && clickRestored.blocks === cabinet.blocks,
+      'active=' + clickRestored.activeName + ' blocks=' + clickRestored.blocks
+      + ' expected ' + cabinet.activeNames[0] + '/' + cabinet.blocks)
+    }
   }
 
   /* 三阵营切换：每一步的 class 与强调色都必须在真实页面上对上。 */

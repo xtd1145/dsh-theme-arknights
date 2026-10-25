@@ -318,7 +318,14 @@ async function main() {
             const field = document.querySelector("[data-ak-tui='column-field']");
             /* 柜面一旦靠横滚排布，板子与铭牌就活在裁剪里；工作区与会话如果不落在
                同一个柜面上，真页面上就是「第一块板 36px、其余行 251px」那种炸法，
-               而 fixture 的平铺结构完全看不出来。两条都按数量判，不只看容器。 */
+               而 fixture 的平铺结构完全看不出来。两条都按数量判，不只看容器。
+               当前板只认一块：fixture 里另外两组也带 aria-expanded，把「抽屉
+               开着」当成选中会让整面墙一起翻成奶油色。 */
+            const sectorRows = Array.from(document.querySelectorAll("[data-ak-tui='sector-row']"));
+            const activeRows = sectorRows.filter((r) => r.getAttribute('data-ak-active') === 'true');
+            const fieldSessionRows = field === null
+              ? [] : Array.from(field.querySelectorAll("[class*='_sessionRow']"));
+            const foreignSessions = fieldSessionRows.filter((r) => r.getAttribute('data-ak-block') === null);
             const spill = (el) => (el === null ? null : el.scrollWidth - el.clientWidth);
             return {
               classes: body.className,
@@ -344,6 +351,12 @@ async function main() {
               plateFace: plateCs === null ? null : plateCs.backgroundColor,
               codeInk: codeCs === null ? null : codeCs.color,
               codeFace: codeCs === null ? null : codeCs.backgroundColor,
+              sectorNames: sectorRows.map((r) => String(r.getAttribute('data-ak-name') || '').trim()),
+              activeCount: activeRows.length,
+              activeNames: activeRows.map((r) => String(r.getAttribute('data-ak-name') || '').trim()),
+              fieldSessions: fieldSessionRows.length,
+              foreignSessions: foreignSessions.length,
+              foreignHidden: foreignSessions.every((r) => getComputedStyle(r).display === 'none'),
               spill: spill(field),
               readout: (() => {
                 const a = document.querySelector('[data-ak-part="readoutActive"]');
@@ -533,6 +546,41 @@ async function main() {
           console.log('  ok   ' + shot.name + ': 柜面铭牌「' + plateText + '」')
         } else {
           console.log('  FAIL ' + shot.name + ': 柜面铭牌没有字 (' + shot.state.plate + ')')
+          problems += 1
+        }
+        /* ---- 选中态与名字 ----
+           真页面同时展开多个目录时，旧实现把每个 aria-expanded 都当成当前板，
+           整面墙一起点亮。fixture 里留了两组同样展开的目录，这三条就是那次
+           回归的门禁；名字落在 data-ak-name 上，供悬停铭牌读取。 */
+        const sectorNames = shot.state.sectorNames || []
+        if (sectorNames.length > 0 && sectorNames.every((n) => n !== '')) {
+          console.log('  ok   ' + shot.name + ': 每块工作区板都有名字')
+        } else {
+          console.log('  FAIL ' + shot.name + ': 工作区板缺名字 ' + JSON.stringify(sectorNames))
+          problems += 1
+        }
+        if (Number(shot.state.activeCount) === 1) {
+          console.log('  ok   ' + shot.name + ': 只有一块当前板（' + shot.state.activeNames[0] + '）')
+        } else {
+          console.log('  FAIL ' + shot.name + ': 当前板有 ' + shot.state.activeCount + ' 块 '
+            + JSON.stringify(shot.state.activeNames))
+          problems += 1
+        }
+        const activeName = (shot.state.activeNames || [])[0] || ''
+        if (activeName !== '' && plateText === activeName) {
+          console.log('  ok   ' + shot.name + ': 铭牌跟随当前板')
+        } else {
+          console.log('  FAIL ' + shot.name + ': 铭牌「' + plateText + '」与当前板「' + activeName + '」不一致')
+          problems += 1
+        }
+        const foreign = Number(shot.state.foreignSessions)
+        if (foreign > 0 && shot.state.foreignHidden === true
+          && Number(shot.state.fieldSessions) === Number(shot.state.blocks) + foreign) {
+          console.log('  ok   ' + shot.name + ': 别的展开目录的会话不占柜面（藏起 ' + foreign + ' 行）')
+        } else {
+          console.log('  FAIL ' + shot.name + ': 柜面混进了别的目录的会话（方块 ' + shot.state.blocks
+            + '，柜面会话 ' + shot.state.fieldSessions + '，别的组 ' + foreign
+            + '，已隐藏 ' + shot.state.foreignHidden + '）')
           problems += 1
         }
         for (const [label, ink, face, floor] of [
