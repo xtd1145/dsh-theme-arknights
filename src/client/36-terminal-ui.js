@@ -83,7 +83,7 @@
         sectorUnit: ' SECTORS',
         positionUnit: ' POSITIONS',
         /* 大读数的标签与键位提示：进阶版说的是「一条纵向列表 + 部署」，莱茵终端
-           档说的是「一列一列的抽屉 + 换列／选块」。同一批槽位，两种读法。 */
+           档说的是「一列一列的档案板 + 换列／选块」。同一批槽位，两种读法。 */
         readoutLabel: 'SECTOR',
         keysHint: '↑ ↓ 浏览 · ENTER 部署',
         blockLabel: 'SESSION',
@@ -263,7 +263,8 @@
           '<i class="ak-terminal-sector-head__roSlash">/</i>' +
           '<span class="ak-terminal-sector-head__roTotal" data-ak-part="readoutTotal">00</span>' +
           '<span class="ak-terminal-sector-head__keys" data-ak-part="keysHint">↑ ↓ 浏览 · ENTER 部署</span>' +
-        '</div>'
+        '</div>' +
+        '<div class="ak-terminal-sector-head__plate" data-ak-part="plate"></div>'
       return head
     }
 
@@ -400,24 +401,48 @@
     }
 
     /* ---- 列表容器 --------------------------------------------------------
-       莱茵终端档把可选项排成一片抽屉墙（工作区）和一排矮抽屉格（会话）。要做这
-       件事必须知道「哪一层是行的容器」，而那一层的 class 是应用的 CSS-module
-       哈希，写死等于埋一条永不命中的规则 —— 所以从行本身往上取一层。
+       柜体要的是「一层装下全部格的容器」。真页面里这件事比 fixture 深一层：
+       每个行各自包着一层布局 wrapper，几行又包着一层分组（都是 module 哈希，
+       不能写死）。所以从行往上走，直到某一层装下了**全部**行；沿途经过的
+       wrapper 与分组标成 flat（display: contents）摊平，否则它们会隔着柜体
+       把行一行一行重新竖回去 —— 之前只取 parentElement，结果柜体圈住的是第一
+       行自己的包裹层，其余行留在外面、按原生宽度铺满侧栏。
 
-       取之前验一次它确实只装这些行：父级就是整条侧栏时（应用把行直接摊在侧栏
-       里），横排会把铭牌、会话、工作区一起卷进同一排，那比不标更糟。 */
-    const akListField = (rows, role) => {
+       走到侧栏根或 body 还没凑齐就放弃：那会把抬头、输入框一起圈进柜体。 */
+    const akCabinetField = (rows, role) => {
       if (rows.length < 2) return null
-      const field = rows[0].parentElement
-      if (field === null) return null
-      if (field.getAttribute('data-slot') === 'sidebar') return null
-      /* 已经被别的角色占用的层不抢：一个节点只有一个 data-ak-tui，抢了会把
-         对方那一条样式规则一起改掉。 */
+      const holdsAll = (node) => rows.every((row) => node.contains(row))
+      let field = rows[0].parentElement
+      let guard = 0
+      while (field !== null && field !== document.body && guard < 8) {
+        guard += 1
+        if (field.getAttribute('data-slot') === 'sidebar') return null
+        if (holdsAll(field)) break
+        field = field.parentElement
+      }
+      if (field === null || field === document.body || !holdsAll(field)) return null
       const held = field.getAttribute('data-ak-tui')
       if (held !== null && held !== role) return null
-      if (rows.length / field.children.length < 0.6) return null
+      rows.forEach((row) => {
+        let node = row.parentElement
+        while (node !== null && node !== field) {
+          if (node.getAttribute('data-ak-tui') === null) akMark(node, 'flat')
+          node = node.parentElement
+        }
+      })
       akMark(field, role)
       return field
+    }
+
+    /* 会话与工作区住在同一棵树里（当前工作区的会话就排在它自己那组里），
+       所以两遍扫描共用同一个柜体：工作区先跑、把容器标成 column-field，
+       会话这一遍只把包裹层摊平、把计数写回同一层。 */
+    const findCabinetField = (rows) => {
+      const all = document.querySelectorAll("[data-ak-tui='column-field']")
+      for (const node of all) {
+        if (rows.every((row) => node.contains(row))) return node
+      }
+      return null
     }
 
     /* ---- 数字通道 --------------------------------------------------------
@@ -435,10 +460,16 @@
        一起参与 flex 排版；重渲染后由扫描补回。 */
     const paintWorkspaceRows = (sidebar) => {
       if (sidebar === null) return { count: 0, activeSector: '', plateName: '', field: null }
-      /* 空 key 是 DSH 的“未分组”会话桶，不是可部署工作区。 */
-      const rows = Array.prototype.slice.call(
-        sidebar.querySelectorAll('[class*="_projectRow"][data-row-key^="workspace:"]:not([data-row-key="workspace:"])')
-      )
+      /* 空 key 是 DSH 的“未分组”会话桶，不是可部署工作区：它是一枚 34px 高的
+         折叠头，进了柜面就是一条横贯整行的板子。单独标出来，由 lab 层收掉。 */
+      const rows = []
+      sidebar.querySelectorAll('[class*="_projectRow"][data-row-key^="workspace:"]').forEach((row) => {
+        if (row.getAttribute('data-row-key') === 'workspace:') {
+          akMark(row, 'bucket-row')
+          return
+        }
+        rows.push(row)
+      })
       const deployed = readDeployedWorkspace()
       let activeSector = ''
       let activeName = ''
@@ -473,7 +504,7 @@
         if (active && activeName === '') activeName = name
         if (index === 0) firstName = name
       })
-      const field = akListField(rows, 'column-field')
+      const field = akCabinetField(rows, 'column-field')
       if (field !== null) {
         const activeColumn = activeSector === '' ? '01' : activeSector
         akSetAttr(field, 'data-ak-columns', terminalPad(rows.length))
@@ -481,22 +512,20 @@
         akSetNum(field, '--ak-col', parseInt(activeColumn, 10))
         akSetNum(field, '--ak-cols', Math.max(rows.length, 1))
       }
-      /* plateName 由扫描层交给分区抬头，不写在这里：铭牌钉在柜子顶沿、抽屉面的
-         正上方那一行（参考就是这么排的），而 attr() 只能读伪元素自己那个节点上的
-         属性。交给抽屉自己当铭牌的话，它最宽也只能长成单格抽屉那么宽，一个工作区
-         名必定被截成「dsh-…」。 */
+      /* plateName 由扫描层交给分区抬头，不写在这里：铭牌钉在柜面顶沿、档案板的
+         正上方那一行（参考就是这么排的），36px 的板面放不下一个工作区名。 */
       return { count: rows.length, activeSector, plateName: activeName === '' ? firstName : activeName, field }
     }
 
-    /* ---- 会话矮抽屉格 ----------------------------------------------------
-       参考的第二级选择是「当前柜体上的一排横向矮抽屉」。DSH 的会话行就是这一
-       批条目，所以这里只负责标出容器与格序号，格子本身多大、哪格点亮全在样式表。
+    /* ---- 会话短档案板 ----------------------------------------------------
+       参考的第二级选择是「同一面柜体上的短档案板」。DSH 的会话行就是这一批
+       条目，所以这里只负责标出容器与块序号，板子本身多大、哪块点亮全在样式表。
        计数走 data 属性而不是注入节点：读数是一条纯文本，CSS 的 attr() 就够，
        少造一个要在卸载时收回的节点。
 
-       格身份也用 data-ak-block，不再占一个 data-ak-tui 槽位：会话行同时带
-       应用的 `_panelRow` class，paintChrome 会把那一层标成 'panel-row'。两个
-       角色挤同一个属性时后写的赢，矮格样式会静默失效——截图门禁真的抓到过。 */
+       块身份也用 data-ak-block，不再占一个 data-ak-tui 槽位：会话行同时带
+       应用的 `_panelRow` 类，paintChrome 会把那一层标成 'panel-row'。两个
+       角色挤同一个属性时后写的赢，板子样式会静默失效——截图门禁真的抓到过。 */
     const paintSessionBlocks = (sidebar) => {
       if (sidebar === null) return { count: 0, active: '', field: null }
       const rows = Array.prototype.slice.call(sidebar.querySelectorAll('[class*="_sessionRow"]'))
@@ -512,13 +541,29 @@
         akSetAttr(row, 'data-ak-active', selected ? 'true' : 'false')
         if (selected && active === '') active = block
       })
-      const field = akListField(rows, 'session-stack')
+      const field = findCabinetField(rows) || (rows.length > 0 ? akCabinetField(rows, 'column-field') : null)
       if (field !== null) {
-        const activeBlock = active === '' ? '01' : active
-        akSetAttr(field, 'data-ak-blocks', terminalPad(rows.length))
-        akSetAttr(field, 'data-ak-active-block', activeBlock)
-        akSetNum(field, '--ak-blk', parseInt(activeBlock, 10))
-        akSetNum(field, '--ak-blks', Math.max(rows.length, 1))
+        rows.forEach((row) => {
+          let node = row.parentElement
+          while (node !== null && node !== field && field.contains(node)) {
+            if (node.getAttribute('data-ak-tui') === null) akMark(node, 'flat')
+            node = node.parentElement
+          }
+        })
+        if (rows.length > 0) {
+          const activeBlock = active === '' ? '01' : active
+          akSetAttr(field, 'data-ak-blocks', terminalPad(rows.length))
+          akSetAttr(field, 'data-ak-active-block', activeBlock)
+          akSetNum(field, '--ak-blk', parseInt(activeBlock, 10))
+          akSetNum(field, '--ak-blks', Math.max(rows.length, 1))
+        } else {
+          /* 会话全没了（切走工作区、或这一组还没展开）：读数带必须跟着消失，
+             否则黑板上留一行「BLOCK 01 / 00」。 */
+          field.removeAttribute('data-ak-blocks')
+          field.removeAttribute('data-ak-active-block')
+          field.style.removeProperty('--ak-blk')
+          field.style.removeProperty('--ak-blks')
+        }
       }
       return { count: rows.length, active, field }
     }
@@ -623,16 +668,16 @@
         }
 
         const rowsState = paintWorkspaceRows(workspaces)
-        const blocksState = paintSessionBlocks(sidebar)
-        /* 柜顶铭牌：抬头那一行是抽屉墙正上方的整行成员，所以把当前格的名字交给
-           它，由 lab 层用 ::after + attr() 画成一条黑牌白字的铭牌。 */
-        if (sectionHeader !== null) akSetAttr(sectionHeader, 'data-ak-name-active', rowsState.plateName)
+        paintSessionBlocks(sidebar)
+        /* 铭牌：参考的柜面把当前档案的名字钉在一块黑底小牌上，这块牌比 36px 的
+           板子宽得多，所以它钉在抬头里、柜面正上方，而不是钉在某一块板上。 */
         if (terminalSectorHeadEl !== null) {
           const active = rowsState.activeSector === '' ? '01' : rowsState.activeSector
           akSetText(terminalSectorHeadEl.querySelector('[data-ak-part="count"]'), terminalPad(rowsState.count) + terminalWords().sectorUnit)
           akSetAttr(terminalSectorHeadEl, 'data-ak-active-sector', active)
           akSetText(terminalSectorHeadEl.querySelector('[data-ak-part="readoutActive"]'), active)
           akSetText(terminalSectorHeadEl.querySelector('[data-ak-part="readoutTotal"]'), terminalPad(rowsState.count))
+          akSetText(terminalSectorHeadEl.querySelector('[data-ak-part="plate"]'), rowsState.plateName)
         }
 
         paintHero(rowsState.activeSector)
@@ -660,10 +705,10 @@
       })
       document.querySelectorAll('.ak-deploy-menu').forEach((node) => node.classList.remove('ak-deploy-menu'))
       document.querySelectorAll('[data-ak-tui]').forEach((node) => node.removeAttribute('data-ak-tui'))
-      /* 柜列与方块的计数、柜顶铭牌的名字都写在 data 属性上（样式表用 attr()
-         读出来当读数和铭牌），它们同样是运行时标注，卸装时必须一并收回。 */
+      /* 柜列与方块的计数写在 data 属性上（样式表用 attr() 读出来当读数），
+         它们同样是运行时标注，卸装时必须一并收回。 */
       for (const name of ['data-ak-sector', 'data-ak-active', 'data-ak-blank',
-        'data-ak-block', 'data-ak-blocks', 'data-ak-columns', 'data-ak-name-active',
+        'data-ak-block', 'data-ak-blocks', 'data-ak-columns',
         'data-ak-active-block', 'data-ak-active-column']) {
         document.querySelectorAll('[' + name + ']').forEach((node) => node.removeAttribute(name))
       }

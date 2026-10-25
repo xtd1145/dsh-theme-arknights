@@ -939,6 +939,12 @@ body.theme-arknights-advanced .ak-terminal-sector-head__keys {
   opacity: 0.8;
 }
 
+/* 铭牌槽：莱茵终端档在抬头底部钉一块写着当前工作区名字的黑牌（lab.css）；
+   进阶版没有这件器材，节点常驻但不显示。 */
+body.theme-arknights-advanced .ak-terminal-sector-head__plate {
+  display: none;
+}
+
 /* 原生 sectionHeader 变成抬头下方的工具条 */
 body.theme-arknights-advanced [data-ak-tui='section-header'] {
   display: flex;

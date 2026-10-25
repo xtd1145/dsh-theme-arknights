@@ -305,20 +305,21 @@ async function main() {
             };
             const column = document.querySelector("[data-ak-tui='sector-row']");
             const block = document.querySelector('[data-ak-block]');
-            /* 柜顶铭牌与标签牌：铭牌是分区抬头的 ::after，标签牌是一个真实 span。
-               两者都只在这一档存在，而它们的失效方式都是「静默」：attr() 取不到
-               属性就是一条空牌，通用层的 #000 !important 兜底一压就是黑牌黑字。
-               所以这里连计算值一起读回来，由 node 侧算对比度。 */
-            const plate = document.querySelector("[data-ak-tui='column-field'] > [data-ak-tui='section-header']");
-            const plateCs = plate === null ? null : getComputedStyle(plate, '::after');
+            /* 柜面铭牌与标签牌：铭牌是抬头里的一个真实节点（名字由 JS 在每次扫描
+               时写进去），标签牌是一个真实 span。两者都只在这一档存在，而它们的
+               失效方式都是「静默」：名字为空就是一条黑杠，通用层的 #000
+               !important 兜底一压就是黑牌黑字。所以连计算值一起读回来，由 node
+               侧算对比度。 */
+            const plate = document.querySelector('.ak-terminal-sector-head__plate');
+            const plateCs = plate === null ? null : getComputedStyle(plate);
             const activeCode = document.querySelector("[data-ak-tui='sector-row'][data-ak-active='true'] .ak-sector-code");
             const anyCode = document.querySelector("[data-ak-tui='sector-row'] .ak-sector-code");
             const codeCs = getComputedStyle(activeCode === null ? anyCode : activeCode);
-            /* 横向溢出：柜体一旦靠横滚排布，读数带会滚出视野、顶面会被裁掉。 */
-            const spill = (sel) => {
-              const el = document.querySelector(sel);
-              return el === null ? null : el.scrollWidth - el.clientWidth;
-            };
+            const field = document.querySelector("[data-ak-tui='column-field']");
+            /* 柜面一旦靠横滚排布，板子与铭牌就活在裁剪里；工作区与会话如果不落在
+               同一个柜面上，真页面上就是「第一块板 36px、其余行 251px」那种炸法，
+               而 fixture 的平铺结构完全看不出来。两条都按数量判，不只看容器。 */
+            const spill = (el) => (el === null ? null : el.scrollWidth - el.clientWidth);
             return {
               classes: body.className,
               accent,
@@ -332,17 +333,18 @@ async function main() {
               sectors: document.querySelectorAll('[class*="_projectRow"] .ak-sector-code').length,
               tokenRef,
               columnField: dirOf("[data-ak-tui='column-field']"),
-              sessionStack: dirOf("[data-ak-tui='session-stack']"),
               column: box(column),
               block: box(block),
               blocks: document.querySelectorAll('[data-ak-block]').length,
-              plate: plateCs === null ? null : plateCs.content,
+              flat: document.querySelectorAll("[data-ak-tui='flat']").length,
+              fieldRows: field === null ? 0 : field.querySelectorAll("[data-ak-tui='sector-row']").length,
+              fieldBlocks: field === null ? 0 : field.querySelectorAll('[data-ak-block]').length,
+              plate: plate === null ? null : plate.textContent,
               plateInk: plateCs === null ? null : plateCs.color,
               plateFace: plateCs === null ? null : plateCs.backgroundColor,
               codeInk: codeCs === null ? null : codeCs.color,
               codeFace: codeCs === null ? null : codeCs.backgroundColor,
-              spill: spill("[data-ak-tui='column-field']"),
-              spillStack: spill("[data-ak-tui='session-stack']"),
+              spill: spill(field),
               readout: (() => {
                 const a = document.querySelector('[data-ak-part="readoutActive"]');
                 const t = document.querySelector('[data-ak-part="readoutTotal"]');
@@ -364,7 +366,7 @@ async function main() {
         console.log('  ' + name + '  accent=' + state.accent + '  paper=' + state.paper
           + '  deck=' + state.deck + '  sectors=' + state.sectors
           + '  col=' + (state.columnField === null ? '-' : (state.columnField.row ? 'row' : 'col'))
-          + '  blk=' + (state.sessionStack === null ? '-' : (state.sessionStack.row ? 'row' : 'col'))
+          + '  flat=' + state.flat
           + '  readout=' + state.readout + '  badge=' + state.badge)
         }
       }
@@ -417,9 +419,7 @@ async function main() {
 
     /* ---- 终端文案跟着档位走 ----
        铭牌词表由 36-terminal-ui.js 在每次扫描时按 readLayout() 重写：读到 RHINE
-       而不只是陶瓷底色，才证明 DOM 层也切了档。fixture 里没有应用那套
-       `_sidebarCol` / `_projectRow` 锚点，DOM 层不会挂载——读不到铭牌就跳过，
-       截真实页面（node test/shoot.js <url>）时这一条才会真的判。 */
+       而不只是陶瓷底色，才证明 DOM 层也切了档。 */
     const wantedDeck = shot.tier === 'lab' ? 'RHINE' : 'PRTS'
     if (shot.state.deck === null) {
       console.log('  --   ' + shot.name + ': 页面上没有终端铭牌，跳过文案判定')
@@ -438,18 +438,17 @@ async function main() {
       }
     }
 
-    /* ---- 两级选择的几何：柱列横排 + 方块横排 ----
-       莱茵终端档的承诺是「工作区纵向一列一列、会话横向一个一个方块」——那是
-       几何而不是颜色，所以判容器的 flex 方向与盒子长宽比。进阶版必须仍然是
-       纵向清单：两档拍出来一样，说明这一档只改了底色没改结构。
-       fixture 没有侧栏滚动条，柱子/方块的尺寸完全由样式表决定，正好当量尺。 */
+    /* ---- 两级选择的几何：柜面横排 + 板子竖长 ----
+       莱茵终端档的承诺是「工作区一板一板、会话一块一块」——那是几何而不是颜色，
+       所以判容器的 flex 方向与板子长宽比。进阶版必须仍然是纵向清单，也没有柜面
+       样式：两档拍出来一样，说明这一档只改了底色没改结构。
+       fixture 没有侧栏滚动条，板子的尺寸完全由样式表决定，正好当量尺。 */
     const isLab = shot.tier === 'lab'
     if (shot.state.columnField === null) {
-      console.log('  --   ' + shot.name + ': 页面上没有柱列/方块容器，跳过几何判定')
+      console.log('  --   ' + shot.name + ': 页面上没有柜面容器，跳过几何判定')
     } else {
       const dirChecks = [
-        ['柱列容器', shot.state.columnField],
-        ['方块容器', shot.state.sessionStack],
+        ['柜面容器', shot.state.columnField],
       ]
       for (const [label, dir] of dirChecks) {
         if (dir === null) {
@@ -509,16 +508,31 @@ async function main() {
         problems += 1
       }
 
-      /* ---- 文件柜这一档另加三条：铭牌有字、牌上的字读得清、柜体不被撑破 ----
-         这三条都是「截图上才会发现、但截图门禁只看盒子看不出来」的失效：
-         attr() 取空 = 一条没字的黑杠；通用层的 #000 !important 兜底一压 =
-         黑牌黑字；容器改成横滚 = 顶面被裁。 */
+      /* ---- 档案立面这一档另加五条：柜面收拢两级、铭牌有字、两块牌读得清、
+         柜体不被撑破。前两条都是真页面上才会炸、fixture 的平铺结构看不见的
+         失效：柜面只圈住第一组 = 第一块板 36px、其余 251px；两级各圈一个容器
+         = 会话板掉出柜面。 */
       if (isLab) {
-        const plateText = String(shot.state.plate).replace(/^["']|["']$/g, '')
-        if (plateText !== '' && plateText !== 'none' && plateText !== 'normal') {
-          console.log('  ok   ' + shot.name + ': 柜顶铭牌「' + plateText + '」')
+        if (Number(shot.state.fieldRows) === Number(shot.state.sectors) && Number(shot.state.flat) > 0) {
+          console.log('  ok   ' + shot.name + ': 柜面收拢全部工作区板（' + shot.state.fieldRows + ' 块，摊平 '
+            + shot.state.flat + ' 层 wrapper）')
         } else {
-          console.log('  FAIL ' + shot.name + ': 柜顶铭牌没有字 (' + shot.state.plate + ')')
+          console.log('  FAIL ' + shot.name + ': 柜面只圈住 ' + shot.state.fieldRows + '/' + shot.state.sectors
+            + ' 块板，摊平 ' + shot.state.flat + ' 层（应按行往上找到装下全部行的容器）')
+          problems += 1
+        }
+        if (Number(shot.state.blocks) > 0 && Number(shot.state.fieldBlocks) === Number(shot.state.blocks)) {
+          console.log('  ok   ' + shot.name + ': 会话板落在同一面柜面上（' + shot.state.fieldBlocks + ' 块）')
+        } else {
+          console.log('  FAIL ' + shot.name + ': 会话板 ' + shot.state.fieldBlocks + '/' + shot.state.blocks
+            + ' 落在柜面上，两级又被拆成两个容器')
+          problems += 1
+        }
+        const plateText = String(shot.state.plate).trim()
+        if (plateText !== '') {
+          console.log('  ok   ' + shot.name + ': 柜面铭牌「' + plateText + '」')
+        } else {
+          console.log('  FAIL ' + shot.name + ': 柜面铭牌没有字 (' + shot.state.plate + ')')
           problems += 1
         }
         for (const [label, ink, face, floor] of [
@@ -537,12 +551,12 @@ async function main() {
             problems += 1
           }
         }
-        const over = [shot.state.spill, shot.state.spillStack]
-        if (over.every((v) => v !== null && v <= 1)) {
-          console.log('  ok   ' + shot.name + ': 两级柜体都没有横向溢出')
+        const over = shot.state.spill
+        if (over !== null && over <= 1) {
+          console.log('  ok   ' + shot.name + ': 柜面没有横向溢出')
         } else {
-          console.log('  FAIL ' + shot.name + ': 柜体被撑破，横向溢出 '
-            + over.map((v) => (v === null ? '-' : v)).join(' / ') + 'px')
+          console.log('  FAIL ' + shot.name + ': 柜面被撑破，横向溢出 '
+            + (over === null ? '-' : over) + 'px')
           problems += 1
         }
       }

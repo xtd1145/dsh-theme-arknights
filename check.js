@@ -297,18 +297,19 @@ if (wordsBlock === undefined) {
 }
 
 /* ---- DOM 层标出的容器，样式表必须真的接住 ----
-   柜列与方块带是 JS 从行本身往上取一层标出来的（那一层的 class 是 module
-   哈希，不能写死）。标了但样式表没有对应规则 = 侧栏静默停在纵向清单，界面上
-   看不出任何报错，所以这一条按两级逐个查两侧。
+   柜面是 JS 从行本身往上找到「装下全部行」的那一层标出来的（那一层的 class 是
+   module 哈希，不能写死），沿途的 wrapper 一并标成 flat 摊平。标了但样式表没有
+   对应规则 = 侧栏静默停在纵向清单，界面上看不出任何报错，所以每一条都按两侧
+   逐个查。
    方块用 data-ak-block 而不是 data-ak-tui：会话行还要给 paintChrome 留
    'panel-row' 那个角色，一个属性装不下两个值。
-   铭牌的名字走同一条链：JS 把当前格的名字交给分区抬头，lab.css 用
-   ::after + attr() 把它画成柜顶那块牌。 */
+   名字走一条短链：JS 把当前工作区的名字写进抬头里的铭牌槽，lab.css 把它画成
+   柜面上方那块黑牌。 */
 const TWO_TIER = [
   ['column-field', "'column-field'", "[data-ak-tui='column-field']"],
-  ['session-stack', "'session-stack'", "[data-ak-tui='session-stack']"],
+  ['flat（wrapper 摊平）', "'flat'", "[data-ak-tui='flat']"],
   ['data-ak-block', "'data-ak-block'", '[data-ak-block]'],
-  ['data-ak-name-active', "'data-ak-name-active'", 'attr(data-ak-name-active)'],
+  ['铭牌槽', 'data-ak-part="plate"', '.ak-terminal-sector-head__plate'],
 ]
 for (const [name, jsNeedle, cssNeedle] of TWO_TIER) {
   const marked = terminalUi.indexOf(jsNeedle) !== -1
@@ -320,8 +321,10 @@ for (const [name, jsNeedle, cssNeedle] of TWO_TIER) {
 
 /* ---- 柜体材质令牌：明暗两套都要有 ----
    --lab-cavity 一族只写在亮色块里的话，暗色档里 var() 取不到值，整条声明
-   失效 —— 抽屉的厚度与腔体一起消失，而且不报错。 */
-const CABINET_TOKENS = ['--lab-cavity', '--lab-cavity-deep', '--lab-plate-top', '--lab-plate-side', '--lab-rail']
+   失效 —— 柜面、板面与标签一起消失，而且不报错。 */
+const CABINET_TOKENS = ['--lab-cavity', '--lab-cavity-deep', '--lab-slab', '--lab-slab-lit',
+  '--lab-tab', '--lab-tab-ink', '--lab-plaque', '--lab-plaque-ink', '--lab-dot', '--lab-rail',
+  '--lab-lit-slab', '--lab-lit-ink', '--lab-lit-edge', '--lab-lit-glow']
 const labDarkStart = labCss.indexOf('.theme-arknights-lab[data-ds-dark-theme]')
 if (labDarkStart === -1) {
   fail('lab.css 里没有暗色令牌块', '柜体令牌无法分两套核对')
@@ -333,15 +336,16 @@ if (labDarkStart === -1) {
   else fail('柜体令牌缺一份', 'missing=' + missing.join(' '))
 }
 
-/* ---- 柜体不许靠横向滚动排布 ----
-   容器一旦是横向滚动容器，绝对定位的读数带会跟着内容滚出视野，抽屉顶面与
-   铭牌也活在裁剪里；换行才是这面柜子的排法（排不满留空腔，起第二行）。 */
+/* ---- 柜面不许靠横向滚动排布 ----
+   容器一旦是横向滚动容器，板子与铭牌就活在裁剪里，侧栏那条细滚动条也会从
+   「器材」退回「网页」。换行才是这面柜子的排法（排不满留空，起第二行），
+   而且整个 lab 只该有这一个柜面：工作区与会话共用它。 */
 if (/overflow-x:\s*auto/.test(labCss)) {
-  fail('lab.css 的柜体用了横向滚动', '顶面/读数带会被裁掉，改为 flex-flow: row wrap')
-} else if ((labCss.match(/flex-flow:\s*row wrap/g) || []).length < 2) {
-  fail('两级柜体没有都声明换行', 'row wrap 出现 ' + (labCss.match(/flex-flow:\s*row wrap/g) || []).length + ' 次，应为 2 次')
+  fail('lab.css 的柜面用了横向滚动', '板子与铭牌会被裁掉，改为 flex-flow: row wrap')
+} else if ((labCss.match(/flex-flow:\s*row wrap/g) || []).length !== 1) {
+  fail('柜面必须且只能有一个换行容器', 'row wrap 出现 ' + (labCss.match(/flex-flow:\s*row wrap/g) || []).length + ' 次，应为 1 次')
 } else {
-  ok('两级柜体都按换行排布', 'column-field + session-stack')
+  ok('柜面按换行排布', '工作区与会话共用 column-field')
 }
 
 /* ------------------------------------------------------------------ *

@@ -436,36 +436,70 @@
       <span class="brand__name">DeepSeek Harness</span>
     </div>
     <div class="new-chat _newSession_5pq1">＋ 新建会话</div>
-    <div class="nav-label">会话</div>
-    <!-- 会话行住在自己的列表容器里（真实应用如此）：主题的柱/块层要从行本身往上
-         取一层当容器，行直接摊在侧栏上时那一层就是侧栏本身，横排会把铭牌和工作区
-         一起卷进去，所以那种形状下宁可不标。fixture 必须还原真实形状。 -->
-    <div class="_sessionList_8bv4">
-      <div class="nav-item nav-item--active _sessionRow_1zx9 _panelRow_6q _selected_2f">
-        <span class="nav-item__dot"></span><span class="_title_3hb">阵营主题的三套皮肤</span>
-      </div>
-      <div class="nav-item _sessionRow_1zx9 _panelRow_6q"><span class="_title_3hb">令牌层是怎么接上的</span></div>
-      <div class="nav-item _sessionRow_1zx9 _panelRow_6q"><span class="_title_3hb">对比度验算记录</span></div>
-      <div class="nav-item _sessionRow_1zx9 _panelRow_6q"><span class="_title_3hb">构建与门禁</span></div>
-      <div class="nav-item _sessionRow_1zx9 _panelRow_6q"><span class="_title_3hb">柱列与方块的两级选择</span></div>
-      <div class="nav-item _sessionRow_1zx9 _panelRow_6q"><span class="_title_3hb">卸装要收回哪些运行时标注</span></div>
-    </div>
     <div data-slot="sidebar.workspaces">
       <div class="nav-label _sectionHeader_7mn3"><span class="_sectionLabel_4rt8">工作区</span></div>
-      <div class="nav-item _projectRow_8kd1 _selected_2f" data-row-key="workspace:ds">
-        <span class="_title_3hb">ds</span>
-      </div>
-      <div class="nav-item _projectRow_8kd1" data-row-key="workspace:dsh-theme-arknights">
-        <span class="_title_3hb">dsh-theme-arknights</span>
-      </div>
-      <div class="nav-item _projectRow_8kd1" data-row-key="workspace:docs">
-        <span class="_title_3hb">docs / screenshots</span>
-      </div>
-      <div class="nav-item _projectRow_8kd1" data-row-key="workspace:token-meter">
-        <span class="_title_3hb">token-meter</span>
-      </div>
-      <div class="nav-item _projectRow_8kd1" data-row-key="workspace:cordis">
-        <span class="_title_3hb">cordis patches</span>
+      <!-- 真页面的列表形状：抬头是列表的兄弟，装行的容器比行深两层 ——
+           每个工作区一层分组、每个行再包一层 _root。柜面必须从行往上找到
+           「装下全部行」的那一层；只取 parentElement 就会圈住第一行的包裹层，
+           第一块板 36px、其余行 251px，正是真页面上炸过的那个形状。
+           当前工作区的会话就排在它自己那一组里，所以两级格子共用一层柜面。 -->
+      <div class="_listArea_3zjx">
+        <div class="_groupSection_5g2">
+          <span class="_root_38jqx">
+            <div class="nav-item _projectRow_8kd1 _selected_2f" data-row-key="workspace:ds">
+              <span class="_title_3hb">ds</span>
+            </div>
+          </span>
+          <span class="_root_38jqx">
+            <div class="nav-item nav-item--active _sessionRow_1zx9 _panelRow_6q _selected_2f">
+              <span class="nav-item__dot"></span><span class="_title_3hb">阵营主题的三套皮肤</span>
+            </div>
+          </span>
+          <span class="_root_38jqx">
+            <div class="nav-item _sessionRow_1zx9 _panelRow_6q"><span class="_title_3hb">令牌层是怎么接上的</span></div>
+          </span>
+          <span class="_root_38jqx">
+            <div class="nav-item _sessionRow_1zx9 _panelRow_6q"><span class="_title_3hb">对比度验算记录</span></div>
+          </span>
+          <span class="_root_38jqx">
+            <div class="nav-item _sessionRow_1zx9 _panelRow_6q"><span class="_title_3hb">构建与门禁</span></div>
+          </span>
+          <span class="_root_38jqx">
+            <div class="nav-item _sessionRow_1zx9 _panelRow_6q"><span class="_title_3hb">柱列与方块的两级选择</span></div>
+          </span>
+          <span class="_root_38jqx">
+            <div class="nav-item _sessionRow_1zx9 _panelRow_6q"><span class="_title_3hb">卸装要收回哪些运行时标注</span></div>
+          </span>
+        </div>
+        <div class="_groupSection_5g2">
+          <span class="_root_38jqx">
+            <div class="nav-item _projectRow_8kd1" data-row-key="workspace:dsh-theme-arknights">
+              <span class="_title_3hb">dsh-theme-arknights</span>
+            </div>
+          </span>
+        </div>
+        <div class="_groupSection_5g2">
+          <span class="_root_38jqx">
+            <div class="nav-item _projectRow_8kd1" data-row-key="workspace:docs">
+              <span class="_title_3hb">docs / screenshots</span>
+            </div>
+          </span>
+        </div>
+        <div class="_groupSection_5g2">
+          <span class="_root_38jqx">
+            <div class="nav-item _projectRow_8kd1" data-row-key="workspace:token-meter">
+              <span class="_title_3hb">token-meter</span>
+            </div>
+          </span>
+        </div>
+        <div class="_groupSection_5g2">
+          <span class="_root_38jqx">
+            <div class="nav-item _projectRow_8kd1" data-row-key="workspace:cordis">
+              <span class="_title_3hb">cordis patches</span>
+            </div>
+          </span>
+        </div>
+        <div class="_emptySpacer_1k2"></div>
       </div>
     </div>
   </aside>

@@ -19,8 +19,9 @@ const path = require('path')
 const os = require('os')
 const { spawn } = require('child_process')
 
-const ROOT = path.join(__dirname, '..')
-const OUT_DIR = path.join(ROOT, 'docs', 'screenshots')
+/* 截图落在临时目录：这里的页面是用户自己的真实工作区，工作区名与会话标题
+   都会进画面，不能写进仓库的 docs/screenshots。 */
+const OUT_DIR = path.join(os.tmpdir(), 'dsh-verify-out')
 const PORT = 9353
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -176,7 +177,7 @@ async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true })
   const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
   fs.writeFileSync(path.join(OUT_DIR, 'real-page.png'), Buffer.from(shot.data, 'base64'))
-  console.log('\n截图: docs/screenshots/real-page.png')
+  console.log('\n截图: ' + path.join(OUT_DIR, 'real-page.png'))
 
   /* ---- 在真实页面上逐个阵营切换并截图 ----------------------------------
      走的是**用户真正的入口**：向 document 派发 Ctrl+Shift+1/2/3。所以这一步验证
@@ -239,6 +240,46 @@ async function main() {
   }
   console.log('  截图: ' + factionShots.map((s) => s.fileName).join(', '))
 
+  /* 莱茵终端档的柜面是唯一一块**只在真页面结构上才成立**的布局（fixture 里
+     没有 per-item wrapper 与分组）。工作区板被摊平后必须全部落进同一面柜子，
+     否则真页面就会退回「第一块 36px、其余 251px 铺满侧栏」的那次事故。 */
+  const cabinet = await evaluate(`
+    (() => {
+      if (!document.body.classList.contains('theme-arknights-lab')) return { lab: false }
+      const field = document.querySelector("[data-ak-tui='column-field']")
+      const rows = Array.from(document.querySelectorAll("[data-ak-tui='sector-row']"))
+      const blocks = Array.from(document.querySelectorAll('[data-ak-block]'))
+      const plate = document.querySelector('.ak-terminal-sector-head__plate')
+      const sidebar = document.querySelector("[data-ak-tui='sidebar']")
+      const box = (el) => {
+        const r = el.getBoundingClientRect()
+        return { w: Math.round(r.width), h: Math.round(r.height) }
+      }
+      return {
+        lab: true,
+        rows: rows.length,
+        widths: rows.map((r) => Math.round(r.getBoundingClientRect().width)),
+        heights: rows.map((r) => Math.round(r.getBoundingClientRect().height)),
+        field: field === null ? null : Object.assign(box(field), {
+          rows: field.querySelectorAll("[data-ak-tui='sector-row']").length,
+          blocks: field.querySelectorAll('[data-ak-block]').length,
+          spillX: field.scrollWidth - field.clientWidth,
+        }),
+        blocks: blocks.length,
+        plate: plate === null ? '' : plate.textContent.trim(),
+        sidebarZ: sidebar === null ? null : getComputedStyle(sidebar).zIndex,
+      }
+    })()
+  `)
+  if (cabinet.lab === false) {
+    console.log('\n  当前界面版本不是莱茵终端档，跳过柜面结构检查')
+  } else {
+    console.log('\n=== 柜面（莱茵终端档）')
+    console.log('  工作区板 : ' + cabinet.rows + ' 块，宽 ' + JSON.stringify(cabinet.widths))
+    console.log('  会话板   : ' + cabinet.blocks + ' 块')
+    console.log('  柜面     : ' + JSON.stringify(cabinet.field) + '  铭牌: ' + cabinet.plate)
+  }
+
   /* ---- 判定 ---- */
   let problems = 0
   const check = (label, cond, detail) => {
@@ -253,6 +294,19 @@ async function main() {
   check('令牌层跟随主题', String(report.tokenAttr).toLowerCase() === String(report.edgePaper).toLowerCase(), report.tokenAttr + ' vs ' + report.edgePaper)
   check('悬浮阵营条已挂载', report.bar === 1, '实际 ' + report.bar)
   check('页面无 console.error / 未捕获异常', consoleErrors.length === 0, consoleErrors.slice(0, 2).join(' | '))
+
+  if (cabinet.lab === true) {
+    check('柜面把全部工作区板收进同一个容器', cabinet.field !== null && cabinet.rows > 0
+      && cabinet.field.rows === cabinet.rows, '柜面 ' + (cabinet.field === null ? '-' : cabinet.field.rows) + ' / 总 ' + cabinet.rows)
+    check('每块工作区板都是竖板宽度', cabinet.widths.length > 0 && cabinet.widths.every((w) => w <= 40),
+      JSON.stringify(cabinet.widths))
+    check('每块工作区板都是竖长条', cabinet.heights.length > 0 && cabinet.heights.every((h, i) => h > cabinet.widths[i]))
+    check('会话板落在同一面柜面上', cabinet.blocks === 0
+      || (cabinet.field !== null && cabinet.field.blocks === cabinet.blocks), '柜面 ' + (cabinet.field === null ? '-' : cabinet.field.blocks) + ' / 总 ' + cabinet.blocks)
+    check('柜面铭牌有字', String(cabinet.plate).trim() !== '', '「' + cabinet.plate + '」')
+    check('柜面没有横向溢出', cabinet.field !== null && cabinet.field.spillX <= 1, String(cabinet.field === null ? '-' : cabinet.field.spillX))
+    check('侧栏抬到应用整页纹理之上', cabinet.sidebarZ === '5', 'z-index=' + cabinet.sidebarZ)
+  }
 
   /* 三阵营切换：每一步的 class 与强调色都必须在真实页面上对上。 */
   for (const shot of factionShots) {
