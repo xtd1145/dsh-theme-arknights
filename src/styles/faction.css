@@ -1,0 +1,1779 @@
+/* ============================================================================
+ * dsh-theme-arknights — faction palette + layout layer
+ *
+ * 本文件追加在 theme.css（功能样式）之后，做两件事：
+ *
+ *   1. **定义三套阵营 × 明暗的 --edge-* 变量组**。theme.css 里所有功能样式都
+ *      读这些变量，令牌层（41-mount-tokens.js）也全部改成了 var(--edge-*) 引用，
+ *      所以换阵营 = <body> 上的 class 翻转，应用自身的界面底色也一起跟着换。
+ *
+ *   2. **明日方舟风格的几何层**（两版共用）+ **进阶版排版重排**
+ *      （body.theme-arknights-advanced）。通用适配版只换配色与纹理，进阶版重排
+ *      侧栏/顶栏/输入区/消息区的视觉包装。
+ *
+ * 为什么分成「两版」
+ * ----------------
+ * 换配色几乎零风险，重排布局则依赖应用的 DOM。所以「好看」与「安全」被拆成两个
+ * 可以独立选择的档位：universal 只有配色与细节，advanced 才动结构。任何一条
+ * advanced 规则失配（上游改版）都只会少一处装饰，不会破版——这也是为什么进阶
+ * 版全部用伪元素与宽容选择器，而不是改写 flex 骨架。
+ *
+ * 明日方舟的视觉语言（本文件的设计依据）
+ * ------------------------------------
+ *   - **全直角 + 斜切角**：卡片右下切一刀，是系列 UI 最有辨识度的几何动作
+ *   - **HUD 标注**：编号、状态灯、坐标刻度、十字准星
+ *   - **细双线**：一根发丝线 + 一段强调色短线，用于分区
+ *   - **扫描线与网格**：极低不透明度的技术底纹
+ *   - **大写窄字英文 + 中文黑体**：标题压字距、正文放开
+ * ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+ * 1. 三阵营 × 明暗
+ *
+ * 六组必须各自完整 —— 漏掉一条暗色规则的表现是「切到暗色后掉回默认阵营的色板」，
+ * 看起来像主题只生效了一半。check.js 与 test/palette-contrast.test.js 都会拦。
+ *
+ * 取名规则：--edge-accent 是该阵营的「强色」，--edge-signal 是点缀色。
+ * 罗德岛与拉特兰两者同色，莱茵生命则相反：accent 是黑白（无彩色），
+ * 只有 signal 是橙色 —— 这正是参考里那套 ANALYSIS OS 的做法。
+ * ------------------------------------------------------------------------- */
+
+/* ---- 罗德岛 Rhodes Island · 亮色 ------------------------------------------ */
+/*
+ * 参考《罗德岛个人通讯终端》：纯黑底 + 白字 + 冷钢蓝点缀，
+ *   装饰是粒子点阵与节点拓扑，线框极细。这里只是把「终端」的观感
+ *   搬到网页上：底色压到近纯黑，强调色收成钢蓝而不是亮蓝。
+ */
+body.theme-arknights-themed {
+  /* 纸面 */
+  --edge-paper: #f2f4f6;
+  --edge-panel: #fafbfc;
+  --edge-overlay: #ffffff;
+  --edge-soft: #e6eaee;
+  --edge-line: #d5dbe1;
+  --edge-line-2: #b6bfc8;
+  --edge-ink: #0b0d0f;
+  --edge-ink-2: #4b545c;
+  
+  /* 强调。亮色档本身就压得够暗（皇家蓝/钢蓝/墨黑），所以不必再拆一个
+     onpaper 下沉档——accent 与 accent-onpaper 取同一个值，减一处漂移来源。 */
+  --edge-accent: #1a6fa8;
+  --edge-accent-rgb: 26, 111, 168;
+  --edge-accent-deep: #14557f;
+  --edge-accent-onpaper: #1a6fa8;
+  --edge-signal: #1a6fa8;
+  --edge-signal-dim: rgba(26, 111, 168, 0.7);
+  
+  /* 回合状态文字（遮罩扫光读这两个） */
+  --edge-status-light: #155a88;
+  --edge-status-light-mid: #104363;
+  --edge-status-dark: #4fb3e8;
+  --edge-status-dark-mid: #9bd4f4;
+  
+  /* 语义状态色 */
+  --edge-error: #b42318;
+  --edge-success: #197c4a;
+  --edge-warn: #9a5b00;
+  --edge-btn-muted: #dfe4e9;
+  
+  /* 装饰强度 */
+  --edge-glow-light: 0.05;
+  --edge-glow-dark: 0.04;
+  --edge-wm-alpha: 0.09;
+  
+  /* 标题字族与字距：三套阵营的性格差异主要落在这里 */
+  --edge-font-display: 'Barlow Condensed', 'Oswald', 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --edge-tracking-display: 0.10em;
+  
+  /* 磨砂玻璃（可选） */
+  --edge-glass-fill: 242 244 246;
+  --edge-glass-alpha: 0.84;
+  --edge-glass-blur: 14px;
+  --edge-glass-edge: rgb(255 255 255 / 0.7);
+  --edge-glass-sheen: rgb(255 255 255 / 0.4);
+}
+
+/* ---- 罗德岛 Rhodes Island · 暗色 ------------------------------------------ */
+body.theme-arknights-themed[data-ds-dark-theme] {
+  /* 纸面 */
+  --edge-paper: #08090a;
+  --edge-panel: #101214;
+  --edge-overlay: #14171a;
+  --edge-soft: #171a1d;
+  --edge-line: #24282c;
+  --edge-line-2: #383e45;
+  --edge-ink: #f2f5f7;
+  --edge-ink-2: #98a2ab;
+  
+  /* 强调。亮色档本身就压得够暗（皇家蓝/钢蓝/墨黑），所以不必再拆一个
+     onpaper 下沉档——accent 与 accent-onpaper 取同一个值，减一处漂移来源。 */
+  --edge-accent: #4fb3e8;
+  --edge-accent-rgb: 79, 179, 232;
+  --edge-accent-deep: #2f93c8;
+  --edge-accent-onpaper: #1a6fa8;
+  --edge-signal: #4fb3e8;
+  --edge-signal-dim: rgba(79, 179, 232, 0.7);
+  
+  /* 回合状态文字（遮罩扫光读这两个） */
+  --edge-status-light: #155a88;
+  --edge-status-light-mid: #104363;
+  --edge-status-dark: #4fb3e8;
+  --edge-status-dark-mid: #9bd4f4;
+  
+  /* 语义状态色 */
+  --edge-error: #ff6b61;
+  --edge-success: #4fbf5c;
+  --edge-warn: #ffb700;
+  --edge-btn-muted: #1e2226;
+  
+  /* 装饰强度 */
+  --edge-glow-light: 0.05;
+  --edge-glow-dark: 0.10;
+  --edge-wm-alpha: 0.06;
+  
+  /* 磨砂玻璃（可选） */
+  --edge-glass-fill: 12 14 16;
+  --edge-glass-alpha: 0.78;
+  --edge-glass-blur: 16px;
+  --edge-glass-edge: rgb(255 255 255 / 0.16);
+  --edge-glass-sheen: rgb(255 255 255 / 0.06);
+}
+
+/* ---- 拉特兰 Laterano（数理风） · 亮色 ------------------------------------------ */
+/*
+ * 参考《拉特兰数理风 PPT》：冷灰白图纸 + 浅蓝网格，**皇家蓝 #1a3fd0**
+ *   是唯一的强色；装饰是坐标系、圆形辅助线与数值标注；大标题用衬线粗体。
+ *   与「暖金圣城」的直觉相反——这一版的拉特兰是「理律与几何」的气质。
+ */
+body.theme-arknights-themed.theme-arknights-laterano {
+  /* 纸面 */
+  --edge-paper: #eceef2;
+  --edge-panel: #f6f7f9;
+  --edge-overlay: #ffffff;
+  --edge-soft: #e0e4ea;
+  --edge-line: #d3d8e0;
+  --edge-line-2: #b3bccb;
+  --edge-ink: #14161a;
+  --edge-ink-2: #4d545f;
+  
+  /* 强调。亮色档本身就压得够暗（皇家蓝/钢蓝/墨黑），所以不必再拆一个
+     onpaper 下沉档——accent 与 accent-onpaper 取同一个值，减一处漂移来源。 */
+  --edge-accent: #1a3fd0;
+  --edge-accent-rgb: 26, 63, 208;
+  --edge-accent-deep: #1230a8;
+  --edge-accent-onpaper: #1a3fd0;
+  --edge-signal: #1a3fd0;
+  --edge-signal-dim: rgba(26, 63, 208, 0.7);
+  
+  /* 回合状态文字（遮罩扫光读这两个） */
+  --edge-status-light: #1a3fd0;
+  --edge-status-light-mid: #102a94;
+  --edge-status-dark: #6b8cff;
+  --edge-status-dark-mid: #a8bcff;
+  
+  /* 语义状态色 */
+  --edge-error: #b42318;
+  --edge-success: #0f6b3f;
+  --edge-warn: #8a5300;
+  --edge-btn-muted: #dde1ea;
+  
+  /* 装饰强度 */
+  --edge-glow-light: 0.06;
+  --edge-glow-dark: 0.05;
+  --edge-wm-alpha: 0.09;
+  
+  /* 标题字族与字距：三套阵营的性格差异主要落在这里 */
+  --edge-font-display: 'Cormorant Garamond', 'EB Garamond', 'Georgia', 'Songti SC', 'Noto Serif SC', 'SimSun', serif;
+  --edge-tracking-display: 0.04em;
+  
+  /* 磨砂玻璃（可选） */
+  --edge-glass-fill: 236 238 242;
+  --edge-glass-alpha: 0.86;
+  --edge-glass-blur: 14px;
+  --edge-glass-edge: rgb(255 255 255 / 0.7);
+  --edge-glass-sheen: rgb(255 255 255 / 0.4);
+}
+
+/* ---- 拉特兰 Laterano（数理风） · 暗色 ------------------------------------------ */
+body.theme-arknights-themed.theme-arknights-laterano[data-ds-dark-theme] {
+  /* 纸面 */
+  --edge-paper: #0b0d12;
+  --edge-panel: #141821;
+  --edge-overlay: #12161e;
+  --edge-soft: #1b2029;
+  --edge-line: #262c38;
+  --edge-line-2: #3a4353;
+  --edge-ink: #eef1f6;
+  --edge-ink-2: #96a0b0;
+  
+  /* 强调。亮色档本身就压得够暗（皇家蓝/钢蓝/墨黑），所以不必再拆一个
+     onpaper 下沉档——accent 与 accent-onpaper 取同一个值，减一处漂移来源。 */
+  --edge-accent: #6b8cff;
+  --edge-accent-rgb: 107, 140, 255;
+  --edge-accent-deep: #4569e8;
+  --edge-accent-onpaper: #1a3fd0;
+  --edge-signal: #6b8cff;
+  --edge-signal-dim: rgba(107, 140, 255, 0.7);
+  
+  /* 回合状态文字（遮罩扫光读这两个） */
+  --edge-status-light: #1a3fd0;
+  --edge-status-light-mid: #102a94;
+  --edge-status-dark: #6b8cff;
+  --edge-status-dark-mid: #a8bcff;
+  
+  /* 语义状态色 */
+  --edge-error: #ff6b61;
+  --edge-success: #4fbf5c;
+  --edge-warn: #ffb700;
+  --edge-btn-muted: #232a38;
+  
+  /* 装饰强度 */
+  --edge-glow-light: 0.06;
+  --edge-glow-dark: 0.12;
+  --edge-wm-alpha: 0.07;
+  
+  /* 磨砂玻璃（可选） */
+  --edge-glass-fill: 14 18 26;
+  --edge-glass-alpha: 0.78;
+  --edge-glass-blur: 16px;
+  --edge-glass-edge: rgb(255 255 255 / 0.16);
+  --edge-glass-sheen: rgb(255 255 255 / 0.06);
+}
+
+/* ---- 莱茵生命 Rhine Lab（ANALYSIS OS） · 亮色 ------------------------------------------ */
+/*
+ * 参考《莱茵生命主题 PPT》：**几乎无彩色**——极浅暖白与纯黑两个极端，
+ *   字标是宽松字距的无衬线三行排版，装饰是十字准星与极细网格，大面积留白。
+ *   所以这里的强调色就是「黑 / 白」本身，只用一点橙色点缀（--edge-signal）
+ *   来标记状态，而不是整片荧光绿。
+ */
+body.theme-arknights-themed.theme-arknights-rhine {
+  /* 纸面 */
+  --edge-paper: #f6f5f3;
+  --edge-panel: #fbfaf9;
+  --edge-overlay: #ffffff;
+  --edge-soft: #eceae6;
+  --edge-line: #dedbd6;
+  --edge-line-2: #c2beb7;
+  --edge-ink: #0d0c0b;
+  --edge-ink-2: #55504a;
+  
+  /* 强调。亮色档本身就压得够暗（皇家蓝/钢蓝/墨黑），所以不必再拆一个
+     onpaper 下沉档——accent 与 accent-onpaper 取同一个值，减一处漂移来源。 */
+  --edge-accent: #1a1a1c;
+  --edge-accent-rgb: 26, 26, 28;
+  --edge-accent-deep: #000000;
+  --edge-accent-onpaper: #1a1a1c;
+  --edge-signal: #c9701a;
+  --edge-signal-dim: rgba(201, 112, 26, 0.7);
+  
+  /* 回合状态文字（遮罩扫光读这两个） */
+  --edge-status-light: #1a1a1c;
+  --edge-status-light-mid: #4a4a4e;
+  --edge-status-dark: #ececee;
+  --edge-status-dark-mid: #ffffff;
+  
+  /* 语义状态色 */
+  --edge-error: #a32318;
+  --edge-success: #1a6b46;
+  --edge-warn: #8a5a00;
+  --edge-btn-muted: #e8e5e0;
+  
+  /* 装饰强度 */
+  --edge-glow-light: 0.02;
+  --edge-glow-dark: 0.02;
+  --edge-wm-alpha: 0.08;
+  
+  /* 标题字族与字距：三套阵营的性格差异主要落在这里 */
+  --edge-font-display: 'Inter', 'Helvetica Neue', 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --edge-tracking-display: 0.18em;
+  
+  /* 磨砂玻璃（可选） */
+  --edge-glass-fill: 246 245 243;
+  --edge-glass-alpha: 0.88;
+  --edge-glass-blur: 14px;
+  --edge-glass-edge: rgb(255 255 255 / 0.7);
+  --edge-glass-sheen: rgb(255 255 255 / 0.4);
+}
+
+/* ---- 莱茵生命 Rhine Lab（ANALYSIS OS） · 暗色 ------------------------------------------ */
+body.theme-arknights-themed.theme-arknights-rhine[data-ds-dark-theme] {
+  /* 纸面 */
+  --edge-paper: #0a0a0b;
+  --edge-panel: #121213;
+  --edge-overlay: #161617;
+  --edge-soft: #19191b;
+  --edge-line: #26262a;
+  --edge-line-2: #3a3a40;
+  --edge-ink: #f2f1ef;
+  --edge-ink-2: #a09b95;
+  
+  /* 强调。亮色档本身就压得够暗（皇家蓝/钢蓝/墨黑），所以不必再拆一个
+     onpaper 下沉档——accent 与 accent-onpaper 取同一个值，减一处漂移来源。 */
+  --edge-accent: #ececee;
+  --edge-accent-rgb: 236, 236, 238;
+  --edge-accent-deep: #ffffff;
+  --edge-accent-onpaper: #1a1a1c;
+  --edge-signal: #e8862a;
+  --edge-signal-dim: rgba(232, 134, 42, 0.7);
+  
+  /* 回合状态文字（遮罩扫光读这两个） */
+  --edge-status-light: #1a1a1c;
+  --edge-status-light-mid: #4a4a4e;
+  --edge-status-dark: #ececee;
+  --edge-status-dark-mid: #ffffff;
+  
+  /* 语义状态色 */
+  --edge-error: #ff6b61;
+  --edge-success: #4fbf5c;
+  --edge-warn: #ffb700;
+  --edge-btn-muted: #202022;
+  
+  /* 装饰强度 */
+  --edge-glow-light: 0.02;
+  --edge-glow-dark: 0.05;
+  --edge-wm-alpha: 0.06;
+  
+  /* 磨砂玻璃（可选） */
+  --edge-glass-fill: 12 12 13;
+  --edge-glass-alpha: 0.80;
+  --edge-glass-blur: 16px;
+  --edge-glass-edge: rgb(255 255 255 / 0.16);
+  --edge-glass-sheen: rgb(255 255 255 / 0.06);
+}
+
+/* ---------------------------------------------------------------------------
+ * 2. 公共派生量
+ *
+ * 与阵营无关的形状与强度，从强调色算出来。任何一处「强调色」都必须读变量——
+ * 写死一个六位色值就会在另外两套阵营里变成一枚异物。
+ * ------------------------------------------------------------------------- */
+body.theme-arknights-themed {
+  --ak-wash: rgba(var(--edge-accent-rgb), 0.08);
+  --ak-wash-strong: rgba(var(--edge-accent-rgb), 0.16);
+  --ak-hairline: rgba(var(--edge-accent-rgb), 0.3);
+  --ak-cut: 10px;
+  --ak-display: var(--edge-font-display);
+}
+
+/* 等宽数字：表格、耗时、百分比、token 计数在跳动时不产生横向抖动。
+   挂在 <body> 上让所有后代继承，比按猜测的组件类名逐个挂可靠得多。 */
+body.theme-arknights-themed {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------
+ * 3. 基础样式（两版共用）
+ *
+ * 只有「角色级」的东西：选中色、光标、焦点环、滚动条、标题字族。几何装饰全部
+ * 归第 5 节的进阶版，这样通用适配版真的保持应用原生骨架。
+ *
+ * 选择器纪律：只用**已验证存在的** localName（见第 5 节顶部清单）。
+ * ------------------------------------------------------------------------- */
+
+body.theme-arknights-themed ::selection {
+  background: var(--edge-accent);
+  color: var(--edge-paper);
+}
+
+body.theme-arknights-themed {
+  caret-color: var(--edge-accent);
+}
+
+body.theme-arknights-themed :focus-visible {
+  outline: 2px solid var(--edge-accent);
+  outline-offset: 1px;
+}
+
+/* ---- 滚动条：轨透明，滑块随阵营，悬停变强调色 -------------------------- */
+body.theme-arknights-themed * {
+  scrollbar-color: var(--edge-line-2) transparent;
+  scrollbar-width: thin;
+}
+
+body.theme-arknights-themed ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+body.theme-arknights-themed ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body.theme-arknights-themed ::-webkit-scrollbar-thumb {
+  background: var(--edge-line-2);
+  border-radius: 0;
+}
+
+body.theme-arknights-themed ::-webkit-scrollbar-thumb:hover {
+  background: var(--edge-accent);
+}
+
+/* ---- 标题字族：三阵营的性格差异主要落在这一条 -------------------------- */
+body.theme-arknights-themed [class$='_title'],
+body.theme-arknights-themed [class$='_headline'] {
+  font-family: var(--ak-display);
+  letter-spacing: var(--edge-tracking-display);
+}
+
+/* ---- 表格行悬停：实心强调色淡底 ---------------------------------------- */
+body.theme-arknights-themed tr:hover > td {
+  background: var(--ak-wash);
+}
+
+
+/* ============================================================================
+ * 4. 终端层派生量（仅进阶版）
+ *
+ * 这一层不再使用「加一条框、加一条线」的做法，而是把界面当成一台作战终端：
+ * 侧栏是 PRTS 铭牌与终端作战位置，主区是部署图纸，输入框是任务简报通道，
+ * 菜单是部署控制面板。下面所有规则都只挂在 .theme-arknights-advanced 上，
+ * 通用适配版保持应用原生骨架。
+ * ========================================================================== */
+
+body.theme-arknights-advanced {
+  --ak-mono: 'Cascadia Mono', 'JetBrains Mono', 'Consolas', ui-monospace, monospace;
+  --ak-condensed: 'Bahnschrift SemiCondensed', 'Bahnschrift', 'Barlow Condensed', 'Oswald', var(--edge-font-display);
+  --ak-hud: var(--ak-mono);
+  --ak-cut: 12px;
+  --ak-line: var(--edge-line);
+  --ak-line-strong: var(--edge-line-2);
+  --ak-wash: rgba(var(--edge-accent-rgb), 0.08);
+  --ak-wash-strong: rgba(var(--edge-accent-rgb), 0.16);
+  --ak-hairline: rgba(var(--edge-accent-rgb), 0.3);
+  --ak-grid-small: rgba(var(--edge-accent-rgb), 0.05);
+  --ak-grid-large: rgba(var(--edge-accent-rgb), 0.09);
+  --ak-dot: rgba(var(--edge-accent-rgb), 0.38);
+  --ak-signal-line: rgba(var(--edge-accent-rgb), 0.34);
+  --ak-panel: var(--edge-panel);
+  --ak-panel-raised: var(--edge-overlay);
+  --ak-depth: 0 24px 60px -36px rgba(0, 0, 0, 0.72);
+  --ak-deck-bg: linear-gradient(135deg, rgba(var(--edge-accent-rgb), 0.14), transparent 58%), var(--edge-soft);
+  --ak-display-tui: var(--edge-font-display);
+}
+
+body.theme-arknights-advanced:not([data-ds-dark-theme]) {
+  --ak-depth: 0 20px 46px -32px rgba(28, 34, 42, 0.32);
+  --ak-dot: rgba(var(--edge-accent-rgb), 0.3);
+}
+
+/* ============================================================================
+ * 5. 三阵营氛围层
+ *
+ * 每一套阵营一张 SVG 遮罩：遮罩只给形状，颜色统一来自 --edge-accent，所以
+ * 换阵营 / 明暗无需另画图。画在 frame 的固定伪元素上，低于菜单与弹窗的
+ * z-index，不抢点击；等高线开启时整层让位（:not(:has(...))）。
+ * ========================================================================== */
+
+body.theme-arknights-advanced [class*='_frame'] {
+  position: relative;
+}
+
+body.theme-arknights-advanced [class*='_frame']:not(:has(> [data-endfield-contour]))::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-color: var(--edge-accent);
+  /* 罗德岛：轨道圆环 + 节点拓扑 + 通讯弧线 + 精密网格 */
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1800' height='1100'%3E%3Cdefs%3E%3Cpattern id='g' width='90' height='90' patternUnits='userSpaceOnUse'%3E%3Cpath d='M90 0H0V90' fill='none' stroke='%23fff' stroke-width='.5' stroke-opacity='.16'/%3E%3C/pattern%3E%3Cpattern id='m' width='450' height='450' patternUnits='userSpaceOnUse'%3E%3Cpath d='M450 0H0V450' fill='none' stroke='%23fff' stroke-width='.7' stroke-opacity='.18'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='1800' height='1100' fill='url(%23g)'/%3E%3Crect width='1800' height='1100' fill='url(%23m)'/%3E%3Cg fill='none' stroke='%23fff'%3E%3Cg stroke-opacity='.34'%3E%3Ccircle cx='1370' cy='380' r='330'/%3E%3Ccircle cx='1370' cy='380' r='470'/%3E%3Ccircle cx='1370' cy='380' r='170' stroke-opacity='.22'/%3E%3Cpath d='M840 380H1900M1370 -160V920' stroke-opacity='.12'/%3E%3C/g%3E%3Cg stroke-opacity='.5'%3E%3Cpath d='M1370 50V78M1370 682V710M1040 380H1068M1672 380H1700'/%3E%3Cpath d='M1180 190 L1240 250M1560 190 L1500 250M1180 570 L1240 510M1560 570 L1500 510' stroke-opacity='.28'/%3E%3C/g%3E%3Cg stroke-opacity='.24'%3E%3Cpath d='M-80 840 Q 220 620 540 860 T 1080 820'/%3E%3Cpath d='M-40 120 Q 180 180 240 380'/%3E%3Cpath d='M1480 960 Q 1620 880 1840 940'/%3E%3Cpath d='M280 250 L420 170 L540 300 L330 430 Z'/%3E%3C/g%3E%3Cg fill='%23fff' stroke='none'%3E%3Ccircle cx='280' cy='250' r='2.6'/%3E%3Ccircle cx='420' cy='170' r='1.8'/%3E%3Ccircle cx='540' cy='300' r='2.2'/%3E%3Ccircle cx='330' cy='430' r='1.6'/%3E%3Ccircle cx='1050' cy='780' r='2'/%3E%3Ccircle cx='980' cy='860' r='1.4'/%3E%3C/g%3E%3Cg stroke-opacity='.22'%3E%3Cpath d='M90 1010H360M90 990V1010M360 990V1010'/%3E%3Cpath d='M1440 1010H1710M1440 990V1010M1710 990V1010'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1800' height='1100'%3E%3Cdefs%3E%3Cpattern id='g' width='90' height='90' patternUnits='userSpaceOnUse'%3E%3Cpath d='M90 0H0V90' fill='none' stroke='%23fff' stroke-width='.5' stroke-opacity='.16'/%3E%3C/pattern%3E%3Cpattern id='m' width='450' height='450' patternUnits='userSpaceOnUse'%3E%3Cpath d='M450 0H0V450' fill='none' stroke='%23fff' stroke-width='.7' stroke-opacity='.18'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='1800' height='1100' fill='url(%23g)'/%3E%3Crect width='1800' height='1100' fill='url(%23m)'/%3E%3Cg fill='none' stroke='%23fff'%3E%3Cg stroke-opacity='.34'%3E%3Ccircle cx='1370' cy='380' r='330'/%3E%3Ccircle cx='1370' cy='380' r='470'/%3E%3Ccircle cx='1370' cy='380' r='170' stroke-opacity='.22'/%3E%3Cpath d='M840 380H1900M1370 -160V920' stroke-opacity='.12'/%3E%3C/g%3E%3Cg stroke-opacity='.5'%3E%3Cpath d='M1370 50V78M1370 682V710M1040 380H1068M1672 380H1700'/%3E%3Cpath d='M1180 190 L1240 250M1560 190 L1500 250M1180 570 L1240 510M1560 570 L1500 510' stroke-opacity='.28'/%3E%3C/g%3E%3Cg stroke-opacity='.24'%3E%3Cpath d='M-80 840 Q 220 620 540 860 T 1080 820'/%3E%3Cpath d='M-40 120 Q 180 180 240 380'/%3E%3Cpath d='M1480 960 Q 1620 880 1840 940'/%3E%3Cpath d='M280 250 L420 170 L540 300 L330 430 Z'/%3E%3C/g%3E%3Cg fill='%23fff' stroke='none'%3E%3Ccircle cx='280' cy='250' r='2.6'/%3E%3Ccircle cx='420' cy='170' r='1.8'/%3E%3Ccircle cx='540' cy='300' r='2.2'/%3E%3Ccircle cx='330' cy='430' r='1.6'/%3E%3Ccircle cx='1050' cy='780' r='2'/%3E%3Ccircle cx='980' cy='860' r='1.4'/%3E%3C/g%3E%3Cg stroke-opacity='.22'%3E%3Cpath d='M90 1010H360M90 990V1010M360 990V1010'/%3E%3Cpath d='M1440 1010H1710M1440 990V1010M1710 990V1010'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  -webkit-mask-size: cover;
+  mask-size: cover;
+  -webkit-mask-position: center top;
+  mask-position: center top;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  opacity: 0.62;
+  mix-blend-mode: screen;
+}
+
+/* 拉特兰：浅蓝图纸 + 同心圆 + 电光蓝斜切碎片 + 坐标刻度 */
+body.theme-arknights-advanced.theme-arknights-laterano [class*='_frame']:not(:has(> [data-endfield-contour]))::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1800' height='1100'%3E%3Cdefs%3E%3Cpattern id='g' width='36' height='36' patternUnits='userSpaceOnUse'%3E%3Cpath d='M36 0H0V36' fill='none' stroke='%23fff' stroke-width='.4' stroke-opacity='.2'/%3E%3C/pattern%3E%3Cpattern id='m' width='180' height='180' patternUnits='userSpaceOnUse'%3E%3Cpath d='M180 0H0V180' fill='none' stroke='%23fff' stroke-width='.6' stroke-opacity='.24'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='1800' height='1100' fill='url(%23g)'/%3E%3Crect width='1800' height='1100' fill='url(%23m)'/%3E%3Cg fill='none' stroke='%23fff'%3E%3Cg stroke-opacity='.36'%3E%3Ccircle cx='330' cy='300' r='90'/%3E%3Ccircle cx='330' cy='300' r='150'/%3E%3Ccircle cx='330' cy='300' r='230'/%3E%3Ccircle cx='330' cy='300' r='300' stroke-opacity='.12'/%3E%3Cpath d='M330 -40V640M-60 300H720' stroke-opacity='.14'/%3E%3C/g%3E%3Cg stroke-opacity='.5'%3E%3Cpath d='M330 50V68M330 532V550M80 300H98M562 300H580'/%3E%3Cpath d='M180 150 L210 180M480 150 L450 180M180 450 L210 420M480 450 L450 420' stroke-opacity='.35'/%3E%3C/g%3E%3Cg stroke-opacity='.3'%3E%3Cpath d='M-120 900 L620 -40M180 1140 L920 100'/%3E%3Cpath d='M220 980 A 90 90 0 0 1 400 980'/%3E%3Cpath d='M240 980 A 130 130 0 0 1 420 980'/%3E%3C/g%3E%3C/g%3E%3Cg fill='%23fff' stroke='none'%3E%3Cpolygon points='1440,0 1800,0 1800,560 1620,360' fill-opacity='.09'/%3E%3Cpolygon points='1800,620 1800,1100 1380,1100 1660,760' fill-opacity='.07'/%3E%3Cpolygon points='1210,0 1420,0 1800,700 1700,700' fill-opacity='.04'/%3E%3Ccircle cx='330' cy='70' r='2.4'/%3E%3Ccircle cx='580' cy='300' r='2'/%3E%3Ccircle cx='330' cy='550' r='1.8'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.28'%3E%3Cpath d='M1540 70H1720M1540 60V80M1720 60V80'/%3E%3Cpath d='M1500 900H1690M1500 890V910M1690 890V910'/%3E%3C/g%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1800' height='1100'%3E%3Cdefs%3E%3Cpattern id='g' width='36' height='36' patternUnits='userSpaceOnUse'%3E%3Cpath d='M36 0H0V36' fill='none' stroke='%23fff' stroke-width='.4' stroke-opacity='.2'/%3E%3C/pattern%3E%3Cpattern id='m' width='180' height='180' patternUnits='userSpaceOnUse'%3E%3Cpath d='M180 0H0V180' fill='none' stroke='%23fff' stroke-width='.6' stroke-opacity='.24'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='1800' height='1100' fill='url(%23g)'/%3E%3Crect width='1800' height='1100' fill='url(%23m)'/%3E%3Cg fill='none' stroke='%23fff'%3E%3Cg stroke-opacity='.36'%3E%3Ccircle cx='330' cy='300' r='90'/%3E%3Ccircle cx='330' cy='300' r='150'/%3E%3Ccircle cx='330' cy='300' r='230'/%3E%3Ccircle cx='330' cy='300' r='300' stroke-opacity='.12'/%3E%3Cpath d='M330 -40V640M-60 300H720' stroke-opacity='.14'/%3E%3C/g%3E%3Cg stroke-opacity='.5'%3E%3Cpath d='M330 50V68M330 532V550M80 300H98M562 300H580'/%3E%3Cpath d='M180 150 L210 180M480 150 L450 180M180 450 L210 420M480 450 L450 420' stroke-opacity='.35'/%3E%3C/g%3E%3Cg stroke-opacity='.3'%3E%3Cpath d='M-120 900 L620 -40M180 1140 L920 100'/%3E%3Cpath d='M220 980 A 90 90 0 0 1 400 980'/%3E%3Cpath d='M240 980 A 130 130 0 0 1 420 980'/%3E%3C/g%3E%3C/g%3E%3Cg fill='%23fff' stroke='none'%3E%3Cpolygon points='1440,0 1800,0 1800,560 1620,360' fill-opacity='.09'/%3E%3Cpolygon points='1800,620 1800,1100 1380,1100 1660,760' fill-opacity='.07'/%3E%3Cpolygon points='1210,0 1420,0 1800,700 1700,700' fill-opacity='.04'/%3E%3Ccircle cx='330' cy='70' r='2.4'/%3E%3Ccircle cx='580' cy='300' r='2'/%3E%3Ccircle cx='330' cy='550' r='1.8'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.28'%3E%3Cpath d='M1540 70H1720M1540 60V80M1720 60V80'/%3E%3Cpath d='M1500 900H1690M1500 890V910M1690 890V910'/%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.42;
+}
+
+/* 莱茵生命：单色 ∞ 结构 + 贯穿全页的 X 对角线 + 十字准星 + 极细分度 */
+body.theme-arknights-advanced.theme-arknights-rhine [class*='_frame']:not(:has(> [data-endfield-contour]))::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1800' height='1100'%3E%3Cdefs%3E%3Cpattern id='g' width='72' height='72' patternUnits='userSpaceOnUse'%3E%3Cpath d='M72 0H0V72' fill='none' stroke='%23fff' stroke-width='.5' stroke-opacity='.2'/%3E%3C/pattern%3E%3Cpattern id='m' width='360' height='360' patternUnits='userSpaceOnUse'%3E%3Cpath d='M360 0H0V360' fill='none' stroke='%23fff' stroke-width='.7' stroke-opacity='.24'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='1800' height='1100' fill='url(%23g)'/%3E%3Crect width='1800' height='1100' fill='url(%23m)'/%3E%3Cg fill='none' stroke='%23fff'%3E%3Cpath d='M0 0 L1800 1100M1800 0 L0 1100' stroke-opacity='.28'/%3E%3Cg stroke-opacity='.34'%3E%3Cellipse cx='1130' cy='420' rx='300' ry='165' transform='rotate(24 1130 420)'/%3E%3Cellipse cx='1130' cy='420' rx='300' ry='165' transform='rotate(-24 1130 420)'/%3E%3C/g%3E%3Cg stroke-opacity='.4'%3E%3Cpath d='M1130 300V330M1130 510V540M1010 420H1040M1220 420H1250'/%3E%3Ccircle cx='1130' cy='420' r='18' stroke-opacity='.3'/%3E%3Cpath d='M330 760H380M355 735V785'/%3E%3Ccircle cx='355' cy='760' r='44' stroke-opacity='.18'/%3E%3C/g%3E%3Cg stroke-opacity='.22'%3E%3Cpath d='M1380 160H1460M1600 840H1660M120 180H210M680 930H740'/%3E%3C/g%3E%3C/g%3E%3Cg fill='%23fff' stroke='none'%3E%3Crect x='1510' y='220' width='128' height='48' fill-opacity='.16'/%3E%3Crect x='1654' y='238' width='12' height='12' fill-opacity='.4'/%3E%3Ccircle cx='1130' cy='420' r='2.6'/%3E%3Ccircle cx='355' cy='760' r='2.2'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.18'%3E%3Cpath d='M40 40H90M40 40V90M1760 1060H1710M1760 1060V1010'/%3E%3C/g%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1800' height='1100'%3E%3Cdefs%3E%3Cpattern id='g' width='72' height='72' patternUnits='userSpaceOnUse'%3E%3Cpath d='M72 0H0V72' fill='none' stroke='%23fff' stroke-width='.5' stroke-opacity='.2'/%3E%3C/pattern%3E%3Cpattern id='m' width='360' height='360' patternUnits='userSpaceOnUse'%3E%3Cpath d='M360 0H0V360' fill='none' stroke='%23fff' stroke-width='.7' stroke-opacity='.24'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='1800' height='1100' fill='url(%23g)'/%3E%3Crect width='1800' height='1100' fill='url(%23m)'/%3E%3Cg fill='none' stroke='%23fff'%3E%3Cpath d='M0 0 L1800 1100M1800 0 L0 1100' stroke-opacity='.28'/%3E%3Cg stroke-opacity='.34'%3E%3Cellipse cx='1130' cy='420' rx='300' ry='165' transform='rotate(24 1130 420)'/%3E%3Cellipse cx='1130' cy='420' rx='300' ry='165' transform='rotate(-24 1130 420)'/%3E%3C/g%3E%3Cg stroke-opacity='.4'%3E%3Cpath d='M1130 300V330M1130 510V540M1010 420H1040M1220 420H1250'/%3E%3Ccircle cx='1130' cy='420' r='18' stroke-opacity='.3'/%3E%3Cpath d='M330 760H380M355 735V785'/%3E%3Ccircle cx='355' cy='760' r='44' stroke-opacity='.18'/%3E%3C/g%3E%3Cg stroke-opacity='.22'%3E%3Cpath d='M1380 160H1460M1600 840H1660M120 180H210M680 930H740'/%3E%3C/g%3E%3C/g%3E%3Cg fill='%23fff' stroke='none'%3E%3Crect x='1510' y='220' width='128' height='48' fill-opacity='.16'/%3E%3Crect x='1654' y='238' width='12' height='12' fill-opacity='.4'/%3E%3Ccircle cx='1130' cy='420' r='2.6'/%3E%3Ccircle cx='355' cy='760' r='2.2'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.18'%3E%3Cpath d='M40 40H90M40 40V90M1760 1060H1710M1760 1060V1010'/%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.34;
+}
+
+/* 亮色纸面上用 multiply：只压暗、不增亮，白底不动，文字不受影响。 */
+body.theme-arknights-advanced:not([data-ds-dark-theme]) [class*='_frame']::before {
+  mix-blend-mode: multiply;
+}
+
+/* ---- 静态气氛：光晕、点阵、纸张颗粒 ------------------------------------ */
+body.theme-arknights-advanced [class*='_frame']:not(:has(> [data-endfield-contour]))::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 80% 16%, rgba(var(--edge-accent-rgb), 0.11), transparent 42%),
+    radial-gradient(circle at 10% 90%, rgba(var(--edge-accent-rgb), 0.07), transparent 38%),
+    radial-gradient(circle, var(--ak-dot) 1px, transparent 1.4px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E");
+  background-size: 100% 100%, 100% 100%, 250px 210px, 180px 180px;
+  background-position: center, center, 0 0, 0 0;
+  background-repeat: no-repeat, no-repeat, repeat, repeat;
+  opacity: 0.9;
+}
+
+body.theme-arknights-advanced.theme-arknights-laterano [class*='_frame']:not(:has(> [data-endfield-contour]))::after {
+  background-image:
+    radial-gradient(circle at 86% 20%, rgba(var(--edge-accent-rgb), 0.12), transparent 40%),
+    linear-gradient(128deg, transparent 46%, rgba(var(--edge-accent-rgb), 0.055) 46.15%, transparent 46.6%),
+    radial-gradient(circle, var(--ak-dot) 1px, transparent 1.4px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E");
+  background-size: 100% 100%, 100% 100%, 230px 190px, 180px 180px;
+}
+
+body.theme-arknights-advanced.theme-arknights-rhine {
+  --ak-dot: rgba(201, 112, 26, 0.34);
+  --ak-signal-line: rgba(201, 112, 26, 0.5);
+}
+
+body.theme-arknights-advanced.theme-arknights-rhine[data-ds-dark-theme] {
+  --ak-dot: rgba(232, 134, 42, 0.34);
+}
+
+body.theme-arknights-advanced.theme-arknights-rhine [class*='_frame']:not(:has(> [data-endfield-contour]))::after {
+  background-image:
+    radial-gradient(circle at 78% 24%, rgba(var(--edge-accent-rgb), 0.05), transparent 36%),
+    radial-gradient(circle, var(--ak-dot) 1px, transparent 1.4px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.06'/%3E%3C/svg%3E");
+  background-size: 100% 100%, 320px 260px, 180px 180px;
+}
+
+/* ---- 扫描光带：只有罗德岛保留常驻动效 -------------------------------- */
+@keyframes ak-terminal-sweep {
+  0% { transform: translateY(-24vh); opacity: 0; }
+  10% { opacity: 0.5; }
+  88% { opacity: 0.5; }
+  100% { transform: translateY(116vh); opacity: 0; }
+}
+
+body.theme-arknights-advanced:not(.theme-arknights-laterano):not(.theme-arknights-rhine)::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 150px;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(var(--edge-accent-rgb), 0.025) 44%,
+    rgba(var(--edge-accent-rgb), 0.06) 50%,
+    rgba(var(--edge-accent-rgb), 0.025) 56%,
+    transparent
+  );
+  animation: ak-terminal-sweep 12s linear infinite;
+}
+
+/* ---- 页面边缘 HUD：四角括号 + 右缘刻度尺 ------------------------------ */
+body.theme-arknights-advanced::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--edge-accent), var(--edge-accent)),
+    linear-gradient(var(--edge-accent), var(--edge-accent)),
+    linear-gradient(var(--edge-accent), var(--edge-accent)),
+    linear-gradient(var(--edge-accent), var(--edge-accent)),
+    linear-gradient(var(--edge-accent), var(--edge-accent)),
+    linear-gradient(var(--edge-accent), var(--edge-accent)),
+    linear-gradient(var(--edge-accent), var(--edge-accent)),
+    linear-gradient(var(--edge-accent), var(--edge-accent)),
+    repeating-linear-gradient(to bottom, var(--edge-line-2) 0 1px, transparent 1px 12px);
+  background-size:
+    26px 1px, 1px 26px,
+    26px 1px, 1px 26px,
+    26px 1px, 1px 26px,
+    26px 1px, 1px 26px,
+    4px 100%;
+  background-position:
+    12px 12px, 12px 12px,
+    right 12px top 12px, right 12px top 12px,
+    12px bottom 12px, 12px bottom 12px,
+    right 12px bottom 12px, right 12px bottom 12px,
+    right 12px top 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat-y;
+  opacity: 0.55;
+}
+
+/* ============================================================================
+ * 6. 侧栏：PRTS 铭牌与终端作战位置
+ * ========================================================================== */
+
+body.theme-arknights-advanced [class$='_sidebarCol'] {
+  border-right: 1px solid var(--ak-line-strong);
+  background: linear-gradient(180deg, rgba(var(--edge-accent-rgb), 0.045), transparent 24%);
+}
+
+body.theme-arknights-advanced [data-ak-tui='sidebar'] {
+  position: relative;
+  background-color: var(--ak-panel);
+  background-image:
+    linear-gradient(90deg, rgba(var(--edge-accent-rgb), 0.04), transparent 46%),
+    repeating-linear-gradient(to bottom, transparent 0 39px, rgba(var(--edge-accent-rgb), 0.045) 39px 40px);
+}
+
+body.theme-arknights-advanced [data-ak-tui='logo'] {
+  border-bottom: 1px solid var(--ak-line);
+}
+
+/* ---- PRTS 铭牌 --------------------------------------------------------- */
+body.theme-arknights-advanced .ak-terminal-deck {
+  position: relative;
+  margin: 8px 12px 10px;
+  padding: 8px 10px 7px;
+  color: var(--edge-ink);
+  background: var(--ak-deck-bg);
+  border: 1px solid var(--ak-line-strong);
+  border-left: 3px solid var(--edge-accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  font-family: var(--ak-mono);
+  overflow: hidden;
+}
+
+body.theme-arknights-advanced .ak-terminal-deck::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, var(--edge-accent), transparent 72%);
+  pointer-events: none;
+}
+
+body.theme-arknights-advanced .ak-terminal-deck::after {
+  content: '';
+  position: absolute;
+  right: -26px;
+  top: -30px;
+  width: 104px;
+  height: 104px;
+  border: 1px solid var(--ak-hairline);
+  border-radius: 50%;
+  box-shadow: 0 0 0 12px rgba(var(--edge-accent-rgb), 0.045);
+  pointer-events: none;
+}
+
+body.theme-arknights-advanced .ak-terminal-deck__top {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 7.5px;
+  letter-spacing: 0.14em;
+  color: var(--edge-ink-2);
+  text-transform: uppercase;
+}
+
+body.theme-arknights-advanced .ak-terminal-deck__prts b {
+  color: var(--edge-accent);
+  font-weight: 400;
+}
+
+body.theme-arknights-advanced .ak-terminal-deck__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  font-size: 6.5px;
+  letter-spacing: 0.1em;
+  color: var(--edge-success);
+}
+
+body.theme-arknights-advanced .ak-terminal-deck__status i,
+body.theme-arknights-advanced .ak-terminal-sector-head__live i {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  background: currentColor;
+  box-shadow: 0 0 4px currentColor;
+  animation: ak-terminal-pulse 2.6s ease-in-out infinite;
+}
+
+@keyframes ak-terminal-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+body.theme-arknights-advanced .ak-terminal-deck__main {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+body.theme-arknights-advanced .ak-terminal-deck__sector {
+  flex: 0 0 auto;
+  font-family: var(--ak-condensed);
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 0.82;
+  letter-spacing: -0.02em;
+  color: var(--edge-accent);
+}
+
+body.theme-arknights-advanced .ak-terminal-deck__sectorLabel {
+  flex: 0 0 auto;
+  padding-left: 8px;
+  border-left: 1px solid var(--ak-line-strong);
+  font-size: 6px;
+  line-height: 1.15;
+  letter-spacing: 0.2em;
+  color: var(--edge-ink-2);
+}
+
+body.theme-arknights-advanced .ak-terminal-deck__ident {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin-left: auto;
+  text-align: right;
+}
+
+body.theme-arknights-advanced .ak-terminal-deck__en {
+  overflow: hidden;
+  font-family: var(--ak-condensed);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.13em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--edge-ink);
+}
+
+body.theme-arknights-advanced .ak-terminal-deck__zh {
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.3em;
+  color: var(--edge-ink-2);
+}
+
+body.theme-arknights-advanced .ak-terminal-deck__bottom {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 7px;
+  padding-top: 5px;
+  border-top: 1px solid var(--ak-line);
+  font-size: 6px;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  color: var(--edge-ink-2);
+  white-space: nowrap;
+}
+
+body.theme-arknights-advanced .ak-terminal-deck__signal {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 9px;
+}
+
+body.theme-arknights-advanced .ak-terminal-deck__signal i {
+  display: block;
+  width: 2px;
+  background: var(--edge-accent);
+}
+
+body.theme-arknights-advanced .ak-terminal-deck__signal i:nth-child(1) { height: 3px; opacity: 0.35; }
+body.theme-arknights-advanced .ak-terminal-deck__signal i:nth-child(2) { height: 5px; opacity: 0.5; }
+body.theme-arknights-advanced .ak-terminal-deck__signal i:nth-child(3) { height: 7px; opacity: 0.72; }
+body.theme-arknights-advanced .ak-terminal-deck__signal i:nth-child(4) { height: 9px; opacity: 1; }
+
+body.theme-arknights-advanced .ak-terminal-deck__freq b {
+  color: var(--edge-accent);
+  font-weight: 400;
+}
+
+/* 拉特兰：双线边 + 衬线字标 */
+body.theme-arknights-advanced.theme-arknights-laterano .ak-terminal-deck {
+  border-left: 4px double var(--edge-accent);
+}
+
+body.theme-arknights-advanced.theme-arknights-laterano .ak-terminal-deck__sector,
+body.theme-arknights-advanced.theme-arknights-laterano .ak-terminal-deck__en {
+  font-family: var(--ak-display-tui);
+  font-weight: 500;
+}
+
+/* 莱茵生命：单色、更少装饰、橙色状态灯 */
+body.theme-arknights-advanced.theme-arknights-rhine .ak-terminal-deck {
+  border-left-width: 1px;
+  background: linear-gradient(135deg, rgba(var(--edge-accent-rgb), 0.06), transparent 58%), var(--edge-soft);
+}
+
+body.theme-arknights-advanced.theme-arknights-rhine .ak-terminal-deck__status {
+  color: var(--edge-signal);
+}
+
+body.theme-arknights-advanced.theme-arknights-rhine .ak-terminal-deck::after {
+  box-shadow: 0 0 0 12px rgba(var(--edge-accent-rgb), 0.02);
+}
+
+/* ---- 侧栏工作区抬头：终端作战位置 -------------------------------------- */
+body.theme-arknights-advanced .ak-terminal-sector-head {
+  position: relative;
+  margin: 10px 12px 2px;
+  padding: 7px 0 7px 10px;
+  border-top: 1px solid var(--ak-line-strong);
+  border-bottom: 1px solid var(--ak-line);
+  border-left: 2px solid var(--edge-accent);
+  background: linear-gradient(90deg, rgba(var(--edge-accent-rgb), 0.09), transparent 78%);
+  font-family: var(--ak-mono);
+}
+
+body.theme-arknights-advanced .ak-terminal-sector-head__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 6.5px;
+  letter-spacing: 0.16em;
+  color: var(--edge-ink-2);
+}
+
+body.theme-arknights-advanced .ak-terminal-sector-head__top b {
+  color: var(--edge-accent);
+  font-weight: 400;
+}
+
+body.theme-arknights-advanced .ak-terminal-sector-head__top [data-ak-part='count'] {
+  color: var(--edge-accent);
+}
+
+body.theme-arknights-advanced .ak-terminal-sector-head__title {
+  margin-top: 3px;
+  font-family: var(--ak-condensed);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0.14em;
+  color: var(--edge-ink);
+}
+
+body.theme-arknights-advanced .ak-terminal-sector-head__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 3px;
+  font-size: 6px;
+  letter-spacing: 0.14em;
+  color: var(--edge-ink-2);
+}
+
+body.theme-arknights-advanced .ak-terminal-sector-head__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--edge-accent);
+}
+
+body.theme-arknights-advanced .ak-terminal-sector-head__live i {
+  background: var(--edge-accent);
+  box-shadow: 0 0 0 2px rgba(var(--edge-accent-rgb), 0.12);
+}
+
+/* 原生 sectionHeader 变成抬头下方的工具条 */
+body.theme-arknights-advanced [data-ak-tui='section-header'] {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px 5px 12px !important;
+  border-bottom: 1px solid var(--ak-line);
+}
+
+body.theme-arknights-advanced [data-ak-tui='section-label'] {
+  display: none;
+}
+
+body.theme-arknights-advanced [data-ak-tui='section-header'] > *:nth-child(2) {
+  margin-left: auto;
+}
+
+body.theme-arknights-advanced [data-ak-tui='section-header'] button {
+  color: var(--edge-ink-2);
+}
+
+body.theme-arknights-advanced [data-ak-tui='section-header'] button:hover {
+  color: var(--edge-accent);
+}
+
+/* ---- 工作区行：编号 + 切角选中态 -------------------------------------- */
+body.theme-arknights-advanced [data-ak-tui='sector-row'] {
+  position: relative;
+  margin: 1px 8px;
+  padding: 5px 8px 5px 6px !important;
+  border: 1px solid transparent;
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+body.theme-arknights-advanced [data-ak-tui='sector-row']:hover {
+  background: var(--ak-wash);
+  border-color: var(--ak-line);
+}
+
+body.theme-arknights-advanced [data-ak-tui='sector-row'][data-ak-active='true'] {
+  background: var(--edge-accent) !important;
+  border-color: var(--edge-accent);
+  color: var(--edge-paper) !important;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+}
+
+body.theme-arknights-advanced [data-ak-tui='sector-row'][data-ak-active='true']::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
+  border-top: 1px solid var(--edge-paper);
+  border-right: 1px solid var(--edge-paper);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+body.theme-arknights-advanced [data-ak-tui='sector-row'][data-ak-active='true'] .ak-sector-code {
+  color: var(--edge-paper);
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+body.theme-arknights-advanced [data-ak-tui='sector-row'][data-ak-active='true'] svg,
+body.theme-arknights-advanced [data-ak-tui='sector-row'][data-ak-active='true'] [class*='_title'] {
+  color: var(--edge-paper);
+}
+
+body.theme-arknights-advanced .ak-sector-code {
+  flex: 0 0 18px;
+  font-family: var(--ak-mono);
+  font-size: 8px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--edge-ink-2);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+body.theme-arknights-advanced [data-ak-tui='sector-row'][data-ak-active='true'] .ak-sector-code {
+  color: var(--edge-paper);
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+body.theme-arknights-advanced [data-ak-tui='sector-row'] [class*='_title'] {
+  font-family: var(--ak-condensed);
+  letter-spacing: 0.04em;
+}
+
+/* ---- 会话行：更克制的终端条目 ------------------------------------------ */
+body.theme-arknights-advanced [class*='_sessionRow'] {
+  position: relative;
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+body.theme-arknights-advanced [class*='_sessionRow']:hover {
+  background: var(--ak-wash);
+  border-left-color: var(--ak-hairline);
+}
+
+body.theme-arknights-advanced [class*='_sessionRow'][class*='_selected'],
+body.theme-arknights-advanced [class*='_sessionRow'][aria-selected='true'] {
+  background: linear-gradient(90deg, rgba(var(--edge-accent-rgb), 0.14), transparent 82%) !important;
+  border-left-color: var(--edge-accent);
+}
+
+/* ---- 新会话：终端里的 DEPLOY 按钮 ------------------------------------- */
+body.theme-arknights-advanced [data-ak-tui='new-session'] {
+  position: relative;
+  margin: 0 12px 8px;
+  height: 34px;
+  border: 1px solid var(--ak-line-strong);
+  border-left: 3px solid var(--edge-accent);
+  border-radius: 0;
+  background: linear-gradient(90deg, rgba(var(--edge-accent-rgb), 0.15), transparent 80%);
+  color: var(--edge-ink);
+  font-family: var(--ak-condensed);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  transition: background 130ms ease, border-color 130ms ease;
+}
+
+body.theme-arknights-advanced [data-ak-tui='new-session']:hover {
+  background: linear-gradient(90deg, rgba(var(--edge-accent-rgb), 0.25), rgba(var(--edge-accent-rgb), 0.05) 88%);
+  border-color: var(--edge-accent);
+}
+
+body.theme-arknights-advanced.theme-arknights-laterano [data-ak-tui='new-session'] {
+  border-color: var(--edge-accent);
+  background: var(--edge-accent);
+  color: var(--edge-paper);
+}
+
+body.theme-arknights-advanced.theme-arknights-laterano [data-ak-tui='new-session']:hover {
+  background: var(--edge-accent-deep);
+}
+
+body.theme-arknights-advanced.theme-arknights-rhine [data-ak-tui='new-session'] {
+  border-color: var(--edge-accent);
+  border-left: 3px solid var(--edge-signal);
+  background: var(--edge-accent);
+  color: var(--edge-paper);
+}
+
+body.theme-arknights-advanced.theme-arknights-rhine [data-ak-tui='new-session']:hover {
+  background: var(--edge-accent);
+  filter: brightness(1.08);
+}
+
+body.theme-arknights-advanced [data-ak-tui='panel-row'] {
+  font-family: var(--ak-condensed);
+  letter-spacing: 0.06em;
+}
+
+/* ============================================================================
+ * 7. 顶栏与主区：指挥频道 + 部署图纸
+ * ========================================================================== */
+
+body.theme-arknights-advanced [data-ak-tui='header'] {
+  position: relative;
+  border-bottom-color: transparent !important;
+}
+
+body.theme-arknights-advanced [data-ak-tui='header'][data-ak-blank='true'] {
+  background: linear-gradient(180deg, rgba(var(--edge-accent-rgb), 0.055), transparent) !important;
+  border-bottom: 1px solid var(--ak-line) !important;
+}
+
+body.theme-arknights-advanced [data-ak-tui='header'][data-ak-blank='true']::before {
+  content: 'PRTS // RHODES ISLAND COMMAND';
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--ak-hud);
+  font-size: 7.5px;
+  letter-spacing: 0.22em;
+  color: var(--edge-ink-2);
+  pointer-events: none;
+}
+
+body.theme-arknights-advanced.theme-arknights-laterano [data-ak-tui='header'][data-ak-blank='true']::before {
+  content: 'LATERANO // AXIOM CHANNEL';
+}
+
+body.theme-arknights-advanced.theme-arknights-rhine [data-ak-tui='header'][data-ak-blank='true']::before {
+  content: 'RHINE LAB // ANALYSIS OS';
+}
+
+body.theme-arknights-advanced [data-ak-tui='header'][data-ak-blank='true']::after {
+  content: 'SIGNAL 04 · LINK STABLE';
+  position: absolute;
+  right: 62px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--ak-hud);
+  font-size: 6.5px;
+  letter-spacing: 0.18em;
+  color: var(--edge-accent);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+body.theme-arknights-advanced.theme-arknights-rhine [data-ak-tui='header'][data-ak-blank='true']::after {
+  content: 'ANALYSIS 03 · STABLE';
+  color: var(--edge-signal);
+}
+
+/* ---- 空状态外框：四角括号 ---------------------------------------------- */
+body.theme-arknights-advanced [data-ak-tui='hero'] {
+  position: relative;
+}
+
+body.theme-arknights-advanced [data-ak-tui='hero']::before {
+  content: '';
+  position: absolute;
+  inset: -18px -10px -12px;
+  z-index: 1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--edge-accent), var(--edge-accent)),
+    linear-gradient(var(--edge-accent), var(--edge-accent)),
+    linear-gradient(var(--edge-accent), var(--edge-accent)),
+    linear-gradient(var(--edge-accent), var(--edge-accent)),
+    linear-gradient(var(--edge-accent), var(--edge-accent)),
+    linear-gradient(var(--edge-accent), var(--edge-accent)),
+    linear-gradient(var(--edge-accent), var(--edge-accent)),
+    linear-gradient(var(--edge-accent), var(--edge-accent));
+  background-size: 18px 1px, 1px 18px, 18px 1px, 1px 18px, 18px 1px, 1px 18px, 18px 1px, 1px 18px;
+  background-position: left top, left top, right top, right top, left bottom, left bottom, right bottom, right bottom;
+  background-repeat: no-repeat;
+  opacity: 0.55;
+}
+
+/* ---- 幽灵扇区号与抬头 -------------------------------------------------- */
+body.theme-arknights-advanced [data-ak-tui='hero-stack'] {
+  position: relative;
+  isolation: isolate;
+}
+
+body.theme-arknights-advanced [data-ak-tui='hero-stack']::before {
+  content: attr(data-ak-sector);
+  position: absolute;
+  right: -2%;
+  top: -58px;
+  z-index: -1;
+  font-family: var(--ak-condensed);
+  font-size: clamp(120px, 15vw, 236px);
+  font-weight: 700;
+  line-height: 0.8;
+  letter-spacing: -0.06em;
+  color: rgba(var(--edge-accent-rgb), 0.022);
+  -webkit-text-stroke: 1px rgba(var(--edge-accent-rgb), 0.34);
+  pointer-events: none;
+  user-select: none;
+}
+
+body.theme-arknights-advanced:not([data-ds-dark-theme]) [data-ak-tui='hero-stack']::before {
+  color: rgba(var(--edge-accent-rgb), 0.03);
+  -webkit-text-stroke-color: rgba(var(--edge-accent-rgb), 0.3);
+}
+
+body.theme-arknights-advanced.theme-arknights-laterano [data-ak-tui='hero-stack']::before {
+  font-family: var(--ak-display-tui);
+  font-weight: 500;
+  letter-spacing: 0;
+  -webkit-text-stroke-width: 0.8px;
+}
+
+body.theme-arknights-advanced.theme-arknights-rhine [data-ak-tui='hero-stack']::before {
+  color: rgba(var(--edge-accent-rgb), 0.055);
+  -webkit-text-stroke-width: 0;
+}
+
+body.theme-arknights-advanced [data-ak-tui='hero-stack']::after {
+  content: 'SECTOR ' attr(data-ak-sector) ' // TERMINAL DEPLOYMENT';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -21px;
+  z-index: 1;
+  font-family: var(--ak-hud);
+  font-size: 7px;
+  line-height: 1;
+  letter-spacing: 0.28em;
+  text-align: center;
+  color: var(--edge-accent);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+body.theme-arknights-advanced [class*='_heroGlow'] {
+  background: radial-gradient(ellipse at center, rgba(var(--edge-accent-rgb), 0.16), transparent 68%) !important;
+  filter: blur(2px);
+  opacity: 0.9;
+}
+
+body.theme-arknights-advanced:not([data-ds-dark-theme]) [class*='_heroGlow'] {
+  background: radial-gradient(ellipse at center, rgba(var(--edge-accent-rgb), 0.1), transparent 68%) !important;
+}
+
+body.theme-arknights-advanced [class*='_headline'] {
+  font-family: var(--ak-condensed);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+body.theme-arknights-advanced [class*='_previewBadge'] {
+  padding: 1px 7px;
+  border: 1px solid var(--edge-accent) !important;
+  border-radius: 0;
+  background: var(--edge-accent) !important;
+  color: var(--edge-paper) !important;
+  font-family: var(--ak-hud);
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 0 100%);
+}
+
+/* ---- 终端作战位置面板 -------------------------------------------------- */
+body.theme-arknights-advanced [data-ak-tui='deploy-row'] {
+  position: relative;
+  margin-top: 28px !important;
+  padding: 22px 10px 9px !important;
+  border: 1px solid var(--ak-line-strong);
+  border-left: 2px solid var(--edge-accent);
+  background:
+    linear-gradient(90deg, rgba(var(--edge-accent-rgb), 0.12), transparent 62%),
+    var(--ak-panel);
+  box-shadow: inset 0 1px 0 rgba(var(--edge-accent-rgb), 0.12);
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+}
+
+body.theme-arknights-advanced [data-ak-tui='deploy-row']::before {
+  content: '终端作战位置  //  TERMINAL DEPLOYMENT POSITION';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 17px;
+  padding: 0 12px 0 10px;
+  font-family: var(--ak-hud);
+  font-size: 7px;
+  line-height: 17px;
+  letter-spacing: 0.17em;
+  color: var(--edge-paper);
+  background: var(--edge-accent);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+  pointer-events: none;
+}
+
+body.theme-arknights-advanced [data-ak-tui='deploy-row']::after {
+  content: 'SECTOR ' attr(data-ak-sector) ' // READY';
+  position: absolute;
+  right: 12px;
+  top: 3px;
+  font-family: var(--ak-hud);
+  font-size: 6.5px;
+  letter-spacing: 0.14em;
+  color: var(--edge-accent);
+  pointer-events: none;
+}
+
+body.theme-arknights-advanced [data-ak-tui='workspace'] {
+  position: relative;
+  min-height: 27px;
+  padding: 3px 9px;
+  border: 1px solid var(--ak-line-strong);
+  border-radius: 0;
+  background: rgba(var(--edge-accent-rgb), 0.07);
+  color: var(--edge-ink);
+  font-family: var(--ak-condensed);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+
+body.theme-arknights-advanced [data-ak-tui='workspace']:hover {
+  border-color: var(--edge-accent);
+  background: var(--ak-wash-strong);
+}
+
+body.theme-arknights-advanced [data-ak-tui='workspace'] svg {
+  color: var(--edge-accent);
+}
+
+body.theme-arknights-advanced [data-ak-tui='workspace']::after {
+  content: '▾';
+  margin-left: 6px;
+  font-family: var(--ak-hud);
+  font-size: 8px;
+  color: var(--edge-accent);
+}
+
+body.theme-arknights-advanced [data-ak-tui='mode'] {
+  min-height: 27px;
+  padding: 3px 8px;
+  border: 1px solid var(--ak-line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--edge-ink-2);
+  font-family: var(--ak-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+body.theme-arknights-advanced [data-ak-tui='mode']:hover {
+  border-color: var(--edge-accent);
+  color: var(--edge-ink);
+}
+
+/* ---- 输入卡：任务简报通道 ---------------------------------------------- */
+body.theme-arknights-advanced [data-ak-tui='composer'] {
+  position: relative;
+  border: 1px solid var(--ak-line-strong) !important;
+  border-radius: 0 !important;
+  background-color: var(--ak-panel-raised) !important;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 23px, rgba(var(--edge-accent-rgb), 0.028) 23px 24px),
+    repeating-linear-gradient(90deg, transparent 0 23px, rgba(var(--edge-accent-rgb), 0.022) 23px 24px),
+    linear-gradient(180deg, rgba(var(--edge-accent-rgb), 0.075), transparent 42%) !important;
+  box-shadow:
+    inset 2px 0 0 var(--edge-accent),
+    inset 0 0 0 1px rgba(var(--edge-accent-rgb), 0.06),
+    0 20px 54px -36px rgba(0, 0, 0, 0.75);
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+}
+
+body.theme-arknights-advanced [data-ak-tui='composer']::before {
+  content: 'INPUT CHANNEL // MISSION BRIEF';
+  position: absolute;
+  left: 20px;
+  top: 6px;
+  z-index: 2;
+  font-family: var(--ak-hud);
+  font-size: 6.5px;
+  line-height: 1.4;
+  letter-spacing: 0.2em;
+  color: var(--edge-ink-2);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+body.theme-arknights-advanced [data-ak-tui='composer']::after {
+  content: '';
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 12px;
+  height: 12px;
+  border-right: 1px solid var(--edge-accent);
+  border-bottom: 1px solid var(--edge-accent);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+body.theme-arknights-advanced [data-ak-tui='composer']:focus-within {
+  border-color: var(--edge-accent) !important;
+  box-shadow:
+    inset 2px 0 0 var(--edge-accent),
+    inset 0 0 0 1px rgba(var(--edge-accent-rgb), 0.16),
+    0 22px 58px -34px rgba(var(--edge-accent-rgb), 0.35);
+}
+
+body.theme-arknights-advanced [data-ak-tui='composer-seat'] {
+  position: relative;
+}
+
+/* ---- 空状态页脚：作战记录带 -------------------------------------------- */
+body.theme-arknights-advanced .ak-terminal-footer {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  white-space: nowrap;
+  font-family: var(--ak-hud);
+  font-size: 6.5px;
+  letter-spacing: 0.2em;
+  color: var(--edge-ink-2);
+  opacity: 0.74;
+}
+
+@media (max-width: 900px) {
+  body.theme-arknights-advanced .ak-terminal-footer {
+    display: none;
+  }
+}
+
+body.theme-arknights-advanced .ak-terminal-footer b {
+  color: var(--edge-accent);
+  font-weight: 400;
+}
+
+body.theme-arknights-advanced .ak-terminal-footer__sector {
+  padding: 2px 7px;
+  border: 1px solid var(--ak-hairline);
+  color: var(--edge-accent);
+  letter-spacing: 0.16em;
+}
+
+body.theme-arknights-advanced .ak-terminal-footer__rule {
+  width: clamp(24px, 8vw, 110px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ak-line-strong));
+}
+
+body.theme-arknights-advanced .ak-terminal-footer__rule:last-child {
+  background: linear-gradient(90deg, var(--ak-line-strong), transparent);
+}
+
+/* ---- 通用卡片与弹窗：保持直角语言 -------------------------------------- */
+body.theme-arknights-advanced [class*='_card'] {
+  border-radius: 0;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%);
+}
+
+body.theme-arknights-advanced [role='dialog'] {
+  border: 1px solid var(--ak-line-strong);
+  border-radius: 0;
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--edge-accent-rgb), 0.1),
+    var(--ak-depth);
+}
+
+/* ============================================================================
+ * 8. 工作区菜单：部署控制面板
+ * ========================================================================== */
+
+body.theme-arknights-advanced [data-ak-tui='menu'] {
+  padding: 0 !important;
+  border: 1px solid var(--ak-line-strong);
+  border-left: 2px solid var(--edge-accent);
+  border-radius: 0;
+  background: var(--ak-panel-raised) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(var(--edge-accent-rgb), 0.12),
+    var(--ak-depth);
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+}
+
+body.theme-arknights-advanced .ak-deploy-menu__head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 7px 11px 6px;
+  border-bottom: 1px solid var(--ak-line-strong);
+  background:
+    linear-gradient(90deg, rgba(var(--edge-accent-rgb), 0.14), transparent 72%),
+    var(--ak-panel);
+  font-family: var(--ak-mono);
+  pointer-events: none;
+}
+
+body.theme-arknights-advanced .ak-deploy-menu__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 6.5px;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  color: var(--edge-ink-2);
+  white-space: nowrap;
+}
+
+body.theme-arknights-advanced .ak-deploy-menu__top b {
+  color: var(--edge-accent);
+  font-weight: 400;
+}
+
+body.theme-arknights-advanced .ak-deploy-menu__top [data-ak-part='sector'] {
+  color: var(--edge-accent);
+  font-size: 8px;
+}
+
+body.theme-arknights-advanced .ak-deploy-menu__title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+body.theme-arknights-advanced .ak-deploy-menu__title > span {
+  font-family: var(--ak-condensed);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: 0.14em;
+  color: var(--edge-ink);
+}
+
+body.theme-arknights-advanced .ak-deploy-menu__title > i {
+  font-family: var(--ak-hud);
+  font-size: 5.5px;
+  font-style: normal;
+  letter-spacing: 0.12em;
+  color: var(--edge-ink-2);
+}
+
+body.theme-arknights-advanced .ak-deploy-menu__title > em {
+  margin-left: auto;
+  font-family: var(--ak-hud);
+  font-size: 7px;
+  font-style: normal;
+  letter-spacing: 0.14em;
+  color: var(--edge-accent);
+}
+
+body.theme-arknights-advanced [data-ak-tui='menu-viewport'] {
+  padding: 4px !important;
+  max-height: min(62vh, 560px);
+  scrollbar-width: thin;
+}
+
+body.theme-arknights-advanced [data-ak-tui='menu-item'] {
+  display: flex;
+  align-items: center;
+  width: calc(100% - 4px) !important;
+  height: 35px !important;
+  margin: 1px 2px;
+  padding: 5px 8px !important;
+  border: 1px solid transparent;
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--edge-ink);
+  font-family: var(--ak-condensed);
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  transition: background 110ms ease, border-color 110ms ease;
+}
+
+body.theme-arknights-advanced [data-ak-tui='menu-item']::before {
+  content: attr(data-ak-sector);
+  flex: 0 0 20px;
+  font-family: var(--ak-mono);
+  font-size: 7.5px;
+  letter-spacing: 0;
+  color: var(--edge-ink-2);
+  opacity: 0.7;
+}
+
+body.theme-arknights-advanced [data-ak-tui='menu-item']:hover,
+body.theme-arknights-advanced [data-ak-tui='menu-item']:focus-visible {
+  background: var(--ak-wash);
+  border-color: var(--ak-line);
+  border-left-color: var(--ak-hairline);
+}
+
+body.theme-arknights-advanced [data-ak-tui='menu-item'][data-ak-active='true'] {
+  background: linear-gradient(90deg, var(--edge-accent), rgba(var(--edge-accent-rgb), 0.82)) !important;
+  border-color: var(--edge-accent);
+  color: var(--edge-paper) !important;
+  box-shadow: inset 2px 0 0 rgba(255, 255, 255, 0.25);
+}
+
+body.theme-arknights-advanced [data-ak-tui='menu-item'][data-ak-active='true']::before {
+  color: var(--edge-paper);
+  opacity: 0.8;
+}
+
+body.theme-arknights-advanced [data-ak-tui='menu-item'][data-ak-active='true'] svg {
+  color: var(--edge-paper);
+}
+
+body.theme-arknights-advanced [data-ak-tui='menu-footer'] {
+  padding: 4px !important;
+  border-top: 1px solid var(--ak-line);
+}
+
+body.theme-arknights-advanced [data-ak-tui='menu-footer'] button {
+  border: 1px dashed var(--ak-line-strong) !important;
+  border-radius: 0 !important;
+  font-family: var(--ak-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--edge-ink-2);
+}
+
+body.theme-arknights-advanced [data-ak-tui='menu-footer'] button:hover {
+  border-color: var(--edge-accent) !important;
+  color: var(--edge-ink);
+  background: var(--ak-wash);
+}
+
+/* ============================================================================
+ * 9. 悬浮阵营条
+ * ========================================================================== */
+
+.ak-bar {
+  border-radius: 0;
+  border: 1px solid var(--edge-line-2);
+  border-left: 2px solid var(--edge-accent);
+  background: var(--edge-overlay);
+  font-family: 'Cascadia Mono', 'JetBrains Mono', Consolas, ui-monospace, monospace;
+  box-shadow: 0 10px 28px -18px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+
+.ak-bar__current {
+  letter-spacing: 0.12em;
+}
+
+.ak-bar__badge {
+  border-radius: 0;
+  font-family: 'Cascadia Mono', 'JetBrains Mono', Consolas, ui-monospace, monospace;
+}
+
+.ak-bar__item {
+  letter-spacing: 0.08em;
+}
+
+.ak-bar__swatch {
+  border-radius: 0;
+  width: 7px;
+  height: 7px;
+}
+
+/* ============================================================================
+ * 10. 品牌文案：三阵营各自的字标与加载屏序列
+ *
+ * theme.css 里的字标全部由 CSS content 绘制（元素没有 DOM 文本节点），
+ * 换品牌只覆盖 content，不改 DOM。
+ * ========================================================================== */
+
+body.theme-arknights-themed [data-endfield-watermark]::before {
+  content: 'RHODES ISLAND';
+}
+
+/* 终端层已经有图纸几何与幽灵扇区号，巨型字标再保持原强度会和它们互相压字。
+   这里只压低水印自身的可见度，不动它的位置与尺寸，关掉终端层即恢复。 */
+body.theme-arknights-advanced [data-endfield-watermark] {
+  opacity: 0.36;
+  font-family: var(--ak-display);
+}
+
+body.theme-arknights-advanced:not([data-ds-dark-theme]) [data-endfield-watermark] {
+  opacity: 0.42;
+}
+
+body.theme-arknights-themed.theme-arknights-laterano [data-endfield-watermark]::before {
+  content: 'LATERANO';
+}
+
+body.theme-arknights-themed.theme-arknights-rhine [data-endfield-watermark]::before {
+  content: 'RHINE LAB';
+}
+
+body.theme-arknights-themed [data-endfield-loader-word1]::before { content: 'RHODES'; }
+body.theme-arknights-themed [data-endfield-loader-word2]::before { content: 'ISLAND'; }
+body.theme-arknights-themed.theme-arknights-laterano [data-endfield-loader-word1]::before { content: 'LATER'; }
+body.theme-arknights-themed.theme-arknights-laterano [data-endfield-loader-word2]::before { content: 'ANO'; }
+body.theme-arknights-themed.theme-arknights-rhine [data-endfield-loader-word1]::before { content: 'RHINE'; }
+body.theme-arknights-themed.theme-arknights-rhine [data-endfield-loader-word2]::before { content: 'LAB'; }
+
+body.theme-arknights-themed [data-endfield-loader-kicker]::before {
+  content: 'RHODES ISLAND COMMAND THEME';
+}
+
+body.theme-arknights-themed.theme-arknights-laterano [data-endfield-loader-kicker]::before {
+  content: 'LATERANO HOLY CITY THEME';
+}
+
+body.theme-arknights-themed.theme-arknights-rhine [data-endfield-loader-kicker]::before {
+  content: 'RHINE LAB RESEARCH THEME';
+}
+
+body.theme-arknights-themed [data-endfield-loader-tag]::before {
+  content: 'RHODES ISLAND / BOOT SEQUENCE';
+}
+
+body.theme-arknights-themed.theme-arknights-laterano [data-endfield-loader-tag]::before {
+  content: 'LATERANO / BOOT SEQUENCE';
+}
+
+body.theme-arknights-themed.theme-arknights-rhine [data-endfield-loader-tag]::before {
+  content: 'RHINE LAB / BOOT SEQUENCE';
+}
+
+body.theme-arknights-themed [data-endfield-loader-sub]::before {
+  content: 'RESIST AND ENDURE / RHODES ISLAND';
+}
+
+body.theme-arknights-themed.theme-arknights-laterano [data-endfield-loader-sub]::before {
+  content: 'SUB UMBRA ALARUM / LATERANO';
+}
+
+body.theme-arknights-themed.theme-arknights-rhine [data-endfield-loader-sub]::before {
+  content: 'KNOWLEDGE IS THE ONLY FRONTIER / RHINE LAB';
+}
+
+body.theme-arknights-themed [data-endfield-thunder-word] {
+  font-family: var(--edge-font-display);
+  letter-spacing: var(--edge-tracking-display);
+}
+
+/* ============================================================================
+ * 11. 响应式与减少动态效果
+ * ========================================================================== */
+
+@media (max-width: 1180px) {
+  body.theme-arknights-advanced [data-ak-tui='hero-stack']::before {
+    font-size: clamp(96px, 15vw, 180px);
+    opacity: 0.75;
+  }
+}
+
+@media (max-width: 900px) {
+  body.theme-arknights-advanced [class*='_frame']::before {
+    opacity: 0.34;
+  }
+
+  body.theme-arknights-advanced [data-ak-tui='hero']::before {
+    display: none;
+  }
+
+  body.theme-arknights-advanced [data-ak-tui='deploy-row']::after {
+    display: none;
+  }
+
+  body.theme-arknights-advanced [data-ak-tui='header'][data-ak-blank='true']::after {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  body.theme-arknights-advanced [data-ak-tui='hero-stack']::after {
+    display: none;
+  }
+
+  body.theme-arknights-advanced [data-ak-tui='deploy-row']::before {
+    font-size: 6px;
+    letter-spacing: 0.1em;
+  }
+
+  body.theme-arknights-advanced .ak-deploy-menu__title > i {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.theme-arknights-advanced::after,
+  body.theme-arknights-advanced .ak-terminal-deck__status i,
+  body.theme-arknights-advanced .ak-terminal-sector-head__live i {
+    animation: none !important;
+  }
+
+  body.theme-arknights-advanced::after {
+    opacity: 0;
+  }
+
+  body.theme-arknights-advanced [data-ak-tui='sector-row'],
+  body.theme-arknights-advanced [class*='_sessionRow'],
+  body.theme-arknights-advanced [data-ak-tui='new-session'],
+  body.theme-arknights-advanced [data-ak-tui='menu-item'],
+  .ak-bar,
+  .ak-bar__item {
+    transition: none !important;
+  }
+}

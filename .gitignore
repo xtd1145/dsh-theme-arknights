@@ -1,0 +1,7 @@
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+
+# 截图脚本的临时浏览器 profile（不是仓库内容）
+.dsh-arknights-shots-*

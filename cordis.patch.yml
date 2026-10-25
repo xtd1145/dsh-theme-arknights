@@ -1,0 +1,22 @@
+# dsh-theme-arknights bundle patch
+#
+# This file is the `dsh.bundle.patch` layer of the package: when installed
+# through the official CLI —
+#
+#   dsh plugin --profile web add github:xtd1145/dsh-theme-arknights
+#
+# — the command reconciles `dsh.profile.bundles` against installed packages
+# and, seeing this declaration, appends `dsh-theme-arknights` to the bundle
+# stack. Profile boot then merges THIS patch (a single `insert` of the plugin
+# row) exactly like a manual cordis.patch.yml mount line. No profile file
+# edits needed — one command installs and mounts. The same row is also the
+# `dsh.client` browser-roster entry the web modules half scans for the client
+# bundle (exports["./client"] -> client.js).
+#
+# The row id is load-bearing: it is the settings namespace the browser half
+# reads through `ctx.configForms.get('theme-arknights')`, and the host half
+# exports it as SETTINGS_ENTRY. Renaming it here without renaming it there
+# silently costs every preference (the form resolves, nothing is written).
+- insert:
+    - id: theme-arknights
+      name: 'dsh-theme-arknights'

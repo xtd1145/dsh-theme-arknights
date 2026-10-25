@@ -1,0 +1,78 @@
+{
+  "name": "dsh-theme-arknights",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness web theme: three Arknights faction skins (Rhodes Island, Laterano, Rhine Lab) with a Universal / Advanced layout switch, contour background, boot plate, thunder plate, balance capsule and host-side audio notifications.",
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "plugin",
+    "theme",
+    "arknights",
+    "rhodes-island",
+    "laterano",
+    "rhine-lab",
+    "client"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xtd1145/dsh-theme-arknights.git"
+  },
+  "homepage": "https://github.com/xtd1145/dsh-theme-arknights#readme",
+  "bugs": {
+    "url": "https://github.com/xtd1145/dsh-theme-arknights/issues"
+  },
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale",
+    "README.md",
+    "docs",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node scripts/build.js",
+    "check": "node scripts/build.js --check && node check.js",
+    "test": "node scripts/build.js --check && node check.js && node test/palette-contrast.test.js",
+    "shots": "node test/shoot.js",
+    "check:worker": "node scripts/build-contour-worker.js --check",
+    "build:worker": "node scripts/build-contour-worker.js",
+    "build:sounds": "node scripts/build-sounds.js",
+    "verify": "node test/verify-real.js"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-theme",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-renderer"
+      ]
+    }
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    }
+  }
+}

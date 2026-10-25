@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>dsh-theme-arknights — preview fixture</title>
+<style>
+  /* ==========================================================================
+   * 预览用 fixture：一个仿 DSH 主界面的骨架。
+   *
+   * 全部组件**只通过 --dsw-alias-*** 着色，和真实应用的做法一致；底座给一套
+   * 中性的亮/暗取值（取自 DSH 的 neutral-bluish 色阶），主题的
+   * theme.overrideTokens 层会把这些别名覆盖掉。
+   *
+   * 于是这张图验证的正是主题真正的机制：别名被换成 var(--ak-*)，而 --ak-* 由
+   * 样式表按 <body> 的 class 声明 —— 换阵营就是一个 class，页面里没有任何一处
+   * 写着主题色的字面值。
+   * ====================================================================== */
+
+  :root {
+    --dsw-static-neutral-bluish-00: #fff;
+    --dsw-static-neutral-bluish-50: #f9fafb;
+    --dsw-static-neutral-bluish-60: #f5f6f7;
+    --dsw-static-neutral-bluish-100: #ebeef2;
+    --dsw-static-neutral-bluish-150: #e9ecf2;
+    --dsw-static-neutral-bluish-200: #e1e5ee;
+    --dsw-static-neutral-bluish-300: #cfd3d6;
+    --dsw-static-neutral-bluish-400: #adb2b8;
+    --dsw-static-neutral-bluish-500: #979da6;
+    --dsw-static-neutral-bluish-600: #81858c;
+    --dsw-static-neutral-bluish-700: #61666b;
+    --dsw-static-neutral-bluish-750: #43454a;
+    --dsw-static-neutral-bluish-800: #353638;
+    --dsw-static-neutral-bluish-850: #2c2c2e;
+    --dsw-static-neutral-bluish-875: #232324;
+    --dsw-static-neutral-bluish-900: #1b1b1c;
+    --dsw-static-neutral-bluish-950: #151517;
+    --dsw-static-neutral-bluish-1000: #0f1115;
+  }
+
+  /* 亮色别名（应用自带的那一套语义） */
+  body {
+    --dsw-alias-bg-base: var(--dsw-static-neutral-bluish-00);
+    --dsw-alias-bg-layer-1: var(--dsw-static-neutral-bluish-00);
+    --dsw-alias-bg-layer-2: var(--dsw-static-neutral-bluish-50);
+    --dsw-alias-bg-layer-3: var(--dsw-static-neutral-bluish-75);
+    --dsw-alias-bg-overlay: var(--dsw-static-neutral-bluish-00);
+    --dsw-alias-border-l1: #0000000a;
+    --dsw-alias-border-l2: #0000001a;
+    --dsw-alias-label-primary: var(--dsw-static-neutral-bluish-1000);
+    --dsw-alias-label-secondary: var(--dsw-static-neutral-bluish-700);
+    --dsw-alias-label-tertiary: var(--dsw-static-neutral-bluish-600);
+    --dsw-alias-brand-primary: var(--dsw-static-neutral-bluish-1000);
+    --dsw-alias-state-error-primary: #d92d20;
+    --dsw-alias-state-success-primary: #12b76a;
+    --dsw-alias-state-warn-primary: #dc6803;
+    --dsw-alias-markdown-inline-code: var(--dsw-static-neutral-bluish-50);
+    --dsw-alias-markdown-code-block: var(--dsw-static-neutral-bluish-50);
+    --dsw-alias-button-primary-fill: var(--dsw-alias-brand-primary);
+    --dsw-alias-settings-card-fill: var(--dsw-static-neutral-bluish-50);
+    --dsw-alias-interactive-bg-hover: #0000000a;
+    --dsw-specific-sidebar-fill: var(--dsw-static-neutral-bluish-50);
+    --dsw-alias-label-deep-diving: var(--dsw-static-neutral-bluish-600);
+    --dsw-alias-label-deep-diving-shimmer: var(--dsw-static-neutral-bluish-400);
+  }
+
+  /* 暗色别名 */
+  body[data-ds-dark-theme] {
+    --dsw-alias-bg-base: var(--dsw-static-neutral-bluish-950);
+    --dsw-alias-bg-layer-1: var(--dsw-static-neutral-bluish-900);
+    --dsw-alias-bg-layer-2: var(--dsw-static-neutral-bluish-875);
+    --dsw-alias-bg-layer-3: var(--dsw-static-neutral-bluish-850);
+    --dsw-alias-bg-overlay: var(--dsw-static-neutral-bluish-875);
+    --dsw-alias-border-l1: #ffffff14;
+    --dsw-alias-border-l2: #ffffff26;
+    --dsw-alias-label-primary: var(--dsw-static-neutral-bluish-00);
+    --dsw-alias-label-secondary: var(--dsw-static-neutral-bluish-400);
+    --dsw-alias-label-tertiary: var(--dsw-static-neutral-bluish-500);
+    --dsw-alias-brand-primary: var(--dsw-static-neutral-bluish-00);
+    --dsw-alias-markdown-inline-code: var(--dsw-static-neutral-bluish-850);
+    --dsw-alias-markdown-code-block: var(--dsw-static-neutral-bluish-900);
+    --dsw-alias-settings-card-fill: var(--dsw-static-neutral-bluish-875);
+    --dsw-alias-interactive-bg-hover: #ffffff14;
+    --dsw-specific-sidebar-fill: var(--dsw-static-neutral-bluish-950);
+    --dsw-alias-label-deep-diving: var(--dsw-static-neutral-bluish-400);
+    --dsw-alias-label-deep-diving-shimmer: var(--dsw-static-neutral-bluish-200);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--dsw-alias-bg-base);
+    color: var(--dsw-alias-label-primary);
+    font-family: -apple-system, 'Segoe UI', 'PingFang SC', system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: 244px 1fr;
+    height: 100vh;
+  }
+
+  /* ---- 侧栏 ---------------------------------------------------------- */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 12px 10px;
+    background: var(--dsw-specific-sidebar-fill);
+    border-right: 1px solid var(--dsw-alias-border-l1);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px 14px;
+  }
+
+  .brand__mark {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--dsw-alias-brand-primary);
+    border-radius: 50%;
+  }
+
+  .brand__name {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .new-chat {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    border: 1px solid var(--dsw-alias-border-l2);
+    border-radius: 8px;
+    background: var(--dsw-alias-bg-layer-1);
+    font-size: 12.5px;
+    color: var(--dsw-alias-label-primary);
+  }
+
+  .nav-label {
+    padding: 10px 8px 4px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--dsw-alias-label-tertiary);
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+    border-radius: 7px;
+    font-size: 12.5px;
+    color: var(--dsw-alias-label-secondary);
+    border-left: 2px solid transparent;
+  }
+
+  .nav-item--active {
+    background: var(--dsw-alias-interactive-bg-hover);
+    color: var(--dsw-alias-label-primary);
+    border-left-color: var(--dsw-alias-brand-primary);
+  }
+
+  .nav-item__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--dsw-alias-state-success-primary);
+  }
+
+  /* ---- 主区 ---------------------------------------------------------- */
+  .main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 22px;
+    border-bottom: 1px solid var(--dsw-alias-border-l1);
+  }
+
+  .topbar__title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--dsw-alias-label-primary);
+  }
+
+  .topbar__right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11.5px;
+    color: var(--dsw-alias-label-secondary);
+  }
+
+  .chip {
+    padding: 3px 9px;
+    border: 1px solid var(--dsw-alias-border-l2);
+    border-radius: 999px;
+    font-size: 11px;
+    color: var(--dsw-alias-label-secondary);
+  }
+
+  .chip--accent {
+    border-color: var(--dsw-alias-brand-primary);
+    color: var(--dsw-alias-brand-primary);
+  }
+
+  .transcript {
+    flex: 1;
+    overflow: hidden;
+    padding: 22px 22px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .msg { display: flex; flex-direction: column; gap: 6px; max-width: 780px; }
+
+  .msg__role {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--dsw-alias-label-tertiary);
+  }
+
+  .msg__bubble {
+    padding: 12px 14px;
+    border: 1px solid var(--dsw-alias-border-l1);
+    border-radius: 10px;
+    background: var(--dsw-alias-bg-layer-1);
+  }
+
+  .msg--user { align-self: flex-end; align-items: flex-end; }
+  .msg--user .msg__bubble {
+    background: var(--dsw-alias-bg-layer-2);
+  }
+
+  .markdown h2 {
+    margin: 0 0 8px;
+    font-size: 15px;
+  }
+
+  .markdown p { margin: 0 0 9px; }
+  .markdown p:last-child { margin-bottom: 0; }
+
+  .markdown code {
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--dsw-alias-markdown-inline-code);
+    font-size: 12px;
+  }
+
+  .code-block {
+    margin: 9px 0;
+    border: 1px solid var(--dsw-alias-border-l1);
+    border-radius: 8px;
+    background: var(--dsw-alias-markdown-code-block);
+    overflow: hidden;
+  }
+
+  .code-block__banner {
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--dsw-alias-border-l1);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--dsw-alias-label-tertiary);
+  }
+
+  .code-block pre {
+    margin: 0;
+    padding: 10px 12px;
+    font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: var(--dsw-alias-label-primary);
+  }
+
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+  }
+
+  .table th {
+    padding: 5px 8px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--dsw-alias-label-secondary);
+    border-bottom: 1px solid var(--dsw-alias-border-l2);
+  }
+
+  .table td {
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--dsw-alias-border-l1);
+  }
+
+  .running {
+    font-size: 11.5px;
+    color: var(--dsw-alias-label-deep-diving);
+  }
+
+  /* ---- 输入区 -------------------------------------------------------- */
+  .composer {
+    padding: 10px 22px 18px;
+  }
+
+  .composer__box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--dsw-alias-border-l2);
+    border-radius: 12px;
+    background: var(--dsw-alias-bg-layer-1);
+  }
+
+  .composer__text {
+    font-size: 12.5px;
+    color: var(--dsw-alias-label-secondary);
+    min-height: 20px;
+  }
+
+  .composer__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .composer__tools { display: flex; gap: 6px; }
+
+  .btn {
+    padding: 5px 12px;
+    border: 1px solid var(--dsw-alias-border-l2);
+    border-radius: 7px;
+    background: transparent;
+    font-size: 11.5px;
+    color: var(--dsw-alias-label-primary);
+  }
+
+  .btn--primary {
+    border-color: transparent;
+    background: var(--dsw-alias-button-primary-fill);
+    color: var(--dsw-alias-bg-base);
+    font-weight: 600;
+  }
+
+  .status-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 22px 12px;
+    font-size: 11px;
+    color: var(--dsw-alias-label-tertiary);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand__mark"></span>
+      <span class="brand__name">DeepSeek Harness</span>
+    </div>
+    <div class="new-chat">＋ 新建会话</div>
+    <div class="nav-label">会话</div>
+    <div class="nav-item nav-item--active"><span class="nav-item__dot"></span>阵营主题的三套皮肤</div>
+    <div class="nav-item">令牌层是怎么接上的</div>
+    <div class="nav-item">对比度验算记录</div>
+    <div class="nav-item">构建与门禁</div>
+    <div class="nav-label">工作区</div>
+    <div class="nav-item">dsh-theme-arknights</div>
+    <div class="nav-item">docs / screenshots</div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <span class="topbar__title">阵营主题的三套皮肤</span>
+      <span class="topbar__right">
+        <span class="chip chip--accent">deepseek-v4-flash</span>
+        <span class="chip">标准模式</span>
+        <span class="chip">12.4k tokens</span>
+      </span>
+    </header>
+
+    <div class="transcript">
+      <div class="msg msg--user">
+        <span class="msg__role">你</span>
+        <div class="msg__bubble">把这三套阵营主题的切换做成一个 class，别每次都重新注册令牌层。</div>
+      </div>
+
+      <div class="msg">
+        <span class="msg__role">助手</span>
+        <div class="msg__bubble markdown">
+          <h2>三套阵营，一次 class 翻转</h2>
+          <p>
+            每个 <code>--dsw-alias-*</code> 令牌都被接到一个 <code>--ak-*</code> 变量上，
+            而 <code>--ak-*</code> 的六组取值（3 阵营 × 明暗）全部声明在样式表的
+            <code>&lt;body&gt;</code> 规则里。于是切换阵营只是给 <code>&lt;body&gt;</code>
+            加一个 class。
+          </p>
+          <div class="code-block">
+            <div class="code-block__banner">theme.css</div>
+            <pre>body.ak-theme.ak-laterano {
+  --ak-bg-base: #f6f1e7;
+  --ak-ink:      #241d14;
+  --ak-accent:   #886812;
+}
+
+body.ak-theme.ak-laterano[data-ds-dark-theme] {
+  --ak-bg-base: #12100c;
+  --ak-accent:  #e8c168;
+}</pre>
+          </div>
+          <table class="table">
+            <tr><th>阵营</th><th>强调色·亮</th><th>强调色·暗</th></tr>
+            <tr><td>罗德岛</td><td>#0f6bb0</td><td>#4aa8e8</td></tr>
+            <tr><td>拉特兰</td><td>#886812</td><td>#e8c168</td></tr>
+            <tr><td>莱茵生命</td><td>#00795c</td><td>#00d9a3</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="msg">
+        <span class="msg__role">助手</span>
+        <span class="running">Deep diving…</span>
+      </div>
+    </div>
+
+    <div class="composer">
+      <div class="composer__box">
+        <div class="composer__text">继续，说明一下暗色为什么要提亮…</div>
+        <div class="composer__bar">
+          <div class="composer__tools">
+            <button class="btn">附件</button>
+            <button class="btn">技能</button>
+          </div>
+          <button class="btn btn--primary">发送</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-line">
+      <span>●</span><span>已连接 · 3 个阵营可用</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>
