@@ -3954,7 +3954,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         sectorUnit: ' SECTORS',
         positionUnit: ' POSITIONS',
         /* 大读数的标签与键位提示：进阶版说的是「一条纵向列表 + 部署」，莱茵终端
-           档说的是「一根一根的柱列 + 换列／选块」。同一批槽位，两种读法。 */
+           档说的是「一列一列的抽屉 + 换列／选块」。同一批槽位，两种读法。 */
         readoutLabel: 'SECTOR',
         keysHint: '↑ ↓ 浏览 · ENTER 部署',
         blockLabel: 'SESSION',
@@ -4271,9 +4271,9 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
     }
 
     /* ---- 列表容器 --------------------------------------------------------
-       莱茵终端档把可选项排成一排竖柱（工作区）和一排方块（会话）。要做这件事
-       必须知道「哪一层是行的容器」，而那一层的 class 是应用的 CSS-module 哈希，
-       写死等于埋一条永不命中的规则 —— 所以从行本身往上取一层。
+       莱茵终端档把可选项排成一片抽屉墙（工作区）和一排矮抽屉格（会话）。要做这
+       件事必须知道「哪一层是行的容器」，而那一层的 class 是应用的 CSS-module
+       哈希，写死等于埋一条永不命中的规则 —— 所以从行本身往上取一层。
 
        取之前验一次它确实只装这些行：父级就是整条侧栏时（应用把行直接摊在侧栏
        里），横排会把铭牌、会话、工作区一起卷进同一排，那比不标更糟。 */
@@ -4291,17 +4291,29 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       return field
     }
 
+    /* ---- 数字通道 --------------------------------------------------------
+       刻度尺要按「第几格」定位，而 CSS 的 attr() 只能取字符串、进不了 calc()
+       （attr(x type(<integer>)) 的支持还不足以依赖）。所以数量与序号除了写进
+       data 属性给读数用，另外以自定义属性的形式写进行内样式给几何用。 */
+    const akSetNum = (node, name, value) => {
+      if (node === null) return
+      const next = String(value)
+      if (node.style.getPropertyValue(name) !== next) node.style.setProperty(name, next)
+    }
+
     /* ---- 工位编号 --------------------------------------------------------
        行内的编号是一个真实 span（不是伪元素），所以可以和原生图标、文字
        一起参与 flex 排版；重渲染后由扫描补回。 */
     const paintWorkspaceRows = (sidebar) => {
-      if (sidebar === null) return { count: 0, activeSector: '', field: null }
+      if (sidebar === null) return { count: 0, activeSector: '', plateName: '', field: null }
       /* 空 key 是 DSH 的“未分组”会话桶，不是可部署工作区。 */
       const rows = Array.prototype.slice.call(
         sidebar.querySelectorAll('[class*="_projectRow"][data-row-key^="workspace:"]:not([data-row-key="workspace:"])')
       )
       const deployed = readDeployedWorkspace()
       let activeSector = ''
+      let activeName = ''
+      let firstName = ''
       rows.forEach((row, index) => {
         const sector = terminalPad(index + 1)
         akMark(row, 'sector-row')
@@ -4325,29 +4337,37 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
           || row.getAttribute('data-state') === 'selected'
           || row.querySelector('[class*="_folderActive"]') !== null
         const title = row.querySelector('[class*="_title"]')
-        const active = deployed === null
-          ? structuralActive
-          : deployed !== '' && title !== null && (title.textContent || '').trim() === deployed
+        const name = title === null ? '' : (title.textContent || '').trim()
+        const active = deployed === null ? structuralActive : deployed !== '' && name === deployed
         akSetAttr(row, 'data-ak-active', active ? 'true' : 'false')
         if (active && activeSector === '') activeSector = sector
+        if (active && activeName === '') activeName = name
+        if (index === 0) firstName = name
       })
       const field = akListField(rows, 'column-field')
       if (field !== null) {
+        const activeColumn = activeSector === '' ? '01' : activeSector
         akSetAttr(field, 'data-ak-columns', terminalPad(rows.length))
-        akSetAttr(field, 'data-ak-active-column', activeSector === '' ? '01' : activeSector)
+        akSetAttr(field, 'data-ak-active-column', activeColumn)
+        akSetNum(field, '--ak-col', parseInt(activeColumn, 10))
+        akSetNum(field, '--ak-cols', Math.max(rows.length, 1))
       }
-      return { count: rows.length, activeSector, field }
+      /* plateName 由扫描层交给分区抬头，不写在这里：铭牌钉在柜子顶沿、抽屉面的
+         正上方那一行（参考就是这么排的），而 attr() 只能读伪元素自己那个节点上的
+         属性。交给抽屉自己当铭牌的话，它最宽也只能长成单格抽屉那么宽，一个工作区
+         名必定被截成「dsh-…」。 */
+      return { count: rows.length, activeSector, plateName: activeName === '' ? firstName : activeName, field }
     }
 
-    /* ---- 会话方块 --------------------------------------------------------
-       参考的第二级选择是「当前列里的一排横向方块」。DSH 的会话行就是这一批
-       条目，所以这里只负责标出容器与块序号，方块本身多大、哪块点亮全在样式表。
+    /* ---- 会话矮抽屉格 ----------------------------------------------------
+       参考的第二级选择是「当前柜体上的一排横向矮抽屉」。DSH 的会话行就是这一
+       批条目，所以这里只负责标出容器与格序号，格子本身多大、哪格点亮全在样式表。
        计数走 data 属性而不是注入节点：读数是一条纯文本，CSS 的 attr() 就够，
        少造一个要在卸载时收回的节点。
 
-       方块的身份也用 data-ak-block，不再占一个 data-ak-tui 槽位：会话行同时带
+       格身份也用 data-ak-block，不再占一个 data-ak-tui 槽位：会话行同时带
        应用的 `_panelRow` class，paintChrome 会把那一层标成 'panel-row'。两个
-       角色挤同一个属性时后写的赢，方块样式会静默失效——截图门禁真的抓到过。 */
+       角色挤同一个属性时后写的赢，矮格样式会静默失效——截图门禁真的抓到过。 */
     const paintSessionBlocks = (sidebar) => {
       if (sidebar === null) return { count: 0, active: '', field: null }
       const rows = Array.prototype.slice.call(sidebar.querySelectorAll('[class*="_sessionRow"]'))
@@ -4365,8 +4385,11 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       })
       const field = akListField(rows, 'session-stack')
       if (field !== null) {
+        const activeBlock = active === '' ? '01' : active
         akSetAttr(field, 'data-ak-blocks', terminalPad(rows.length))
-        akSetAttr(field, 'data-ak-active-block', active === '' ? '01' : active)
+        akSetAttr(field, 'data-ak-active-block', activeBlock)
+        akSetNum(field, '--ak-blk', parseInt(activeBlock, 10))
+        akSetNum(field, '--ak-blks', Math.max(rows.length, 1))
       }
       return { count: rows.length, active, field }
     }
@@ -4472,6 +4495,9 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
 
         const rowsState = paintWorkspaceRows(workspaces)
         const blocksState = paintSessionBlocks(sidebar)
+        /* 柜顶铭牌：抬头那一行是抽屉墙正上方的整行成员，所以把当前格的名字交给
+           它，由 lab 层用 ::after + attr() 画成一条黑牌白字的铭牌。 */
+        if (sectionHeader !== null) akSetAttr(sectionHeader, 'data-ak-name-active', rowsState.plateName)
         if (terminalSectorHeadEl !== null) {
           const active = rowsState.activeSector === '' ? '01' : rowsState.activeSector
           akSetText(terminalSectorHeadEl.querySelector('[data-ak-part="count"]'), terminalPad(rowsState.count) + terminalWords().sectorUnit)
@@ -4505,12 +4531,16 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       })
       document.querySelectorAll('.ak-deploy-menu').forEach((node) => node.classList.remove('ak-deploy-menu'))
       document.querySelectorAll('[data-ak-tui]').forEach((node) => node.removeAttribute('data-ak-tui'))
-      /* 柱列与方块的计数写在 data 属性上（样式表用 attr() 读出来当读数），
-         它们同样是运行时标注，卸装时必须一并收回。 */
+      /* 柜列与方块的计数、柜顶铭牌的名字都写在 data 属性上（样式表用 attr()
+         读出来当读数和铭牌），它们同样是运行时标注，卸装时必须一并收回。 */
       for (const name of ['data-ak-sector', 'data-ak-active', 'data-ak-blank',
-        'data-ak-block', 'data-ak-blocks', 'data-ak-columns',
+        'data-ak-block', 'data-ak-blocks', 'data-ak-columns', 'data-ak-name-active',
         'data-ak-active-block', 'data-ak-active-column']) {
         document.querySelectorAll('[' + name + ']').forEach((node) => node.removeAttribute(name))
+      }
+      /* 刻度尺定位用的数字通道写在行内样式里，也要收回。 */
+      for (const name of ['--ak-col', '--ak-cols', '--ak-blk', '--ak-blks']) {
+        document.querySelectorAll('[style*="' + name + '"]').forEach((node) => node.style.removeProperty(name))
       }
     }
 
@@ -9543,18 +9573,22 @@ body.theme-arknights-themed [data-ak-thunder-word] {
  * .theme-arknights-advanced.theme-arknights-lab —— 少挂前者，lab 会去重排一个
  * 没有注入钩子的裸界面；少挂后者，档位切换就找不到这一层。
  *
- * 设计依据：MikeQu223/Rhine-Music-Database（Qt6/QML 的音乐库终端）。它的界面
- * 不是「明日方舟的阵营皮肤」，而是一台**器材**：固定 1920×1080 舞台、整屏
- * 陶瓷白面板、数值一律右对齐、标题是一行大写拉丁 + 一行中文副标题、返回键是
- * 实心块、全局只有一个圆形元素（播放盘），页脚写 POWERED BY RHINE LAB。
+ * 设计依据：MikeQu223/Rhine-Music-Database（Qt6/QML 的音乐库终端）与它的演示
+ * 视频。它的界面不是「明日方舟的阵营皮肤」，而是一台**器材**：固定 1920×1080
+ * 舞台、整屏陶瓷白面板、数值一律右对齐、标题是一行大写拉丁 + 一行中文副标题、
+ * 返回键是实心块、全局只有一个圆形元素（播放盘），页脚写 POWERED BY RHINE LAB。
  *
- * 更要紧的是它的**选择模型**，本档把它整个搬过来当侧栏的结构：
- *   第一级  一片柱阵 —— 每个可选项是一根竖立的柱子，横向排成一列一列，
- *           当前那根整块点亮；读数是左下角的「TRACK 01 / 119」与
- *           「← TRACK COLUMN 05 / 05 →」。→ DSH 的**工作区**。
- *   第二级  一排方块 —— 当前列里的条目铺成同尺寸的横向方块，当前块上浮、
- *           整块点亮，块号压在右下角。→ DSH 的**会话**。
- * 于是侧栏不再是一条纵向清单，而是「先选列、再选块」的两级器材界面。
+ * 更要紧的是它的**立面与选择模型**：那台终端的整面墙是一组**文件柜**，本档把
+ * 这套读法整个搬过来当侧栏的结构。
+ *   第一级  抽屉墙 —— 每个可选项是一格竖立的抽屉（斜切顶面 + 左上角编号标签牌
+ *           + 下半截一道拉手槽），在柜体上一列一列排开、排满一行再起一行，当前
+ *           那格拉出来、整格点亮；柜顶钉一块写着当前条目名字的铭牌。
+ *           读数在抬头：「COLUMN 01 / 05」与「← → 换列 · ↑ ↓ 选块」。
+ *           → DSH 的**工作区**。
+ *   第二级  矮抽屉格 —— 当前列表里的条目铺成同尺寸的横向矮抽屉，格号压在左上角
+ *           标签牌，当前格上浮、整格点亮；柜体左上角读「BLOCK 01 / 06」。
+ *           → DSH 的**会话**。
+ * 于是侧栏不再是一条纵向清单，而是「先拉抽屉、再挑格子」的两级器材界面。
  *
  * 分工（与阵营维度正交）
  * ----------------------
@@ -9628,6 +9662,15 @@ body.theme-arknights-advanced.theme-arknights-lab {
   --lab-hairline-strong: rgba(85, 88, 77, 0.4);
   --lab-depth: 0 18px 42px -30px rgba(60, 58, 46, 0.34);
   --lab-plate: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 38%);
+
+  /* 柜体：抽屉之间的缝要读出「里面是空的」，所以腔内比纸面暗两档，越深越暗。
+     顶面（--lab-plate-top）是同一块面板受光的斜边，比正面亮一档——文件柜的
+     厚度全靠这一条亮边和右侧那条暗边说话。 */
+  --lab-cavity: #d5d0c4;
+  --lab-cavity-deep: #bdb7a8;
+  --lab-plate-top: #fbfaf6;
+  --lab-plate-side: rgba(85, 88, 77, 0.16);
+  --lab-rail: rgba(85, 88, 77, 0.3);
 }
 
 /* ---- 暗色：石墨 ------------------------------------------------------------
@@ -9664,6 +9707,13 @@ body.theme-arknights-advanced.theme-arknights-lab[data-ds-dark-theme] {
   --lab-hairline-strong: rgba(162, 168, 154, 0.4);
   --lab-depth: 0 20px 48px -32px rgba(0, 0, 0, 0.72);
   --lab-plate: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 40%);
+
+  /* 暗色档的腔体几乎吃光，抽屉面板靠顶面那条亮边从黑里分出来。 */
+  --lab-cavity: #0b0c0a;
+  --lab-cavity-deep: #050604;
+  --lab-plate-top: #2b3026;
+  --lab-plate-side: rgba(0, 0, 0, 0.55);
+  --lab-rail: rgba(162, 168, 154, 0.24);
 }
 
 /* 结构层的派生量同样要跟着改：终端层用 --ak-* 描述网格、点阵与深度，
@@ -9761,27 +9811,46 @@ body.theme-arknights-advanced.theme-arknights-lab .ak-bar {
 }
 
 /* ---------------------------------------------------------------------------
- * 3. 第一级选择：工作区 = 一列一列竖柱
+ * 3. 第一级选择：工作区 = 一面抽屉柜
  *
- * 参考的主界面不是一张表，而是一片柱阵：每个可选项是一根竖立的柱子，横向排
- * 开，当前那根整块点亮。搬到 DSH 上就是「工作区按列选」——侧栏里的工作区列表
- * 从一条纵向清单转成一根一根的柱列，名称竖排、编号压顶。
+ * 参考的主界面是一整面**等距文件柜**：一格一格竖立的抽屉横向排开、排不满就再起
+ * 一行，抽屉之间是透不出光的空腔，每块面板上部钉一枚写编号的小标签牌、中部开一
+ * 条拉手槽，当前那一格被拉出来、整格透光；名字不写在柜面上，写在抽屉墙正上方那
+ * 条铭牌上。
  *
- * 柱子容器 [data-ak-tui='column-field'] 由 36-terminal-ui.js 从行本身往上取一
+ * 所以这一层要同时给出五件事：腔（容器背景比面板暗两档）、厚度（每格顶上一块
+ * 平行四边形顶面）、标签牌（编号钉在面板上部）、拉手槽、铭牌（名字是整行宽度，
+ * 所以读得完）。名称不再竖排：侧栏只有 223px，竖排既读不清也不像柜子。
+ *
+ * 柜子容器 [data-ak-tui='column-field'] 由 36-terminal-ui.js 从行本身往上取一
  * 层标出来：那一层的 class 是应用的 CSS-module 哈希，写死等于埋一条永不命中
- * 的规则。容器里除了柱子还住着原生 sectionHeader 与注入的分区抬头，所以用
- * flex-wrap 让非柱子的成员各占一整行，柱子排在第二行横排。
+ * 的规则。容器里除了抽屉还住着原生 sectionHeader 与注入的分区抬头，所以让
+ * 非抽屉的成员各占一整行，抽屉从它们下面那一行开始排。
  * ------------------------------------------------------------------------- */
 
+/* ---- 柜体 -------------------------------------------------------------- */
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'] {
+  position: relative;
   display: flex;
+  /* 换行而不是横滚：抽屉墙排不满就再起一行，比「一排要横向拖动才看完」更像
+     柜子，也让顶面和铭牌不必活在滚动容器的裁剪里。 */
   flex-flow: row wrap;
-  align-items: flex-start;
-  gap: 5px;
-  padding: 6px 2px 14px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
+  align-content: flex-start;
+  justify-content: flex-start;
+  gap: 9px 5px;
+  padding: 8px 8px 12px;
+  border: 0;
+  border-top: 2px solid var(--lab-rail);
+  border-bottom: 3px solid var(--lab-cavity-deep);
+  border-radius: 0;
+  /* 三层叠出「柜子」：腔内深浅 + 两组斜纹当作向右上退去的后排柜格。 */
+  background-color: var(--lab-cavity);
+  background-image:
+    repeating-linear-gradient(116deg, rgba(var(--edge-accent-rgb), 0.055) 0 1px, transparent 1px 22px),
+    repeating-linear-gradient(64deg, rgba(var(--edge-accent-rgb), 0.045) 0 1px, transparent 1px 17px),
+    linear-gradient(180deg, var(--lab-cavity-deep), var(--lab-cavity) 36%, var(--lab-cavity-deep));
+  /* 顶面浮在格子上方 7px，行距 9px 刚好容得下它；裁掉就把厚度裁没了。 */
+  overflow: visible;
 }
 
 /* 抬头与工具条各占一整行，不参与横排。 */
@@ -9791,104 +9860,206 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'] >
 
 /* 分区抬头自带 12px 横向 margin（进阶版里它是普通块，margin 就是留白）。在这
    一层它已经是 flex 项，100% 基准再加 24px margin 会把容器撑出横向滚动条，
-   柱子跟着被挤到第二行。留白改由容器的 padding 负责。 */
+   抽屉跟着被挤到第二行。留白改由容器的 padding 负责。 */
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'] > .ak-terminal-sector-head {
   margin-right: 0;
   margin-left: 0;
 }
 
-/* ---- 一根柱子 ---------------------------------------------------------- */
+/* ---- 一格抽屉 ---------------------------------------------------------- */
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'] {
   position: relative;
-  flex: 0 0 auto;
+  /* 定宽而不是 flex-grow：柜子的格宽是死的，排不满右边留空腔，这样才不像
+     「一组自适应卡片」。36px + 5px 格距是 223px 侧栏里一排五格的算法。 */
+  flex: 0 0 36px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
-  /* 进阶版给每行留了 margin: 1px 8px。柱阵与方块带的间距由容器 gap 负责，
-     留着它会把每格撑成 48px —— 五根柱子放不进 223px 的侧栏，柱阵会莫名换行。 */
+  /* 进阶版给每行留了 margin: 1px 8px。格距由容器 gap 负责，留着它会把每格撑成
+     52px —— 五格放不进 223px 的侧栏，抽屉墙会莫名多出几行。 */
   margin: 0;
-  width: 32px;
-  height: 116px;
-  padding: 0 0 2px;
-  border: 1px solid var(--lab-hairline);
-  border-bottom: 3px solid var(--lab-hairline-strong);
+  height: 118px;
+  padding: 0;
+  border: 0;
   border-radius: 0;
   box-shadow: none;
   clip-path: none;
-  background-image: none;
-  overflow: hidden;
-}
-
-/* 柱间明暗交替：参考的柱阵靠一档深浅把「相邻但不相同」说出来，条纹在这里
-   不再是行条纹，而是隔一根柱子深一档。 */
-body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row']:nth-child(odd) {
   background-color: var(--edge-panel);
+  background-image: none;
+  /* 左右两条不对称的边 = 面板的受光与背光；底下那道硬影落在腔里。 */
+  box-shadow:
+    inset 2px 0 0 var(--lab-plate-top),
+    inset -3px 0 0 var(--lab-plate-side),
+    3px 4px 0 var(--lab-cavity-deep);
+  /* 顶面浮在格子上方，不能裁。 */
+  overflow: visible;
 }
 
+/* 顶面：一块平行四边形浮在面板上方，等距的「厚度」全靠它。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -7px;
+  height: 7px;
+  background: var(--lab-plate-top);
+  clip-path: polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%);
+  pointer-events: none;
+}
+
+/* 明暗交替：隔一格深一档，把「相邻但不相同」说出来。条纹在这里不是行条纹。 */
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row']:nth-child(even) {
   background-color: var(--lab-stripe);
 }
 
-/* 编号压顶：整根柱子的顶边就是这枚值块。 */
+/* 标签牌：参考每块抽屉面板上部都钉一枚小色块，编号写在牌子上。
+   两处 !important 都不是风格：通用令牌层有两条「整行选中 / 整行悬停时把后代全
+   刷成 #000」的兜底（theme.css 的 _projectRow:hover * 与暗色档的
+   [class*='selected'] *:not(svg)），而编号是一个真实的 span，不是伪元素，所以
+   它躲不掉——不写 !important 的话暗色档里是黑牌上写黑字。
+   opacity 同理要显式写回 1：进阶版把编号当辅助文字弱化（0.72 / 选中 0.9），
+   半透明的牌会透出柜面颜色。 */
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'] .ak-sector-code {
   flex: 0 0 auto;
-  width: 100%;
-  min-width: 0;
-  padding: 2px 0;
+  width: 17px;
+  margin-top: 12px;
+  padding: 2px 0 1px;
   border: 0;
-  border-bottom: 1px solid var(--lab-hairline);
   border-radius: 0;
-  background: var(--lab-chip);
-  color: var(--edge-ink-2);
-  font-size: 9px;
-  letter-spacing: 0.06em;
+  background: var(--edge-accent);
+  /* 牌上的字用 paper，不是 --edge-accent-onpaper：那个令牌的含义是「强调色用作
+     纸面填充时的那一档加深色」，亮色档里它和 --edge-accent 几乎同值，拿它当字色
+     等于黑牌上写黑字。paper 与 accent 永远反相（选中行整块点亮时就是这对），
+     三套阵营 × 两种模式六次命中。 */
+  color: var(--edge-paper) !important;
+  font-size: 8.5px;
+  letter-spacing: 0;
   text-align: center;
+  opacity: 1;
+  box-shadow: 1px 1px 0 var(--lab-cavity-deep);
 }
 
-/* 名称竖排 —— 「一列一列」这句话的字面实现。拉丁字母随 vertical-rl 侧转，
-   与参考里 RHINE LAB, LLC. 那条竖排字标同一读法。 */
+/* 抽屉面上不写字：名字归铭牌。 */
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'] [class*='_title'] {
-  flex: 1 1 auto;
-  min-height: 0;
-  padding-top: 4px;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
+  display: none;
+}
+
+/* 拉手槽：面板中部开一条横槽，凹槽用腔色画、上唇给一道高光。没有它，一块
+   36×118 的面板读起来是「卡片」而不是「抽屉」。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row']::after {
+  content: '';
+  position: absolute;
+  left: 7px;
+  right: 8px;
+  top: 62px;
+  height: 8px;
+  background: var(--lab-cavity-deep);
+  box-shadow: 0 1px 0 rgba(var(--edge-accent-rgb), 0.22) inset, 0 -1px 0 rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+/* ---- 柜顶铭牌 ----------------------------------------------------------
+   参考把当前抽屉的名字钉在抽屉墙正上方那条整行宽的牌子上。这里让原生分区
+   抬头（「工作区」那一行，正好住在抽屉墙的正上方、且本身占一整行）兼任牌
+   子：名字写在它自己的 ::after 里，宽度是整行，所以再长的工作区名也读得完。
+   文字由 36-terminal-ui.js 交给它的 data-ak-name-active 提供。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'] > [data-ak-tui='section-header'] {
+  position: relative;
+  padding-bottom: 0;
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'] > [data-ak-tui='section-header']::after {
+  content: attr(data-ak-name-active);
+  display: block;
+  margin-top: 3px;
+  padding: 2px 5px 2px 4px;
+  background: var(--lab-cavity-deep);
+  border-left: 3px solid var(--edge-accent);
+  color: var(--edge-ink);
+  font-family: var(--ak-mono);
+  font-size: 9px;
+  line-height: 1.3;
+  letter-spacing: 0.06em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 10.5px;
-  line-height: 1.4;
-  letter-spacing: 0.04em;
 }
 
-/* 柱子上放不下行内控件：箭头、徽标、操作键一律收起，图标同理。 */
+/* 还没有部署中的工作区（或者列表空着）时不挂空牌：attr() 返回空串时伪元素
+   照样生成，那是一条没有字的黑杠。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'] > [data-ak-tui='section-header'][data-ak-name-active='']::after {
+  content: none;
+}
+
+/* 抽屉面上放不下行内控件：箭头、徽标、操作键一律收起，图标同理。 */
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'] [class*='_actionRow'],
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'] [class*='_chevron'],
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'] [class*='_badge'],
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'] [class*='_icon'],
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'] [class*='_folder'],
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'] button {
   display: none;
 }
 
+/* 悬停 = 手搭上拉手。!important 是因为通用令牌层给悬停的工作区行刷了一层
+   半透明强调色洗色（theme.css 的 _projectRow:hover），洗色会让抽屉面板透出
+   背后的腔体——柜子不能变毛玻璃。 */
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row']:hover {
-  border-color: var(--lab-hairline-strong);
-  border-bottom-color: var(--edge-accent);
+  background-color: var(--edge-overlay) !important;
 }
 
-/* 当前柱整块点亮 —— 参考里被选中的那根柱子是发光体，不是一条高亮行。 */
+/* 悬停 = 手搭上拉手：槽里的反光抬亮一档，整格微微浮起，但不动铭牌。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row']:hover::after {
+  background: var(--lab-cavity);
+  box-shadow: 0 1px 0 rgba(var(--edge-accent-rgb), 0.5) inset, 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* 当前格：抽屉被拉出来一档，整格点亮，拉手槽压成深洞，顶面转成同一块亮面。 */
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'][data-ak-active='true'] {
-  border-color: var(--edge-accent);
-  background-color: var(--edge-accent);
-  background-image: none;
-  color: var(--edge-paper);
-  box-shadow: 0 16px 28px -18px rgba(var(--edge-accent-rgb), 0.9);
+  transform: translateY(-5px);
+  /* 暗色档里 theme.css 用「background: 强调色 !important」画选中行，简写把
+     background-image 一起钉成 none —— 不写 !important 的话面板上那道受光渐变
+     不会出现（会话方块那一条同理，两处是一对）。 */
+  background-color: var(--edge-accent) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(0, 0, 0, 0.16)) !important;
+  box-shadow:
+    inset 2px 0 0 var(--lab-plate-top),
+    inset -3px 0 0 rgba(0, 0, 0, 0.26),
+    4px 12px 20px -8px rgba(var(--edge-accent-rgb), 0.8),
+    0 0 0 1px rgba(var(--edge-accent-rgb), 0.35);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'][data-ak-active='true']::before {
+  background: var(--edge-accent);
+}
+
+/* 拉出来的那格，拉手槽要压成深洞。几何必须重抄一遍：进阶版在同一枚 ::after
+   上画了一个 5×5 的切角记号（top / right / width / height 全钉死），权重和这
+   条规则相同、来源更早，所以它声明过的那几个属性会留下 —— 槽不重抄就缩成
+   面板左上角一个小方块。width 显式回 auto 才解得开那个 5px。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'][data-ak-active='true']::after {
+  top: 62px;
+  left: 7px;
+  right: 8px;
+  width: auto;
+  height: 8px;
+  border: 0;
+  /* 槽在点亮的那格上必须比面板更暗：paper 永远和 accent 反相（这正是
+     --edge-accent-onpaper 成立的前提），所以「亮面上的暗槽」两种模式各一次
+     命中。写成 ink 的话暗色档里槽和面板同色，拉手当场消失。 */
+  background: var(--edge-paper);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) inset;
+  opacity: 1;
 }
 
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'][data-ak-active='true'] .ak-sector-code {
-  background: transparent;
-  border-bottom-color: rgba(255, 255, 255, 0.26);
-  color: var(--edge-paper);
+  background: var(--edge-paper);
+  /* 也要 !important：上面那条基础规则的字色已经是 !important 了，两边都带权时
+     才轮到具体性说话，漏写这一个是黑牌黑字。 */
+  color: var(--edge-ink) !important;
+  opacity: 1;
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3);
 }
 
 /* 抬头里那一排小计数在 lab 档退场：大读数已经写了「共几列」，同一只计数器
@@ -9950,10 +10121,15 @@ body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-sector-head__keys
 }
 
 /* ---------------------------------------------------------------------------
- * 4. 第二级选择：会话 = 一个一个横向方块
+ * 4. 第二级选择：会话 = 一排矮抽屉格
  *
- * 参考的第二级不是列表，是一排方块：块与块同尺寸，当前那块上浮一档并整块点
- * 亮，块数与块号写在带子的左上角。DSH 的会话行正好是这一批条目。
+ * 第一级选「哪一格抽屉」，第二级选「拉开的那格里有什么」。参考把第二级画成
+ * 柜子下半截的一排矮抽屉：每格一块横向面板，顶上一条受光的斜边，左上角一枚
+ * 写着块号的标签牌，当前那格整块被拉出来点亮。DSH 的会话行正好是这一批条目。
+ *
+ * 和第一级同一套排法（换行、不横滚），理由有两条：一是同一台机器不该上半截
+ * 换行、下半截拖动；二是容器一旦是滚动容器，绝对定位的读数带就会跟着内容滚
+ * 出视野，而格子的顶面也活在裁剪里。
  *
  * 读数带用 ::before + attr() 画，而不是再注入一个节点：它是一行纯文本，属性
  * 已经是这一层的真相（paintSessionBlocks 写的 data-ak-blocks），少一个节点就
@@ -9963,25 +10139,29 @@ body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-sector-head__keys
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='session-stack'] {
   position: relative;
   display: flex;
-  flex-flow: row nowrap;
-  align-items: stretch;
-  gap: 6px;
-  padding: 21px 2px 12px;
-  border-top: 1px solid var(--lab-hairline);
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
+  flex-flow: row wrap;
+  align-content: flex-start;
+  justify-content: flex-start;
+  gap: 9px 5px;
+  /* 上沿 22px 留给读数带：它浮在格子顶面之上，不占抽屉墙的位置。 */
+  padding: 22px 8px 12px;
+  border: 0;
+  border-top: 2px solid var(--lab-rail);
+  border-bottom: 3px solid var(--lab-cavity-deep);
+  background-color: var(--lab-cavity);
+  background-image:
+    repeating-linear-gradient(116deg, rgba(var(--edge-accent-rgb), 0.055) 0 1px, transparent 1px 22px),
+    repeating-linear-gradient(64deg, rgba(var(--edge-accent-rgb), 0.045) 0 1px, transparent 1px 17px),
+    linear-gradient(180deg, var(--lab-cavity-deep), var(--lab-cavity) 36%, var(--lab-cavity-deep));
+  overflow: visible;
 }
 
-/* 带子里混进来的非方块成员（日期分组头之类）不能占一格方块宽：那会把整排
-   挤成竖列，「横向一个一个方块」当场失效。把它们收成一根竖排标签条，信息
-   留在原位，主轴上只占 24px。 */
+/* 带子里混进来的非方块成员（日期分组头之类）各占一整行：占一格抽屉宽的话会把
+   一排挤断，缩成一根竖条又要它为竖排改写行高。整行最省事，也最像柜体上的分层
+   隔板。 */
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='session-stack'] > :not([data-ak-block]) {
-  flex: 0 0 24px;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  overflow: hidden;
-  border-right: 1px solid var(--lab-hairline);
+  flex: 0 0 100%;
+  border-bottom: 1px solid var(--lab-hairline);
   font-size: 8px;
   letter-spacing: 0.2em;
   color: var(--edge-ink-2);
@@ -9990,56 +10170,72 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='session-stack'] 
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='session-stack']::before {
   content: 'BLOCK ' attr(data-ak-active-block) ' / ' attr(data-ak-blocks);
   position: absolute;
-  left: 2px;
-  top: 5px;
+  left: 8px;
+  top: 4px;
   font-family: var(--ak-mono);
   font-size: 7px;
+  line-height: 1;
   letter-spacing: 0.22em;
   color: var(--edge-ink-2);
 }
 
-/* ---- 一块 -------------------------------------------------------------- */
+/* ---- 一格矮抽屉 -------------------------------------------------------- */
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-block] {
   position: relative;
-  flex: 0 0 auto;
+  /* 86px + 5px 格距：两格正好排满 fixture 的 208px 轨道，在真页面那条更窄的
+     （约 187px）上留出十来个像素的余量。104px 在那一层只排得下一格，横向方块
+     当场退回竖列。 */
+  flex: 0 0 86px;
   display: flex;
   flex-direction: column;
   gap: 3px;
   margin: 0;
-  /* 128px 时侧栏一屏只放得下 1.7 块，看不出「横向一排」；96px 能让两块完整
-     露出、第三块切一半，半个块就是「右边还有，可以横滚」的提示。 */
-  width: 96px;
-  min-height: 84px;
-  padding: 6px 8px 16px;
-  border: 1px solid var(--lab-hairline);
-  border-bottom: 3px solid var(--lab-hairline-strong);
+  min-height: 74px;
+  padding: 19px 7px 7px;
+  border: 0;
   border-radius: 0;
-  box-shadow: none;
   clip-path: none;
+  background-color: var(--edge-panel);
   background-image: none;
-  overflow: hidden;
+  box-shadow:
+    inset 2px 0 0 var(--lab-plate-top),
+    inset -3px 0 0 var(--lab-plate-side),
+    3px 4px 0 var(--lab-cavity-deep);
+  overflow: visible;
   text-align: left;
 }
 
-body.theme-arknights-advanced.theme-arknights-lab [data-ak-block]:nth-child(odd) {
-  background-color: var(--edge-panel);
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-block]::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -7px;
+  height: 7px;
+  background: var(--lab-plate-top);
+  clip-path: polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%);
+  pointer-events: none;
 }
 
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-block]:nth-child(even) {
   background-color: var(--lab-stripe);
 }
 
-/* 块号在右下角：参考把编号放在它不抢正文的地方，而不是行首。 */
+/* 标签牌：块号写在左上角那枚强调色小块上，和第一级的抽屉同一套读法。 */
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-block]::after {
   content: attr(data-ak-block);
   position: absolute;
-  right: 7px;
-  bottom: 3px;
+  left: 0;
+  top: 0;
+  min-width: 17px;
+  padding: 2px 4px 1px;
+  background: var(--edge-accent);
+  color: var(--edge-paper);
   font-family: var(--ak-mono);
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  color: var(--edge-ink-2);
-  opacity: 0.72;
+  font-size: 8.5px;
+  letter-spacing: 0;
+  text-align: center;
+  box-shadow: 1px 1px 0 var(--lab-cavity-deep);
 }
 
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-block] [class*='_title'] {
@@ -10063,18 +10259,19 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-block] [class*='_item
 }
 
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-block] [class*='_actionRow'],
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-block] [class*='_chevron'],
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-block] [class*='_icon'],
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-block] button {
   display: none;
 }
 
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-block]:hover {
-  border-color: var(--lab-hairline-strong);
-  border-bottom-color: var(--edge-accent);
+  /* 同上：会话行的悬停洗色也是 !important 的半透明层。 */
+  background-color: var(--edge-overlay) !important;
 }
 
-/* 当前块：上浮 + 整块点亮。data-ak-active 是 JS 统一算出来的选中态，原生
+/* 当前格：拉出来 + 整格点亮。data-ak-active 是 JS 统一算出来的选中态，原生
    的两个选择器留作 JS 尚未扫描时的兜底。
-
    这里的 !important 不是风格问题：进阶版用「background: 渐变 !important」画
    选中行的洗色（faction.css 的 _sessionRow 那条），简写连 background-color
    一起钉成 transparent，普通声明盖不动。同理，通用令牌层给选中行的后代写了
@@ -10083,21 +10280,31 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-block]:hover {
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-block][data-ak-active='true'],
 body.theme-arknights-advanced.theme-arknights-lab [class*='_sessionRow'][class*='_selected'],
 body.theme-arknights-advanced.theme-arknights-lab [class*='_sessionRow'][aria-selected='true'] {
-  transform: translateY(-4px);
-  border-color: var(--edge-accent) !important;
-  background: var(--edge-accent) !important;
+  transform: translateY(-5px);
+  background-color: var(--edge-accent) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(0, 0, 0, 0.18)) !important;
   color: var(--edge-paper) !important;
-  box-shadow: 0 18px 26px -18px rgba(var(--edge-accent-rgb), 0.9);
+  box-shadow:
+    inset 2px 0 0 var(--lab-plate-top),
+    inset -3px 0 0 rgba(0, 0, 0, 0.26),
+    4px 12px 20px -8px rgba(var(--edge-accent-rgb), 0.8),
+    0 0 0 1px rgba(var(--edge-accent-rgb), 0.35) !important;
 }
 
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-block][data-ak-active='true'] [class*='_title'],
-body.theme-arknights-advanced.theme-arknights-lab [data-ak-block][data-ak-active='true'] [class*='_itemDesc'],
-body.theme-arknights-advanced.theme-arknights-lab [data-ak-block][data-ak-active='true']::after {
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-block][data-ak-active='true'] [class*='_itemDesc'] {
   color: var(--edge-paper) !important;
 }
 
-/* 「新会话」在参考里对应的是实心按钮块，而不是带箭头的终端指令。 */
-body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'][data-ak-active='true']::after,
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-block][data-ak-active='true']::after {
+  background: var(--edge-paper);
+  color: var(--edge-ink);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* 「新会话」在参考里对应的是实心按钮块，而不是带箭头的终端指令。
+   只收它自己的 ::after：抽屉的 ::after 是铭牌，被这条规则一起清掉的话，当前
+   那格恰好是唯一需要名字的一格。 */
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='new-session']::after {
   content: none;
 }
@@ -10128,7 +10335,7 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='new-session']:ho
  * ------------------------------------------------------------------------- */
 
 body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-deck {
-  /* 侧栏在柱列 + 方块带之后会长到溢出，铭牌不能被 flex 压缩——它一被压，
+  /* 侧栏在抽屉墙 + 矮抽屉格之后会长到溢出，铭牌不能被 flex 压缩——它一被压，
      底行的频道号与刻度尺就直接消失。 */
   flex: 0 0 auto;
   clip-path: none;
@@ -10425,21 +10632,18 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-loader-word2]::before
 }
 
 /* ---------------------------------------------------------------------------
- * 11. 减弱动效与窄屏
+ * 11. 窄屏
  *
- * 本层没有常驻动画（扫描带与辉光都关掉了），所以这一节只做两件事：把柱/块的
- * 明暗交替在很窄的侧栏里退成单色（尺寸不足时交替会读成噪点），以及让上浮的
- * 当前块退回原位——横排已经靠滚动容纳数量，不该再多占纵向空间。
+ * 本层没有常驻动画（扫描带与辉光都关掉了），柜体也已经是换行的：抽屉墙和矮
+ * 抽屉格都是排满一行再起一行，窄侧栏不会把它们压成横滚。所以这里只剩一件事
+ * ——把柱/块的明暗交替退成单色，尺寸不足时交替会读成噪点。当前格的上浮是
+ * transform，不参与布局，窄屏下不必收回。
  * ------------------------------------------------------------------------- */
 
 @media (max-width: 1100px) {
   body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row']:nth-child(even),
   body.theme-arknights-advanced.theme-arknights-lab [data-ak-block]:nth-child(even) {
     background-color: var(--edge-panel);
-  }
-
-  body.theme-arknights-advanced.theme-arknights-lab [data-ak-block][data-ak-active='true'] {
-    transform: none;
   }
 }
     `)

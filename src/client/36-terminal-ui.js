@@ -83,7 +83,7 @@
         sectorUnit: ' SECTORS',
         positionUnit: ' POSITIONS',
         /* 大读数的标签与键位提示：进阶版说的是「一条纵向列表 + 部署」，莱茵终端
-           档说的是「一根一根的柱列 + 换列／选块」。同一批槽位，两种读法。 */
+           档说的是「一列一列的抽屉 + 换列／选块」。同一批槽位，两种读法。 */
         readoutLabel: 'SECTOR',
         keysHint: '↑ ↓ 浏览 · ENTER 部署',
         blockLabel: 'SESSION',
@@ -400,9 +400,9 @@
     }
 
     /* ---- 列表容器 --------------------------------------------------------
-       莱茵终端档把可选项排成一排竖柱（工作区）和一排方块（会话）。要做这件事
-       必须知道「哪一层是行的容器」，而那一层的 class 是应用的 CSS-module 哈希，
-       写死等于埋一条永不命中的规则 —— 所以从行本身往上取一层。
+       莱茵终端档把可选项排成一片抽屉墙（工作区）和一排矮抽屉格（会话）。要做这
+       件事必须知道「哪一层是行的容器」，而那一层的 class 是应用的 CSS-module
+       哈希，写死等于埋一条永不命中的规则 —— 所以从行本身往上取一层。
 
        取之前验一次它确实只装这些行：父级就是整条侧栏时（应用把行直接摊在侧栏
        里），横排会把铭牌、会话、工作区一起卷进同一排，那比不标更糟。 */
@@ -420,17 +420,29 @@
       return field
     }
 
+    /* ---- 数字通道 --------------------------------------------------------
+       刻度尺要按「第几格」定位，而 CSS 的 attr() 只能取字符串、进不了 calc()
+       （attr(x type(<integer>)) 的支持还不足以依赖）。所以数量与序号除了写进
+       data 属性给读数用，另外以自定义属性的形式写进行内样式给几何用。 */
+    const akSetNum = (node, name, value) => {
+      if (node === null) return
+      const next = String(value)
+      if (node.style.getPropertyValue(name) !== next) node.style.setProperty(name, next)
+    }
+
     /* ---- 工位编号 --------------------------------------------------------
        行内的编号是一个真实 span（不是伪元素），所以可以和原生图标、文字
        一起参与 flex 排版；重渲染后由扫描补回。 */
     const paintWorkspaceRows = (sidebar) => {
-      if (sidebar === null) return { count: 0, activeSector: '', field: null }
+      if (sidebar === null) return { count: 0, activeSector: '', plateName: '', field: null }
       /* 空 key 是 DSH 的“未分组”会话桶，不是可部署工作区。 */
       const rows = Array.prototype.slice.call(
         sidebar.querySelectorAll('[class*="_projectRow"][data-row-key^="workspace:"]:not([data-row-key="workspace:"])')
       )
       const deployed = readDeployedWorkspace()
       let activeSector = ''
+      let activeName = ''
+      let firstName = ''
       rows.forEach((row, index) => {
         const sector = terminalPad(index + 1)
         akMark(row, 'sector-row')
@@ -454,29 +466,37 @@
           || row.getAttribute('data-state') === 'selected'
           || row.querySelector('[class*="_folderActive"]') !== null
         const title = row.querySelector('[class*="_title"]')
-        const active = deployed === null
-          ? structuralActive
-          : deployed !== '' && title !== null && (title.textContent || '').trim() === deployed
+        const name = title === null ? '' : (title.textContent || '').trim()
+        const active = deployed === null ? structuralActive : deployed !== '' && name === deployed
         akSetAttr(row, 'data-ak-active', active ? 'true' : 'false')
         if (active && activeSector === '') activeSector = sector
+        if (active && activeName === '') activeName = name
+        if (index === 0) firstName = name
       })
       const field = akListField(rows, 'column-field')
       if (field !== null) {
+        const activeColumn = activeSector === '' ? '01' : activeSector
         akSetAttr(field, 'data-ak-columns', terminalPad(rows.length))
-        akSetAttr(field, 'data-ak-active-column', activeSector === '' ? '01' : activeSector)
+        akSetAttr(field, 'data-ak-active-column', activeColumn)
+        akSetNum(field, '--ak-col', parseInt(activeColumn, 10))
+        akSetNum(field, '--ak-cols', Math.max(rows.length, 1))
       }
-      return { count: rows.length, activeSector, field }
+      /* plateName 由扫描层交给分区抬头，不写在这里：铭牌钉在柜子顶沿、抽屉面的
+         正上方那一行（参考就是这么排的），而 attr() 只能读伪元素自己那个节点上的
+         属性。交给抽屉自己当铭牌的话，它最宽也只能长成单格抽屉那么宽，一个工作区
+         名必定被截成「dsh-…」。 */
+      return { count: rows.length, activeSector, plateName: activeName === '' ? firstName : activeName, field }
     }
 
-    /* ---- 会话方块 --------------------------------------------------------
-       参考的第二级选择是「当前列里的一排横向方块」。DSH 的会话行就是这一批
-       条目，所以这里只负责标出容器与块序号，方块本身多大、哪块点亮全在样式表。
+    /* ---- 会话矮抽屉格 ----------------------------------------------------
+       参考的第二级选择是「当前柜体上的一排横向矮抽屉」。DSH 的会话行就是这一
+       批条目，所以这里只负责标出容器与格序号，格子本身多大、哪格点亮全在样式表。
        计数走 data 属性而不是注入节点：读数是一条纯文本，CSS 的 attr() 就够，
        少造一个要在卸载时收回的节点。
 
-       方块的身份也用 data-ak-block，不再占一个 data-ak-tui 槽位：会话行同时带
+       格身份也用 data-ak-block，不再占一个 data-ak-tui 槽位：会话行同时带
        应用的 `_panelRow` class，paintChrome 会把那一层标成 'panel-row'。两个
-       角色挤同一个属性时后写的赢，方块样式会静默失效——截图门禁真的抓到过。 */
+       角色挤同一个属性时后写的赢，矮格样式会静默失效——截图门禁真的抓到过。 */
     const paintSessionBlocks = (sidebar) => {
       if (sidebar === null) return { count: 0, active: '', field: null }
       const rows = Array.prototype.slice.call(sidebar.querySelectorAll('[class*="_sessionRow"]'))
@@ -494,8 +514,11 @@
       })
       const field = akListField(rows, 'session-stack')
       if (field !== null) {
+        const activeBlock = active === '' ? '01' : active
         akSetAttr(field, 'data-ak-blocks', terminalPad(rows.length))
-        akSetAttr(field, 'data-ak-active-block', active === '' ? '01' : active)
+        akSetAttr(field, 'data-ak-active-block', activeBlock)
+        akSetNum(field, '--ak-blk', parseInt(activeBlock, 10))
+        akSetNum(field, '--ak-blks', Math.max(rows.length, 1))
       }
       return { count: rows.length, active, field }
     }
@@ -601,6 +624,9 @@
 
         const rowsState = paintWorkspaceRows(workspaces)
         const blocksState = paintSessionBlocks(sidebar)
+        /* 柜顶铭牌：抬头那一行是抽屉墙正上方的整行成员，所以把当前格的名字交给
+           它，由 lab 层用 ::after + attr() 画成一条黑牌白字的铭牌。 */
+        if (sectionHeader !== null) akSetAttr(sectionHeader, 'data-ak-name-active', rowsState.plateName)
         if (terminalSectorHeadEl !== null) {
           const active = rowsState.activeSector === '' ? '01' : rowsState.activeSector
           akSetText(terminalSectorHeadEl.querySelector('[data-ak-part="count"]'), terminalPad(rowsState.count) + terminalWords().sectorUnit)
@@ -634,12 +660,16 @@
       })
       document.querySelectorAll('.ak-deploy-menu').forEach((node) => node.classList.remove('ak-deploy-menu'))
       document.querySelectorAll('[data-ak-tui]').forEach((node) => node.removeAttribute('data-ak-tui'))
-      /* 柱列与方块的计数写在 data 属性上（样式表用 attr() 读出来当读数），
-         它们同样是运行时标注，卸装时必须一并收回。 */
+      /* 柜列与方块的计数、柜顶铭牌的名字都写在 data 属性上（样式表用 attr()
+         读出来当读数和铭牌），它们同样是运行时标注，卸装时必须一并收回。 */
       for (const name of ['data-ak-sector', 'data-ak-active', 'data-ak-blank',
-        'data-ak-block', 'data-ak-blocks', 'data-ak-columns',
+        'data-ak-block', 'data-ak-blocks', 'data-ak-columns', 'data-ak-name-active',
         'data-ak-active-block', 'data-ak-active-column']) {
         document.querySelectorAll('[' + name + ']').forEach((node) => node.removeAttribute(name))
+      }
+      /* 刻度尺定位用的数字通道写在行内样式里，也要收回。 */
+      for (const name of ['--ak-col', '--ak-cols', '--ak-blk', '--ak-blks']) {
+        document.querySelectorAll('[style*="' + name + '"]').forEach((node) => node.style.removeProperty(name))
       }
     }
 

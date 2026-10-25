@@ -306,7 +306,7 @@ body.theme-arknights-themed.theme-arknights-laterano { --edge-paper: #eceef2; --
 | 抬头副标 | `TERMINAL DEPLOYMENT POSITION` | `WORKSPACE POSITION` |
 | 读数标签 | `SECTOR` | `COLUMN` |
 | 读数键位 | `↑ ↓ 浏览 · ENTER 部署` | `← → 换列 · ↑ ↓ 选块` |
-| 方块带标签 | —（进阶版没有方块带） | `BLOCK` |
+| 矮抽屉格标签 | —（进阶版没有第二级） | `BLOCK` |
 | 菜单抬头 | `PRTS // DEPLOYMENT CONTROL` | `RHINE // LIBRARY CONTROL` |
 | 页脚通道 | `PRTS // OPERATIONS LEDGER` | `RHINE // PLAYBACK LEDGER` |
 | 编号单位 | `SECTOR 01` / `12 SECTORS` | `TRACK 01` / `04 TRACKS` |
@@ -319,7 +319,7 @@ body.theme-arknights-themed.theme-arknights-laterano { --edge-paper: #eceef2; --
 
 ## 八、第三档：莱茵终端版（材质 + 结构层）
 
-设计依据：[MikeQu223/Rhine-Music-Database](https://github.com/MikeQu223/Rhine-Music-Database)（Qt6/QML 音乐库终端）。它的界面不是「明日方舟的阵营皮肤」，而是一台**器材**：固定 1920×1080 舞台、整屏陶瓷白面板、列表按行条纹、数值一律右对齐、标题是「一行大写拉丁 + 一行中文副标题」、返回键是实心块、全局只有一个圆形元素（播放盘），页脚写 `POWERED BY RHINE LAB`。
+设计依据：[MikeQu223/Rhine-Music-Database](https://github.com/MikeQu223/Rhine-Music-Database)（Qt6/QML 音乐库终端）与它的演示视频 [BV1tTpq6kEiE](https://www.bilibili.com/video/BV1tTpq6kEiE)。它的界面不是「明日方舟的阵营皮肤」，而是一台**器材**：固定 1920×1080 舞台、整屏陶瓷白面板、立面是一组**文件柜**（见 8.4）、列表按行条纹、数值一律右对齐、标题是「一行大写拉丁 + 一行中文副标题」、返回键是实心块、全局只有一个圆形元素（播放盘），页脚写 `POWERED BY RHINE LAB`。
 
 ### 8.1 它叠在进阶版之上，不是第四套阵营
 
@@ -338,25 +338,27 @@ body.theme-arknights-themed.theme-arknights-laterano { --edge-paper: #eceef2; --
 
 参考的陶瓷底 `#e1ded6` 压在罗德岛钢蓝 `#1a6fa8` 上只有 4.02:1，过不了 AA。所以整套纸面家族上移一档到 `#edebe4`（暗色 `#141613`），逐对复测后才落库——**颜色是量出来的**这条规则在档位层同样成立。
 
-### 8.4 两级选择：柱列与方块带
+### 8.4 两级选择：抽屉墙与矮抽屉格
 
-材质之外，这一档还改掉参考项目里最核心的一处读法。参考的主界面把选择分成上下两级：**上面一列一列竖着的柱阵选「组」，下面横向一排方块选「组里的第几个」**。DSH 的侧栏正好有同一批层级——工作区列表与会话列表——于是：
+材质之外，这一档还改掉参考项目里最核心的一处读法。演示视频里那台终端的立面是一组**文件柜**：**上面一列一列竖着的抽屉选「组」，下面横向一排矮抽屉选「组里的第几个」**，柜顶钉一块写着当前条目的铭牌。每一格都有斜切的顶面、左上角的编号标签牌和下半截一道拉手槽，当前那格被拉出来、整格点亮。DSH 的侧栏正好有同一批层级——工作区列表与会话列表——于是：
 
 | 级 | DSH 对象 | 转法 | 读数 |
 | --- | --- | --- | --- |
-| 第一级 | 工作区行 `_projectRow` | 纵向清单 → 横排竖柱（32×116，名称 `writing-mode: vertical-rl`，编号压顶，当前整柱填充强调色） | 抬头大读数 `COLUMN 01 / 05` + 键位芯片 |
-| 第二级 | 会话行 `_sessionRow` | 纵向清单 → 横排方块（96×84，标题两行截断，块号钉右下角，当前块上浮 4px 并整块点亮） | 带子左上角 `BLOCK 01 / 06` |
+| 第一级 | 工作区行 `_projectRow` | 纵向清单 → 柜体上一格一列的竖抽屉（36×118，`::before` 画斜切顶面，`::after` 画拉手槽，左上角编号标签牌，当前格上浮 5px 并整格填强调色） | 抬头大读数 `COLUMN 01 / 05` + 键位芯片 + 柜顶铭牌 |
+| 第二级 | 会话行 `_sessionRow` | 纵向清单 → 同一柜体上的横矮抽屉（86×74，标题两行截断，块号钉在左上角标签牌，当前格上浮 5px 并整格点亮） | 柜体左上角 `BLOCK 01 / 06` |
 
 几条实现约束，都是踩出来的：
 
-- **容器不能写死。** 柱阵与方块带的父层 class 是应用的 CSS-module 哈希，所以 `akListField()` 从行本身往上取一层，再验三条：不是 `data-slot="sidebar"` 本身、那一层还没被别的角色占用、行确实占了这一层的大部分子节点。一个节点只有一个 `data-ak-tui`，抢走别人的角色会连带改掉对方那条规则——方块最初就是被 `paintChrome` 的 `panel-row` 覆盖掉才全部失效的，所以块身份改用 `data-ak-block` 属性，不占那个槽。
+- **容器不能写死。** 两级柜体的父层 class 是应用的 CSS-module 哈希，所以 `akListField()` 从行本身往上取一层，再验三条：不是 `data-slot="sidebar"` 本身、那一层还没被别的角色占用、行确实占了这一层的大部分子节点。一个节点只有一个 `data-ak-tui`，抢走别人的角色会连带改掉对方那条规则——会话行最初就是被 `paintChrome` 的 `panel-row` 覆盖掉才全部失效的，所以格身份改用 `data-ak-block` 属性，不占那个槽。
+- **柜体必须换行，不能滚动。** 侧栏只有 223px，参考的舞台是 1920px，所以第一版给容器写了 `nowrap` + `overflow-x: auto`。这条路在柜子上是死的：滚动容器会裁掉每格顶面（它浮在盒子外面），绝对定位的读数带也会跟着内容一起滚出视野。改成 `flex-flow: row wrap` + `overflow: visible`，一排排满再起一排，`check.js` 里钉了一条契约禁止 lab 层再出现 `overflow-x: auto`，并要求恰好两处 `row wrap`。
+- **铭牌是整行宽，不是格子宽。** 36px 的一列抽屉装不下任何工作区名，写在行上必然截断。参考把名字钉在抽屉墙正上方那条整行宽的梁上，这里就让原生分区抬头兼任那块梁：`paintWorkspaceRows` 把当前（没有当前就第一条）工作区名交给 `sectionHeader` 的 `data-ak-name-active`，lab 层用 `::after + attr()` 画成一条黑牌白字的铭牌。`attr()` 只读伪元素自己那一层的属性，所以属性必须写在抬头上，不能写在容器上。空串时 `content: none`，否则 `attr()` 返回空串照样生成伪元素——那是一条没字的黑杠。
 - **读数用 `attr()` 画，不再注入节点。** `content: 'BLOCK ' attr(data-ak-active-block) ' / ' attr(data-ak-blocks)` 一行纯文本就够，少一个要在卸载时收回的节点。
-- **侧栏只有 223px，参考的舞台是 1920px。** 方块带必须 `nowrap` + 横向滚动，让第三块只露半截——半个块本身就是「右边还有」的提示；`row wrap` 会把一排方块折成一竖列，两级选择当场塌掉。混进带子的非方块成员（日期分组头之类）收成 24px 的竖排标签条，不能占一格方块宽。
-- **进阶版的 margin 会顶坏 flex 基准。** 行上的 `margin: 1px 8px` 把柱距撑成 53px，五根柱子放不进侧栏；抬头自己的 `margin: 0 12px` 叠在 `flex: 0 0 100%` 之外又加出 24px，容器于是横向溢出、柱子掉到第二行。两处都在柱阵层归零，留白交给容器 padding。
-- **点亮当前块要 `!important`。** 进阶版用「`background: 渐变 !important`」画选中行的洗色，简写连 `background-color` 一起钉成 transparent，普通声明盖不动；通用令牌层还给选中行的后代写了 `color: #000 !important`——真页面上不跟着加 `!important`，点亮的块里就是黑字压黑底。
+- **进阶版的 margin 会顶坏 flex 基准。** 行上的 `margin: 1px 8px` 把格距撑成 53px，五列放不进侧栏；抬头自己的 `margin: 0 12px` 叠在 `flex: 0 0 100%` 之外又加出 24px，容器于是横向溢出、抽屉掉到第二行。两处都在柜体层归零，留白交给容器 padding。
+- **点亮当前格要 `!important`，而且要复述几何。** 进阶版用「`background: 渐变 !important`」画选中行的洗色，简写连 `background-color` 一起钉成 transparent，普通声明盖不动；通用令牌层还给选中行的后代写了 `color: #000 !important`（暗色档另有一条 `[class*='selected'] *:not(svg)` 的兜底）——真页面上不跟着加 `!important`，点亮的格就是黑字压黑底。进阶版还在选中行的 `::after` 上画一枚 5×5 的角标，权重相同、来源更早，所以 lab 的拉手槽要在同一条规则里把 `top/left/right/width/height/border` 全部复述一遍才能压住它。
+- **`--edge-accent-onpaper` 是「压在纸上的强调色填充」，不是「强调色底上该写的字色」。** 标签牌最初拿它当字色，亮色档直接看不见。纸面与强调色永远是一深一浅的对立关系，所以牌上的字一律 `var(--edge-paper)`；牌面本身反过来用 `var(--edge-accent)`。进阶版给标签牌留的 `opacity: .72 / .9` 也要显式收回，否则实心牌会透出柜体底色。
 - **`flex-direction` 对非 flex 容器也返回 `row`**（那是初始值，不是生效值），所以几何断言必须先判 `display`，否则进阶版的纵向清单会被误判成横排。
 
-`node test/shoot.js` 因此不只比颜色：它量柱子是不是竖长（`h > w` 且 `h ≥ 90`）、方块是不是横长（`w > h` 且 `h ≥ 60`）、两个容器在 lab 下是不是真的横排、读数是不是 `01/05` 这种两位比、键位提示有没有按档位换词。
+`node test/shoot.js` 因此不只比颜色：它量抽屉是不是竖长（`h > w` 且 `h ≥ 90`）、矮格是不是横长（`w > h` 且 `h ≥ 60`）、两个容器在 lab 下是不是真的横排、读数是不是 `01/05` 这种两位比、键位提示有没有按档位换词；lab 档另加三条专治「静默失效」——柜顶铭牌取到了字、铭牌与标签牌的文字对底色都到 4.5:1（拿计算值现算 WCAG，因为那两条通用层的 `#000 !important` 只有在渲染后看得见）、两级柜体的 `scrollWidth - clientWidth` 不超过 1px。
 
 ---
 
@@ -386,6 +388,6 @@ body.theme-arknights-themed.theme-arknights-laterano { --edge-paper: #eceef2; --
 5. **底色归主题、文字归应用 = 裂缝。** 只接管背景令牌而不接管前景，会造出「白字压在黄底上」这类不可读组合。改一个背景令牌时，要一起检查谁在上面写字。
 6. **运行时数据要有幂等的标注层，而不是伪元素。** 菜单、动态列表与选中项只能由 JS 标注；标注必须可重复、可收回，扫描范围要避开流式输出。
 
-验证覆盖：`npm run check` 目前 46 项静态契约，`npm test` 194 项断言（含 12 组配色对比度）；`node test/shoot.js` 把注入后的 `client.js` 打在仿 DSH 骨架上，24 张截图 × 一致性判定（阵营 class、档位 class、铭牌词表、扇区编号、令牌跟随、悬浮条）+ 一组几何判定（柱竖、块横、容器横排、读数格式、键位换词）全部通过。终端层的结构、选中态与卸装另在真实 DSH 页面逐项核验（见 `docs/screenshots/rhodes-menu.png`）。
+验证覆盖：`npm run check` 目前 49 项静态契约，`npm test` 194 项断言（含 12 组配色对比度）；`node test/shoot.js` 把注入后的 `client.js` 打在仿 DSH 骨架上，24 张截图 × 一致性判定（阵营 class、档位 class、铭牌词表、扇区编号、令牌跟随、悬浮条）+ 一组几何判定（抽屉竖长、矮格横长、容器横排换行、读数格式、键位换词）+ lab 档三条（铭牌有字、铭牌与标签牌对比度过 AA、柜体无横向溢出）全部通过。终端层的结构、选中态与卸装另在真实 DSH 页面逐项核验（见 `docs/screenshots/rhodes-menu.png`）。
 
 三套纹理、字标与终端装饰均由代码绘制，仓库不包含游戏原始素材，也没有下载外部背景图片。

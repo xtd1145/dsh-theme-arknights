@@ -39,6 +39,32 @@ const EDGE_CANDIDATES = [
 const PORT = 9341
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
+/* 拿到的是 getComputedStyle 的 rgb()/rgba() 串，不是十六进制，所以得先解析再算
+   WCAG 对比度。底色带透明度时判不准（底下压着什么取决于层级），直接返回 null
+   让调用方报「读不到颜色」而不是给一个假的安全感。 */
+function parseRgb(text) {
+  const m = /^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?\s*\)$/.exec(String(text).trim())
+  if (m === null) return null
+  const alpha = m[4] === undefined ? 1 : Number(m[4])
+  return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]), a: alpha }
+}
+
+function rgbRatio(inkText, faceText) {
+  const ink = parseRgb(inkText)
+  const face = parseRgb(faceText)
+  if (ink === null || face === null || face.a < 0.999) return null
+  const lum = (c) => {
+    const v = c / 255
+    return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
+  }
+  const mix = (k) => (ink.a * ink[k]) + ((1 - ink.a) * face[k])
+  const l1 = 0.2126 * lum(mix('r')) + 0.7152 * lum(mix('g')) + 0.0722 * lum(mix('b'))
+  const l2 = 0.2126 * lum(face.r) + 0.7152 * lum(face.g) + 0.0722 * lum(face.b)
+  const hi = Math.max(l1, l2)
+  const lo = Math.min(l1, l2)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
 function findBrowser() {
   for (const candidate of EDGE_CANDIDATES) {
     if (fs.existsSync(candidate)) return candidate
@@ -279,6 +305,20 @@ async function main() {
             };
             const column = document.querySelector("[data-ak-tui='sector-row']");
             const block = document.querySelector('[data-ak-block]');
+            /* 柜顶铭牌与标签牌：铭牌是分区抬头的 ::after，标签牌是一个真实 span。
+               两者都只在这一档存在，而它们的失效方式都是「静默」：attr() 取不到
+               属性就是一条空牌，通用层的 #000 !important 兜底一压就是黑牌黑字。
+               所以这里连计算值一起读回来，由 node 侧算对比度。 */
+            const plate = document.querySelector("[data-ak-tui='column-field'] > [data-ak-tui='section-header']");
+            const plateCs = plate === null ? null : getComputedStyle(plate, '::after');
+            const activeCode = document.querySelector("[data-ak-tui='sector-row'][data-ak-active='true'] .ak-sector-code");
+            const anyCode = document.querySelector("[data-ak-tui='sector-row'] .ak-sector-code");
+            const codeCs = getComputedStyle(activeCode === null ? anyCode : activeCode);
+            /* 横向溢出：柜体一旦靠横滚排布，读数带会滚出视野、顶面会被裁掉。 */
+            const spill = (sel) => {
+              const el = document.querySelector(sel);
+              return el === null ? null : el.scrollWidth - el.clientWidth;
+            };
             return {
               classes: body.className,
               accent,
@@ -296,6 +336,13 @@ async function main() {
               column: box(column),
               block: box(block),
               blocks: document.querySelectorAll('[data-ak-block]').length,
+              plate: plateCs === null ? null : plateCs.content,
+              plateInk: plateCs === null ? null : plateCs.color,
+              plateFace: plateCs === null ? null : plateCs.backgroundColor,
+              codeInk: codeCs === null ? null : codeCs.color,
+              codeFace: codeCs === null ? null : codeCs.backgroundColor,
+              spill: spill("[data-ak-tui='column-field']"),
+              spillStack: spill("[data-ak-tui='session-stack']"),
               readout: (() => {
                 const a = document.querySelector('[data-ak-part="readoutActive"]');
                 const t = document.querySelector('[data-ak-part="readoutTotal"]');
@@ -460,6 +507,44 @@ async function main() {
       } else {
         console.log('  FAIL ' + shot.name + ': 一块会话方块都没标出来')
         problems += 1
+      }
+
+      /* ---- 文件柜这一档另加三条：铭牌有字、牌上的字读得清、柜体不被撑破 ----
+         这三条都是「截图上才会发现、但截图门禁只看盒子看不出来」的失效：
+         attr() 取空 = 一条没字的黑杠；通用层的 #000 !important 兜底一压 =
+         黑牌黑字；容器改成横滚 = 顶面被裁。 */
+      if (isLab) {
+        const plateText = String(shot.state.plate).replace(/^["']|["']$/g, '')
+        if (plateText !== '' && plateText !== 'none' && plateText !== 'normal') {
+          console.log('  ok   ' + shot.name + ': 柜顶铭牌「' + plateText + '」')
+        } else {
+          console.log('  FAIL ' + shot.name + ': 柜顶铭牌没有字 (' + shot.state.plate + ')')
+          problems += 1
+        }
+        for (const [label, ink, face, floor] of [
+          ['铭牌', shot.state.plateInk, shot.state.plateFace, 4.5],
+          ['标签牌', shot.state.codeInk, shot.state.codeFace, 4.5],
+        ]) {
+          const r = rgbRatio(ink, face)
+          if (r === null) {
+            console.log('  FAIL ' + shot.name + ': 读不到' + label + '的颜色')
+            problems += 1
+          } else if (r + 0.005 >= floor) {
+            console.log('  ok   ' + shot.name + ': ' + label + '对比度 ' + r.toFixed(2) + ':1')
+          } else {
+            console.log('  FAIL ' + shot.name + ': ' + label + '对比度只有 ' + r.toFixed(2)
+              + ':1（' + ink + ' on ' + face + '）')
+            problems += 1
+          }
+        }
+        const over = [shot.state.spill, shot.state.spillStack]
+        if (over.every((v) => v !== null && v <= 1)) {
+          console.log('  ok   ' + shot.name + ': 两级柜体都没有横向溢出')
+        } else {
+          console.log('  FAIL ' + shot.name + ': 柜体被撑破，横向溢出 '
+            + over.map((v) => (v === null ? '-' : v)).join(' / ') + 'px')
+          problems += 1
+        }
       }
     }
 
