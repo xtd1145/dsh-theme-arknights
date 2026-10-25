@@ -4014,6 +4014,11 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
        当前部署；柜面需要把这个「正在浏览」的目录也当成当前格，否则点了
        没有视觉回应、展开出来的会话也还在墙下看不见。 */
     let terminalOpenedKey = ''
+    /* 已经为用户滚到过会话区的那一格。柜面矮的时候（768px 高的窗口只剩
+       两百来像素）会话方块排在全部工作区板之后，不滚就永远在视口外；但每
+       次扫描都滚会和用户自己拖动滚动条打架，所以只对「刚点开的这一格」滚
+       一次。 */
+    let terminalRevealedKey = ''
     let terminalTipEl = null
     let sectorTipBound = false
 
@@ -4441,7 +4446,8 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       }
       /* plateName 由扫描层交给分区抬头，不写在这里：铭牌钉在柜面顶沿、档案板的
          正上方那一行（参考就是这么排的），36px 的板面放不下一个工作区名。 */
-      return { count: rows.length, activeSector, plateName, field, activeRow, openGroup }
+      return { count: rows.length, activeSector, plateName, field, activeRow, openGroup,
+        opened: openRow !== null }
     }
 
     /* ---- 会话短档案板 ----------------------------------------------------
@@ -4475,6 +4481,17 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       rows.forEach((row, index) => {
         const block = terminalPad(index + 1)
         akSetAttr(row, 'data-ak-block', block)
+        /* 方块里的标题是截断的，而 lab 又把应用那张会盖住抬头的悬停预览卡
+           收掉了；给装不下的标题补一条原生 tooltip 兜底。只在行本来没有
+           title 时写，免得盖掉应用自己的提示。 */
+        if (lab && !row.hasAttribute('title')) {
+          const title = row.querySelector("[class*='_title']")
+          const text = title === null ? '' : String(title.textContent || '').trim()
+          if (text !== '') {
+            row.setAttribute('title', text)
+            akSetAttr(row, 'data-ak-tip', 'true')
+          }
+        }
         const selected = row.className.indexOf('_selected') !== -1
           || row.getAttribute('aria-selected') === 'true'
           || row.getAttribute('aria-current') !== null
@@ -4486,6 +4503,17 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       const field = (state !== undefined && state !== null && state.field !== null ? state.field : null)
         || findCabinetField(rows) || (rows.length > 0 ? akCabinetField(rows, 'column-field') : null)
       if (field !== null) {
+        /* 应用的「展开其余 N 个会话」默认是 order 0 的整行按钮，会跟着工作区
+           板一起排队，把墙面切成 6 + 1 + 6；标出来交给 lab 排到方块之后。
+           它和会话行一样按组过滤：别的展开目录的按钮不能混进当前柜面。 */
+        if (lab) {
+          const group = state !== undefined && state !== null ? state.openGroup : null
+          field.querySelectorAll('[class*="_sessionOverflowButton"]').forEach((button) => {
+            akMark(button, 'session-overflow')
+            akSetAttr(button, 'data-ak-foreign',
+              group !== null && group.contains(button) ? 'false' : 'true')
+          })
+        }
         rows.forEach((row) => {
           let node = row.parentElement
           while (node !== null && node !== field && field.contains(node)) {
@@ -4509,6 +4537,75 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         }
       }
       return { count: rows.length, active, field }
+    }
+
+    /* ---- 打开一格之后让会话真的出现在柜面上 ------------------------------
+       柜面矮的时候（768px 高的窗口只剩两百来像素），会话区排在整面墙后面，
+       展开后不滚就永远在视口外。三种走法，按会话块占几行区分：
+         · 一行：钉在柜面下沿当托盘（lab.css 的 data-ak-tray），再把当前板
+           滚到托盘上方，板与会话同屏；
+         · 多行：每一行都贴同一个底边会叠在一起，所以不钉，改为把会话区滚
+           进视口，先保证看得到会话；
+         · 本来就看得见：什么都不动。
+       只处理「刚点开」的那一次：之后用户自己拖滚动条，扫描不能把他拽回去。 */
+    const sessionBlocks = (field) => Array.prototype.slice.call(field.querySelectorAll('[data-ak-block]'))
+
+    const blocksInOneRow = (blocks) => {
+      if (blocks.length === 0) return false
+      const top = blocks[0].offsetTop
+      for (const block of blocks) {
+        if (block.offsetTop !== top) return false
+      }
+      return true
+    }
+
+    const scrollFieldTo = (field, top) => {
+      const limit = Math.max(0, field.scrollHeight - field.clientHeight)
+      const next = Math.max(0, Math.min(limit, top))
+      if (typeof field.scrollTo === 'function') field.scrollTo({ top: next, behavior: 'smooth' })
+      else field.scrollTop = next
+    }
+
+    const revealOpenFolder = (field, activeRow) => {
+      if (field === null) return
+      const blocks = sessionBlocks(field)
+      if (blocks.length === 0) return
+      const frame = field.getBoundingClientRect()
+      const first = blocks[0].getBoundingClientRect()
+      const last = blocks[blocks.length - 1].getBoundingClientRect()
+      if (first.top >= frame.top + 4 && last.bottom <= frame.bottom - 4) return
+
+      if (blocksInOneRow(blocks)) {
+        field.setAttribute('data-ak-tray', 'true')
+        /* 托盘高 88px（读数带 + 一组方块，见 lab.css）。墙滚到「当前板
+           刚好落在托盘上方」的位置；一行板 108px，柜面矮也放得下。 */
+        if (activeRow !== null) {
+          const rowBottom = activeRow.offsetTop + activeRow.offsetHeight - field.scrollTop
+          const limit = field.clientHeight - 92
+          if (rowBottom > limit) field.scrollTop += rowBottom - limit
+          if (activeRow.offsetTop - field.scrollTop < 4) {
+            scrollFieldTo(field, activeRow.offsetTop - 4)
+          }
+        }
+        return
+      }
+
+      /* 多行方块比柜面还高：让会话区顶部贴住柜面上沿，剩下的用户自己滚。 */
+      let delta = last.bottom - (frame.bottom - 4)
+      if (delta < 0) delta = 0
+      if (first.top - delta < frame.top + 22) delta = first.top - frame.top - 22
+      if (delta <= 0.5) return
+      scrollFieldTo(field, field.scrollTop + delta)
+    }
+
+    /* 钉住的托盘只容得下一行；会话数量变了（新开一个会话）就把托盘收回，
+       否则后面的行会全部贴住同一个底边。 */
+    const syncSessionTray = (field, opened, count) => {
+      if (field === null) return
+      if (field.getAttribute('data-ak-tray') !== 'true') return
+      if (!opened || count === 0 || !blocksInOneRow(sessionBlocks(field))) {
+        field.removeAttribute('data-ak-tray')
+      }
     }
 
     /* ---- 悬停铭牌 --------------------------------------------------------
@@ -4693,13 +4790,24 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         }
 
         const rowsState = paintWorkspaceRows(workspaces)
-        paintSessionBlocks(sidebar, rowsState)
+        const blocksState = paintSessionBlocks(sidebar, rowsState)
+        syncSessionTray(blocksState.field, rowsState.opened, blocksState.count)
+        if (rowsState.opened && blocksState.count > 0 && blocksState.field !== null) {
+          if (terminalRevealedKey !== terminalOpenedKey) {
+            revealOpenFolder(blocksState.field, rowsState.activeRow)
+            terminalRevealedKey = terminalOpenedKey
+          }
+        } else if (!rowsState.opened) {
+          terminalRevealedKey = ''
+        }
         /* 铭牌：参考的柜面把当前档案的名字钉在一块黑底小牌上，这块牌比 36px 的
            板子宽得多，所以它钉在抬头里、柜面正上方，而不是钉在某一块板上。 */
         if (terminalSectorHeadEl !== null) {
           const active = rowsState.activeSector === '' ? '01' : rowsState.activeSector
           akSetText(terminalSectorHeadEl.querySelector('[data-ak-part="count"]'), terminalPad(rowsState.count) + terminalWords().sectorUnit)
           akSetAttr(terminalSectorHeadEl, 'data-ak-active-sector', active)
+          akSetAttr(terminalSectorHeadEl, 'data-ak-empty',
+            rowsState.opened && blocksState.count === 0 ? 'true' : 'false')
           akSetText(terminalSectorHeadEl.querySelector('[data-ak-part="readoutActive"]'), active)
           akSetText(terminalSectorHeadEl.querySelector('[data-ak-part="readoutTotal"]'), terminalPad(rowsState.count))
           akSetText(terminalSectorHeadEl.querySelector('[data-ak-part="plate"]'), rowsState.plateName)
@@ -4725,6 +4833,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       terminalFooterEl = null
       terminalMenuRoots = null
       terminalOpenedKey = ''
+      terminalRevealedKey = ''
       terminalTipEl = null
       if (typeof document === 'undefined' || document.body === null) return
       document.querySelectorAll('.ak-terminal-deck, .ak-terminal-sector-head, .ak-sector-code, .ak-sector-tip, .ak-deploy-menu__head, .ak-terminal-footer').forEach((node) => {
@@ -4733,11 +4842,17 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       document.querySelectorAll('.ak-deploy-menu').forEach((node) => node.classList.remove('ak-deploy-menu'))
       document.querySelectorAll('[data-ak-tui]').forEach((node) => node.removeAttribute('data-ak-tui'))
       document.querySelectorAll('[data-ak-clicks]').forEach((node) => node.removeAttribute('data-ak-clicks'))
+      /* 会话块的 tooltip 是我们写的，卸装时收回；没有标记的 title 属于应用本身。 */
+      document.querySelectorAll('[data-ak-tip]').forEach((node) => {
+        node.removeAttribute('title')
+        node.removeAttribute('data-ak-tip')
+      })
       /* 柜列与方块的计数写在 data 属性上（样式表用 attr() 读出来当读数），
          它们同样是运行时标注，卸装时必须一并收回。 */
       for (const name of ['data-ak-sector', 'data-ak-active', 'data-ak-blank',
         'data-ak-name', 'data-ak-block', 'data-ak-blocks', 'data-ak-columns',
-        'data-ak-active-block', 'data-ak-active-column']) {
+        'data-ak-active-block', 'data-ak-active-column', 'data-ak-empty', 'data-ak-tray',
+        'data-ak-foreign']) {
         document.querySelectorAll('[' + name + ']').forEach((node) => node.removeAttribute(name))
       }
       /* 刻度尺定位用的数字通道写在行内样式里，也要收回。 */
@@ -10154,6 +10269,45 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'][d
   color: var(--edge-ink-2);
 }
 
+/* 「展开其余 N 个会话」是应用给超长会话列表的折叠按钮。它默认 order:0、
+   整行宽，跟着工作区板一起排队，真页面上把墙面切成 6 + 1 + 6，还撑出
+   43px 的空行（后面几块板的点击坐标因此整体错位）。柜面里它只能是第二级
+   选择末尾的一条窄操作带，不能占第一级的格位。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'] [data-ak-tui='session-overflow'] {
+  order: 3;
+  flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 22px;
+  margin: 2px 0 0;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border: 0;
+  border-left: 2px solid var(--lab-hairline-strong);
+  border-radius: 0;
+  background: var(--lab-chip);
+  color: var(--edge-ink-2);
+  font-family: var(--ak-mono);
+  font-size: 7px;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'] [data-ak-tui='session-overflow']:hover {
+  background: var(--edge-overlay);
+  color: var(--edge-ink);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'] [data-ak-tui='session-overflow'][data-ak-foreign='true'] {
+  display: none;
+}
+
 /* ---- 一块档案板 --------------------------------------------------------
    36px 宽、108px 高：参考里每块板的立面比例也是这个竖长条。定宽而不是
    flex-grow —— 柜面的格宽是死的，排不满右边留空，这样才不像「一组自适应卡片」。
@@ -10242,6 +10396,22 @@ body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-sector-head__plat
 
 body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-sector-head__plate:empty {
   display: none;
+}
+
+/* 柜面矮的时候，所有东西都排在墙后，空目录点开就只剩一面空墙。空态挂在
+   抬头里（铭牌下面），不受柜面滚动影响：点开就知道这一格真的没有会话。 */
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-sector-head[data-ak-empty='true']::after {
+  content: 'NO RECORDS // 该目录暂无会话';
+  display: block;
+  margin-top: 4px;
+  padding: 3px 5px 2px;
+  border-left: 2px solid var(--lab-hairline-strong);
+  background: var(--lab-chip);
+  color: var(--edge-ink-2);
+  font-family: var(--ak-mono);
+  font-size: 7.5px;
+  line-height: 1.3;
+  letter-spacing: 0.08em;
 }
 
 /* 悬停 = 手搭上板沿。!important 是因为通用令牌层给悬停的工作区行刷了一层
@@ -10465,6 +10635,13 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-block]:hover {
   background-color: var(--edge-overlay) !important;
 }
 
+/* 应用给会话行挂的悬停预览卡固定挂在 body 上（z-index 100），在真页面里会
+   落到侧栏左上角，把抬头和「新会话」整块盖住。lab 的方块已经写着标题和描述；
+   而且点开第二排板时托盘正好出现在指针下方，这张卡会立刻自己弹出来。 */
+body.theme-arknights-advanced.theme-arknights-lab [class*='_card']:has(> [class*='_hoverContent']) {
+  display: none !important;
+}
+
 /* 当前板：和第一级同一盏灯——纸面照白、微移，标签翻成黑牌。
    data-ak-active 是 JS 统一算出来的选中态，原生两个选择器留作扫描前的兜底。
    这里的 !important 不是风格问题：进阶版用「background: 渐变 !important」画
@@ -10497,6 +10674,35 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-block][data-ak-active
      就是黑牌黑字——真页面上「01」曾经因此整块看不见。 */
   color: var(--lab-plaque-ink) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+/* ---- 会话托盘 ----------------------------------------------------------
+   矮窗口（768px 高只剩两百来像素）里，会话区排在整面墙后面，点开也看不见。
+   一行方块可以钉在柜面下沿：读数带加高成整条托盘底，方块坐在上面，当前板
+   滚到托盘上方；多行方块不钉（每行都会贴同一个底边，叠成一摞），由 JS 改
+   成滚动。托盘只由 [data-ak-tray='true'] 打开，平时柜面还是完整的墙面。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'][data-ak-tray='true'] [data-ak-block] {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  box-shadow:
+    inset 0 1px 0 var(--lab-slab-lit),
+    inset -1px 0 0 var(--lab-slab-side),
+    0 -8px 16px rgba(0, 0, 0, 0.45);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'][data-ak-tray='true']::before {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  height: 88px;
+  margin: 0;
+  padding: 6px 0 0;
+  box-sizing: border-box;
+  background: var(--lab-cavity);
+  box-shadow:
+    0 -1px 0 var(--lab-hairline),
+    0 -10px 24px rgba(0, 0, 0, 0.4);
 }
 
 /* 「新会话」在参考里对应的是实心按钮块，而不是带箭头的终端指令。

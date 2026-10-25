@@ -403,6 +403,8 @@ const KNOWN_LOCAL_NAMES = new Set([
   /* 内容 */
   '_card', '_title', '_headline', '_label', '_icon', '_iconButton', '_badge', '_arrow', '_chevron',
   '_sessionRow', '_projectRow', '_actionRow', '_searchResultRow', '_command', '_folder',
+  /* 2026-10-26 真页面悬停会话行确认：预览卡 = ._card_* > ._hoverContent > ._hoverTitle */
+  '_hoverContent',
   '_add', '_addButton', '_close', '_clearButton', '_searchButton', '_inspectButton',
   '_primary', '_secondaryButton', '_dangerButton', '_selected', '_itemDesc', '_previewBadge',
   '_heroGlow', '_word', '_warning', '_confirmation', '_confirmAction', '_modalAction',

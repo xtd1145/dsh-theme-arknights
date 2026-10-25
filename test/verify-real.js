@@ -44,7 +44,7 @@ async function main() {
     EDGE,
     [
       '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
-      '--hide-scrollbars', '--window-size=1600,1000',
+      '--hide-scrollbars', '--window-size=1366,768',
       '--remote-debugging-port=' + PORT, '--user-data-dir=' + profileDir, 'about:blank',
     ],
     { stdio: 'ignore' }
@@ -117,6 +117,12 @@ async function main() {
   })
 
   console.log('打开真实 DSH 页面: ' + url.replace(/token=[^&]+/, 'token=***'))
+  /* --window-size 在这台 Edge 上不生效（页面仍是 1600×1000）；直接锁视口。
+     1366×768 是用户报「点开目录后柜面空白」的尺寸，柜面只有 ~220px 高，
+     单行会话必须靠托盘才能留在视口里。 */
+  await send('Emulation.setDeviceMetricsOverride', {
+    width: 1366, height: 768, deviceScaleFactor: 1, mobile: false,
+  })
   await send('Page.navigate', { url })
   await sleep(12000)
 
@@ -290,36 +296,52 @@ async function main() {
   let clickProbe = null
   let clickRestored = null
   let clickTarget = null
+  let clickTargets = []
+  let hoverTarget = null
   let hoverTip = null
   if (cabinet.lab === true) {
-    clickTarget = await evaluate(`
+    /* 可见、折叠、非当前的行里取前几个。真页面第一个往往是没有可渲染会话的
+       目录；空态要验证，但「点开后会话在视口里」必须拿一个真有会话的目录来验。 */
+    clickTargets = await evaluate(`
       (() => {
         const field = document.querySelector("[data-ak-tui='column-field']")
-        if (field === null) return null
+        if (field === null) return []
         const fr = field.getBoundingClientRect()
-        const rows = Array.from(document.querySelectorAll("[data-ak-tui='sector-row']"))
-        const row = rows.find((r) => r.getAttribute('data-ak-active') !== 'true'
-          && r.getAttribute('aria-expanded') === 'false'
-          && (() => {
-            const b = r.getBoundingClientRect()
-            return b.top >= fr.top && b.bottom <= fr.bottom && b.width > 0 && b.height > 0
-          })())
-        if (row === undefined) return null
-        const b = row.getBoundingClientRect()
-        return {
-          key: row.getAttribute('data-row-key'),
-          name: String(row.getAttribute('data-ak-name') || '').trim(),
-          x: Math.round(b.x + b.width / 2),
-          y: Math.round(b.y + b.height / 2),
-        }
+        return Array.from(document.querySelectorAll("[data-ak-tui='sector-row']"))
+          .filter((r) => r.getAttribute('data-ak-active') !== 'true'
+            && r.getAttribute('aria-expanded') === 'false'
+            && (() => {
+              const b = r.getBoundingClientRect()
+              return b.top >= fr.top && b.bottom <= fr.bottom && b.width > 0 && b.height > 0
+            })())
+          .slice(0, 8)
+          .map((r) => ({
+            key: r.getAttribute('data-row-key'),
+            name: String(r.getAttribute('data-ak-name') || '').trim(),
+          }))
       })()
     `)
-    if (clickTarget === null) {
+    if (clickTargets.length === 0) {
       console.log('\n  没有可点击的折叠目录（可能全部展开），跳过点击验证')
     } else {
-      console.log('\n=== 点击目录（' + clickTarget.name + '）')
-      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: clickTarget.x, y: clickTarget.y })
-      await sleep(400)
+      hoverTarget = clickTargets[0]
+      clickTarget = hoverTarget
+      console.log('\n=== 点击目录（候选 ' + JSON.stringify(clickTargets.map((t) => t.name))
+        + '，取第一个有会话的）')
+      const rowCenter = (key) => evaluate(`
+        (() => {
+          const row = Array.from(document.querySelectorAll("[data-ak-tui='sector-row']"))
+            .find((r) => r.getAttribute('data-row-key') === ${JSON.stringify(key)})
+          if (row === undefined) return null
+          const b = row.getBoundingClientRect()
+          return [Math.round(b.x + b.width / 2), Math.round(b.y + b.height / 2)]
+        })()
+      `)
+      const first = await rowCenter(hoverTarget.key)
+      if (first !== null) {
+        await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: first[0], y: first[1] })
+        await sleep(400)
+      }
       hoverTip = await evaluate(`
         (() => {
           const tip = document.querySelector('.ak-sector-tip')
@@ -334,9 +356,9 @@ async function main() {
         })()
       `)
       console.log('  悬停铭牌: ' + JSON.stringify(hoverTip))
-      const readClickState = () => evaluate(`
+      const readClickState = (key) => evaluate(`
         (() => {
-          const key = ${JSON.stringify(clickTarget.key)}
+          const key = ${JSON.stringify(key)}
           const field = document.querySelector("[data-ak-tui='column-field']")
           const rows = Array.from(document.querySelectorAll("[data-ak-tui='sector-row']"))
           const active = rows.filter((r) => r.getAttribute('data-ak-active') === 'true')
@@ -353,12 +375,26 @@ async function main() {
           }
           const sessionRows = field === null
             ? [] : Array.from(field.querySelectorAll("[class*='_sessionRow']"))
+          const head = document.querySelector("[data-ak-tui='sector-head']")
+          const fieldBox = field === null ? null : field.getBoundingClientRect()
+          const inField = (el) => {
+            if (fieldBox === null) return false
+            const b = el.getBoundingClientRect()
+            return b.top >= fieldBox.top - 1 && b.bottom <= fieldBox.bottom + 1
+              && b.left >= fieldBox.left - 1 && b.right <= fieldBox.right + 1
+          }
           return {
             activeCount: active.length,
             activeName: active.length === 0 ? '' : String(active[0].getAttribute('data-ak-name') || '').trim(),
             plate: plate === null ? '' : plate.textContent.trim(),
             expanded: target === null ? null : target.getAttribute('aria-expanded'),
             blocks: blocks.length,
+            blocksInView: blocks.filter(inField).length,
+            titled: blocks.filter((b) => String(b.getAttribute('title') || '').trim() !== '').length,
+            activeInView: active.length > 0 && inField(active[0]),
+            readout: field === null ? null : field.getAttribute('data-ak-blocks'),
+            tray: field === null ? null : field.getAttribute('data-ak-tray'),
+            empty: head === null ? null : head.getAttribute('data-ak-empty'),
             inGroup: group === null ? blocks.length === 0 : blocks.every((b) => group.contains(b)),
             visibleForeign: sessionRows.filter((r) => !r.hasAttribute('data-ak-block')
               && getComputedStyle(r).display !== 'none').length,
@@ -367,26 +403,78 @@ async function main() {
           }
         })()
       `)
-      const mouse = async (type) => send('Input.dispatchMouseEvent', {
-        type, x: clickTarget.x, y: clickTarget.y, button: 'left', clickCount: 1,
-      })
-      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: clickTarget.x, y: clickTarget.y })
-      await mouse('mousePressed')
-      await mouse('mouseReleased')
-      await sleep(2000)
-      clickProbe = await readClickState()
-      console.log('  展开后 : active=' + clickProbe.activeCount + ' name=' + clickProbe.activeName
-        + ' plate=' + clickProbe.plate + ' blocks=' + clickProbe.blocks
-        + ' 全在本组=' + clickProbe.inGroup + ' 可见外来会话=' + clickProbe.visibleForeign
-        + ' 藏起=' + clickProbe.hiddenForeign)
-      /* 再点一次收回。坐标不变：柜面现在不会因为展开而自动滚动。 */
-      await mouse('mousePressed')
-      await mouse('mouseReleased')
-      await sleep(2000)
-      clickRestored = await readClickState()
-      console.log('  收回后 : active=' + clickRestored.activeCount + ' name=' + clickRestored.activeName
-        + ' plate=' + clickRestored.plate + ' blocks=' + clickRestored.blocks
-        + ' expanded=' + clickRestored.expanded)
+      const clickRow = async (cand) => {
+        const c = await rowCenter(cand.key)
+        if (c === null) return false
+        await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: c[0], y: c[1] })
+        await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: c[0], y: c[1], button: 'left', clickCount: 1 })
+        await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: c[0], y: c[1], button: 'left', clickCount: 1 })
+        await sleep(2000)
+        return true
+      }
+      const collapseRow = async (cand) => {
+        const ok = await evaluate(`
+          (() => {
+            const row = Array.from(document.querySelectorAll("[data-ak-tui='sector-row']"))
+              .find((r) => r.getAttribute('data-row-key') === ${JSON.stringify(cand.key)})
+            if (row === undefined) return false
+            row.click()
+            return true
+          })()
+        `)
+        await sleep(1800)
+        return ok === true
+      }
+      let emptyProbe = null
+      let chosen = null
+      let lastCollapsed = false
+      for (const cand of clickTargets) {
+        clickTarget = cand
+        const opened = await clickRow(cand)
+        if (!opened) { console.log('  MISS ' + cand.name); continue }
+        const probe = await readClickState(cand.key)
+        console.log('  展开 ' + cand.name + ' : blocks=' + probe.blocks
+          + ' 在视口=' + probe.blocksInView + ' tray=' + probe.tray
+          + ' 空态=' + probe.empty)
+        if (probe.blocks > 0) {
+          chosen = cand
+          clickProbe = probe
+          /* 1366×768 是用户报 bug 的尺寸：柜面只剩 ~220px，单行会话必须靠
+             托盘留在视口里。截图留给人眼复核，断言在下面统一跑。 */
+          const openShot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
+          const openPath = path.join(OUT_DIR, 'real-open.png')
+          fs.writeFileSync(openPath, Buffer.from(openShot.data, 'base64'))
+          console.log('  展开态截图: ' + openPath)
+          break
+        }
+        emptyProbe = probe
+        lastCollapsed = await collapseRow(cand)
+        console.log('    → 该目录没有可排的会话，收回继续找（' + (lastCollapsed ? 'ok' : 'MISS') + '）')
+      }
+      console.log('  选中: ' + clickTarget.name + '  有会话=' + (chosen !== null))
+      if (chosen !== null) {
+        /* 再点一次收回。不能复用第一次的坐标：柜面现在会为展开的目录滚到会话区，
+           原来那块板可能已经滚出视口或压在托盘下面。直接派发 click，仍然走应用
+           自己的目录行处理与主题的 capture 监听，只避开「坐标已经变了」这件事。 */
+        lastCollapsed = await collapseRow(chosen)
+        clickRestored = await readClickState(chosen.key)
+        console.log('  收回点击: ' + (lastCollapsed ? 'ok' : 'MISS'))
+      } else {
+        clickProbe = emptyProbe
+        clickRestored = await readClickState(clickTarget.key)
+      }
+      if (clickProbe !== null) {
+        console.log('  展开后 : active=' + clickProbe.activeCount + ' name=' + clickProbe.activeName
+          + ' plate=' + clickProbe.plate + ' blocks=' + clickProbe.blocks
+          + ' 在视口=' + clickProbe.blocksInView + ' tray=' + clickProbe.tray
+          + ' 全在本组=' + clickProbe.inGroup + ' 可见外来会话=' + clickProbe.visibleForeign
+          + ' 藏起=' + clickProbe.hiddenForeign)
+      }
+      if (clickRestored !== null) {
+        console.log('  收回后 : active=' + clickRestored.activeCount + ' name=' + clickRestored.activeName
+          + ' plate=' + clickRestored.plate + ' blocks=' + clickRestored.blocks
+          + ' tray=' + clickRestored.tray + ' expanded=' + clickRestored.expanded)
+      }
     }
   }
 
@@ -424,8 +512,8 @@ async function main() {
       '「' + cabinet.plate + '」 vs 「' + cabinet.activeNames[0] + '」')
     if (clickTarget !== null && clickProbe !== null && clickRestored !== null) {
       check('悬停显示工作区名字', hoverTip !== null && hoverTip.hidden === false
-        && hoverTip.text === clickTarget.name && hoverTip.inView === true,
-        JSON.stringify(hoverTip) + ' vs 「' + clickTarget.name + '」')
+        && hoverTip.text === hoverTarget.name && hoverTip.inView === true,
+        JSON.stringify(hoverTip) + ' vs 「' + hoverTarget.name + '」')
       check('点击目录后成为唯一当前板', clickProbe.activeCount === 1
         && clickProbe.activeName === clickTarget.name, 'active=' + clickProbe.activeCount
         + ' name=' + clickProbe.activeName)
@@ -434,12 +522,35 @@ async function main() {
       check('点击后柜面只排该目录的会话', clickProbe.inGroup === true
         && clickProbe.visibleForeign === 0, '全在本组=' + clickProbe.inGroup
         + ' 可见外来会话=' + clickProbe.visibleForeign)
+      check('点击后目录处于展开状态', clickProbe.expanded === 'true',
+        'aria-expanded=' + clickProbe.expanded)
+      /* 真机 bug：会话确实渲染了，但排在整面工作区墙后面，柜面矮的时候
+         永远看不见。点开后至少一块会话必须落在柜面的可见矩形里。 */
+      if (clickProbe.blocks > 0) {
+        const wantReadout = (clickProbe.blocks < 10 ? '0' : '') + clickProbe.blocks
+        check('点开后会话块进入柜面视口', clickProbe.blocksInView > 0,
+          '在视口 ' + clickProbe.blocksInView + ' / ' + clickProbe.blocks)
+        /* 方块里的标题是截断的，而应用那张会盖住抬头的悬停预览卡在 lab 档被
+           收起；标题必须能从原生 tooltip 读全。 */
+        check('会话块带完整标题提示', clickProbe.titled === clickProbe.blocks,
+          clickProbe.titled + ' / ' + clickProbe.blocks)
+        check('会话读数带与方块数一致', clickProbe.readout === wantReadout,
+          String(clickProbe.readout) + ' vs ' + wantReadout)
+        if (clickProbe.tray === 'true') {
+          check('单行托盘里当前板仍然可见', clickProbe.activeInView === true)
+        }
+      } else {
+        check('没有会话的目录显示空态', clickProbe.empty === 'true',
+          'data-ak-empty=' + clickProbe.empty)
+      }
       check('再点一次回到部署工作区', clickRestored.expanded === 'false'
         && clickRestored.activeCount === 1
         && clickRestored.activeName === cabinet.activeNames[0]
         && clickRestored.plate === cabinet.plate
-        && clickRestored.blocks === cabinet.blocks,
+        && clickRestored.blocks === cabinet.blocks
+        && clickRestored.tray === null,
       'active=' + clickRestored.activeName + ' blocks=' + clickRestored.blocks
+      + ' tray=' + clickRestored.tray
       + ' expected ' + cabinet.activeNames[0] + '/' + cabinet.blocks)
     }
   }
