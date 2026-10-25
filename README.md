@@ -24,7 +24,7 @@
 | 版本 | 做什么 | 适用 |
 | --- | --- | --- |
 | **进阶版**（默认） | 重排整体 UI：PRTS 铭牌、终端作战位置、扇区编号、部署选择面板、菜单抬头、任务简报输入区、顶栏频道、作战记录页脚、切角与 HUD 标注、三套阵营氛围层 | 想要完整明日方舟观感 |
-| **莱茵终端版** | 叠在进阶版之上的**材质层**：陶瓷白/墨黑纸面、列表按行条纹、数值右对齐 + 发丝线、直角为主、发送键是全屏唯一的圆形、输入区改成 transport 条、文案换成 `RHINE // LIBRARY` 与 `TRACK`；取自 [Rhine-Music-Database](https://github.com/MikeQu223/Rhine-Music-Database) 的界面逻辑 | 想要参考项目那种「器材」而非「皮肤」的味道 |
+| **莱茵终端版** | 叠在进阶版之上的**材质层 + 结构层**：工作区改成**一列一列的竖柱**、会话改成**横向一排方块**（两级选择各自带读数），陶瓷白/墨黑纸面、列表按行条纹、数值右对齐 + 发丝线、直角为主、发送键是全屏唯一的圆形、输入区改成 transport 条、文案换成 `RHINE // LIBRARY` 与 `BLOCK`；取自 [Rhine-Music-Database](https://github.com/MikeQu223/Rhine-Music-Database) 的界面逻辑 | 想要参考项目那种「器材」而非「皮肤」的味道 |
 | **通用适配** | 只换配色、标题字族、圆角与细节，界面骨架与应用原生完全一致 | 保守 / 上游改版后临时退避 |
 
 进阶版的全部规则**只加装饰、不改布局骨架**：CSS 选择器失配时最坏结果是少一处装饰，不会破版。终端 DOM 层也只做标注与少量装饰节点，关闭主题或切到通用适配时会把注入节点、观察器和原生节点上的属性全部收回。
@@ -40,7 +40,16 @@
 - 空状态的工作区选择器被包进一块 **「终端作战位置 // TERMINAL DEPLOYMENT POSITION」** 面板，右上角读 `SECTOR xx // READY`；打开工作区菜单时，菜单顶部出现 **PRTS // DEPLOYMENT CONTROL**，列出 `xx POSITIONS`，每一项同样带扇区编号与选中态。
 - 进入对话后，页脚收回、空状态部署面板消失，但侧栏的作战位置与顶栏频道仍在；对话页没有 hero 可读时，选中态回退到应用自身的结构信号，不会把当前会话对应的目录弄丢。
 - 底部有一条只在空状态出现的 **PRTS // OPERATIONS LEDGER** 页脚，显示当前扇区、频道与链路状态。
-- 切到**莱茵终端版**，这套结构一个不动，只换词表：铭牌与抬头读 `RHINE // LIBRARY`、标题「终端工作位置」、编号 `TRACK 01`、页脚 `RHINE // PLAYBACK LEDGER · POWERED BY RHINE LAB`。词表在 `36-terminal-ui.js` 的 `TERMINAL_WORDS` 里按档位取，扫描时重写文本，不重建节点。
+- 切到**莱茵终端版**，词表先换：铭牌与抬头读 `RHINE // LIBRARY`、标题「终端工作位置」、编号 `TRACK 01`、页脚 `RHINE // PLAYBACK LEDGER · POWERED BY RHINE LAB`。词表在 `36-terminal-ui.js` 的 `TERMINAL_WORDS` 里按档位取，扫描时重写文本，不重建节点。然后结构也换，见下一节。
+
+## 两级选择：柱列 + 方块带（莱茵终端版）
+
+参考项目的选择器不是一张表，而是**上下两级**：上面一列一列竖着的柱阵选「组」，下面横向一排方块选「组里的第几个」。莱茵终端版把这套读法原样搬到 DSH 上——**工作区 = 柱，会话 = 块**：
+
+- **第一级 · 柱列**：工作区列表从纵向清单转成横排的竖柱，每根柱子 32×116，编号压顶、名称用 `writing-mode: vertical-rl` 竖排，当前工作区**整根柱子填充强调色**。抬头下方是一块大读数 `COLUMN 01 / 05`（数字永远比标签大、分母比分子小），右侧一枚键位芯片 `← → 换列 · ↑ ↓ 选块`。
+- **第二级 · 方块带**：会话行转成一排同尺寸的横方块（96×84，标题两行截断），块号钉在右下角，带子左上角读 `BLOCK 01 / 06`。当前那块**上浮 4px 并整块点亮**。侧栏只有 223px，所以方块带是 `nowrap` + 横向滚动：第三块故意只露半截，半个块就是「右边还有」的提示。
+- 两级都**不重建 DOM**：柱与块是应用自己的行，主题只给它们打 `data-ak-tui` / `data-ak-block` 标注，容器从行本身往上取一层（`akListField`）——那一层的 class 是 CSS-module 哈希，写死等于埋一条永不命中的规则。
+- 进阶版不受影响：它仍然是纵向清单，只是抬头多了同一块 `SECTOR 01 / 04` 读数与 `↑ ↓ 浏览 · ENTER 部署` 提示，两档读同一份真相。
 
 ## 三套阵营
 
@@ -144,7 +153,7 @@ dsh plugin --profile web add github:xtd1145/dsh-theme-arknights
 
 ```bash
 node scripts/build.js        # 由 src/ 拼出 index.js + client.js
-npm run check                # 产物是否过期 + 静态契约校验（42 项）
+npm run check                # 产物是否过期 + 静态契约校验（46 项）
 npm test                     # 构建校验 + 契约 + 对比度（194 项断言）
 npm run shots                # 用 fixture 页面截三套阵营（需本机 Edge/Chrome）
 npm run verify -- <url>      # 在**真实 dsh web 页面**上验证并截图
@@ -152,9 +161,9 @@ npm run verify -- <url>      # 在**真实 dsh web 页面**上验证并截图
 
 | 验证 | 覆盖什么 |
 | --- | --- |
-| `check.js` | 两侧字段表逐字段一致、六组阵营变量完整、被引用的 `--edge-*` 全部有归属、**选择器锚点必须是应用里真实存在的 localName**、命名空间三处一致、样式表可安全嵌入模板字面量 |
+| `check.js` | 两侧字段表逐字段一致、六组阵营变量完整、被引用的 `--edge-*` 全部有归属、**选择器锚点必须是应用里真实存在的 localName**、两档词表键集一致、柱/块两侧的容器标注成对存在、命名空间三处一致、样式表可安全嵌入模板字面量 |
 | `test/palette-contrast.test.js` | 六组配色 × 每个角色的 WCAG 对比度（正文 AAA、其余 AA、装饰另有一套区间） |
-| `test/shoot.js` | 在浏览器里注入 client.js 到 fixture，逐个阵营截图并断言 class 翻转、`--edge-accent` 解析、令牌层是否跟着阵营走、悬浮条三选 |
+| `test/shoot.js` | 在浏览器里注入 client.js 到 fixture，逐个阵营 × 档位截图并断言 class 翻转、`--edge-accent` 解析、令牌层是否跟着阵营走、悬浮条三选；再加一组**几何断言**：柱列容器真的横排、柱子竖长、方块横长、读数是 `01/05` 这种两位比、键位提示按档位换词 |
 | `test/verify-real.js` | 打开**真实的 dsh web 页面**（插件由 DSH 自己挂载），断言：`/plugins/dsh-theme-arknights/client.js` 进入 combo、样式表注入、body class、强调色、令牌层、悬浮条；再逐个阵营派发 `Ctrl+Shift+1/2/3` 并截图 |
 
 ### 关于「锚点必须是真实 localName」
@@ -176,7 +185,7 @@ src/client/        Client 侧源码片段（拼接顺序见 src/client/manifest.
 src/host/          Host 侧源码片段（拼接顺序见 src/host/manifest.js）
 src/styles/theme.css     功能样式（玻璃、加载屏、大字、胶囊、审批弹窗重绘…）
 src/styles/faction.css   三阵营变量组 + 明日方舟氛围层 + 进阶版终端排版层
-src/styles/lab.css       第三档「莱茵终端版」材质层（陶瓷纸面、条纹行、右对齐数值、transport 输入条）
+src/styles/lab.css       第三档「莱茵终端版」材质 + 结构层（工作区柱列、会话方块带、陶瓷纸面、条纹行、右对齐数值、transport 输入条）
 client.js / index.js      发布产物，由 scripts/build.js 拼出（不要直接编辑）
 lib/               音频通知：槽位定义、WAV 合成与播放运行时
 sounds/            生成的通知音

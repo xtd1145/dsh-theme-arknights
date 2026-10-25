@@ -303,15 +303,21 @@ body.theme-arknights-themed.theme-arknights-laterano { --edge-paper: #eceef2; --
 | 铭牌品牌 | `PRTS` | `RHINE` |
 | 铭牌副标 | `SECTOR / COMMAND` | `TRACK / SELECT` |
 | 侧栏抬头 | `PRTS // DEPLOYMENT` · 终端作战位置 | `RHINE // LIBRARY` · 终端工作位置 |
+| 抬头副标 | `TERMINAL DEPLOYMENT POSITION` | `WORKSPACE POSITION` |
+| 读数标签 | `SECTOR` | `COLUMN` |
+| 读数键位 | `↑ ↓ 浏览 · ENTER 部署` | `← → 换列 · ↑ ↓ 选块` |
+| 方块带标签 | —（进阶版没有方块带） | `BLOCK` |
 | 菜单抬头 | `PRTS // DEPLOYMENT CONTROL` | `RHINE // LIBRARY CONTROL` |
 | 页脚通道 | `PRTS // OPERATIONS LEDGER` | `RHINE // PLAYBACK LEDGER` |
 | 编号单位 | `SECTOR 01` / `12 SECTORS` | `TRACK 01` / `04 TRACKS` |
 
 每个带 `data-ak-part="<槽位>"` 的节点在每次扫描时被重写（含 `<br>` 的那一份走 `innerHTML`，其余走 `textContent`，避免把 HTML 当字面量印出来）。所以切档位不需要重建 DOM，也不会留下上一档的措辞。
 
+两档的词表**键集必须一致**——少一个键，切到那一档时对应的槽位就永远停在模板里的默认字面量上，而默认值是进阶版的。`check.js` 直接比对两档的键集合，多一个少一个都失败。（这条契约差点是假绿的：`String.match` 带 `/g` 返回的是整段匹配字符串、没有捕获组，`m[1]` 取到的是字符串的第 2 个字符，两边都会塌成同一堆垃圾字符并「相等」。取键名要用 `matchAll`。）
+
 ---
 
-## 八、第三档：莱茵终端版（材质层）
+## 八、第三档：莱茵终端版（材质 + 结构层）
 
 设计依据：[MikeQu223/Rhine-Music-Database](https://github.com/MikeQu223/Rhine-Music-Database)（Qt6/QML 音乐库终端）。它的界面不是「明日方舟的阵营皮肤」，而是一台**器材**：固定 1920×1080 舞台、整屏陶瓷白面板、列表按行条纹、数值一律右对齐、标题是「一行大写拉丁 + 一行中文副标题」、返回键是实心块、全局只有一个圆形元素（播放盘），页脚写 `POWERED BY RHINE LAB`。
 
@@ -331,6 +337,26 @@ body.theme-arknights-themed.theme-arknights-laterano { --edge-paper: #eceef2; --
 ### 8.3 纸面为什么不是参考项目的那个色
 
 参考的陶瓷底 `#e1ded6` 压在罗德岛钢蓝 `#1a6fa8` 上只有 4.02:1，过不了 AA。所以整套纸面家族上移一档到 `#edebe4`（暗色 `#141613`），逐对复测后才落库——**颜色是量出来的**这条规则在档位层同样成立。
+
+### 8.4 两级选择：柱列与方块带
+
+材质之外，这一档还改掉参考项目里最核心的一处读法。参考的主界面把选择分成上下两级：**上面一列一列竖着的柱阵选「组」，下面横向一排方块选「组里的第几个」**。DSH 的侧栏正好有同一批层级——工作区列表与会话列表——于是：
+
+| 级 | DSH 对象 | 转法 | 读数 |
+| --- | --- | --- | --- |
+| 第一级 | 工作区行 `_projectRow` | 纵向清单 → 横排竖柱（32×116，名称 `writing-mode: vertical-rl`，编号压顶，当前整柱填充强调色） | 抬头大读数 `COLUMN 01 / 05` + 键位芯片 |
+| 第二级 | 会话行 `_sessionRow` | 纵向清单 → 横排方块（96×84，标题两行截断，块号钉右下角，当前块上浮 4px 并整块点亮） | 带子左上角 `BLOCK 01 / 06` |
+
+几条实现约束，都是踩出来的：
+
+- **容器不能写死。** 柱阵与方块带的父层 class 是应用的 CSS-module 哈希，所以 `akListField()` 从行本身往上取一层，再验三条：不是 `data-slot="sidebar"` 本身、那一层还没被别的角色占用、行确实占了这一层的大部分子节点。一个节点只有一个 `data-ak-tui`，抢走别人的角色会连带改掉对方那条规则——方块最初就是被 `paintChrome` 的 `panel-row` 覆盖掉才全部失效的，所以块身份改用 `data-ak-block` 属性，不占那个槽。
+- **读数用 `attr()` 画，不再注入节点。** `content: 'BLOCK ' attr(data-ak-active-block) ' / ' attr(data-ak-blocks)` 一行纯文本就够，少一个要在卸载时收回的节点。
+- **侧栏只有 223px，参考的舞台是 1920px。** 方块带必须 `nowrap` + 横向滚动，让第三块只露半截——半个块本身就是「右边还有」的提示；`row wrap` 会把一排方块折成一竖列，两级选择当场塌掉。混进带子的非方块成员（日期分组头之类）收成 24px 的竖排标签条，不能占一格方块宽。
+- **进阶版的 margin 会顶坏 flex 基准。** 行上的 `margin: 1px 8px` 把柱距撑成 53px，五根柱子放不进侧栏；抬头自己的 `margin: 0 12px` 叠在 `flex: 0 0 100%` 之外又加出 24px，容器于是横向溢出、柱子掉到第二行。两处都在柱阵层归零，留白交给容器 padding。
+- **点亮当前块要 `!important`。** 进阶版用「`background: 渐变 !important`」画选中行的洗色，简写连 `background-color` 一起钉成 transparent，普通声明盖不动；通用令牌层还给选中行的后代写了 `color: #000 !important`——真页面上不跟着加 `!important`，点亮的块里就是黑字压黑底。
+- **`flex-direction` 对非 flex 容器也返回 `row`**（那是初始值，不是生效值），所以几何断言必须先判 `display`，否则进阶版的纵向清单会被误判成横排。
+
+`node test/shoot.js` 因此不只比颜色：它量柱子是不是竖长（`h > w` 且 `h ≥ 90`）、方块是不是横长（`w > h` 且 `h ≥ 60`）、两个容器在 lab 下是不是真的横排、读数是不是 `01/05` 这种两位比、键位提示有没有按档位换词。
 
 ---
 
@@ -360,6 +386,6 @@ body.theme-arknights-themed.theme-arknights-laterano { --edge-paper: #eceef2; --
 5. **底色归主题、文字归应用 = 裂缝。** 只接管背景令牌而不接管前景，会造出「白字压在黄底上」这类不可读组合。改一个背景令牌时，要一起检查谁在上面写字。
 6. **运行时数据要有幂等的标注层，而不是伪元素。** 菜单、动态列表与选中项只能由 JS 标注；标注必须可重复、可收回，扫描范围要避开流式输出。
 
-验证覆盖：`npm run check` 目前 42 项静态契约，`npm test` 194 项断言（含 12 组配色对比度）；`node test/shoot.js` 把注入后的 `client.js` 打在仿 DSH 骨架上，24 张截图 × 一致性判定（阵营 class、档位 class、铭牌词表、扇区编号、令牌跟随、悬浮条）全部通过。终端层的结构、选中态与卸装另在真实 DSH 页面逐项核验（见 `docs/screenshots/rhodes-menu.png`）。
+验证覆盖：`npm run check` 目前 46 项静态契约，`npm test` 194 项断言（含 12 组配色对比度）；`node test/shoot.js` 把注入后的 `client.js` 打在仿 DSH 骨架上，24 张截图 × 一致性判定（阵营 class、档位 class、铭牌词表、扇区编号、令牌跟随、悬浮条）+ 一组几何判定（柱竖、块横、容器横排、读数格式、键位换词）全部通过。终端层的结构、选中态与卸装另在真实 DSH 页面逐项核验（见 `docs/screenshots/rhodes-menu.png`）。
 
 三套纹理、字标与终端装饰均由代码绘制，仓库不包含游戏原始素材，也没有下载外部背景图片。

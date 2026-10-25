@@ -264,6 +264,57 @@ for (const id of layoutList) {
   }
 }
 
+/* ---- 档位词表两档键集必须一致 ----
+   终端层的槽位是两档共用的：akSetWords 按当前档位的词表逐个找 [data-ak-part]。
+   少写一个 key，那一处文本就停在上一档的措辞上（切到莱茵终端档却还写着
+   SECTOR），而且只在切档后可见。 */
+const terminalUi = read('src/client/36-terminal-ui.js')
+const wordsBlock = (terminalUi.match(/TERMINAL_WORDS = \{([\s\S]*?)\n    \}/) || [])[1]
+if (wordsBlock === undefined) {
+  fail('找不到 TERMINAL_WORDS，档位词表契约无法校验')
+} else {
+  const wordKeys = {}
+  for (const tier of ['advanced', 'lab']) {
+    const block = (wordsBlock.match(new RegExp(tier + ': \\{([\\s\\S]*?)\\n      \\}')) || [])[1]
+    /* 必须用 matchAll：String.match 带 /g 返回的是**整段匹配字符串**，没有捕获组，
+       于是 m[1] 取到的是字符串的第 2 个字符——两边都会得到同一堆垃圾字符，
+       这条契约就永久假绿。 */
+    wordKeys[tier] = block === undefined
+      ? null
+      : new Set(Array.from(block.matchAll(/^\s+([A-Za-z][A-Za-z0-9]*):/gm), (m) => m[1]))
+  }
+  if (wordKeys.advanced === null || wordKeys.lab === null) {
+    fail('TERMINAL_WORDS 的 advanced / lab 两块结构不符合预期', JSON.stringify(Object.keys(wordKeys)))
+  } else {
+    const missing = Array.from(wordKeys.advanced).filter((k) => !wordKeys.lab.has(k))
+    const extra = Array.from(wordKeys.lab).filter((k) => !wordKeys.advanced.has(k))
+    if (missing.length === 0 && extra.length === 0) {
+      ok('档位词表两档键集一致', wordKeys.advanced.size + ' 个槽位')
+    } else {
+      fail('档位词表两档键集不一致', 'lab 缺 ' + JSON.stringify(missing) + '，多 ' + JSON.stringify(extra))
+    }
+  }
+}
+
+/* ---- DOM 层标出的容器，样式表必须真的接住 ----
+   柱列与方块带是 JS 从行本身往上取一层标出来的（那一层的 class 是 module
+   哈希，不能写死）。标了但样式表没有对应规则 = 侧栏静默停在纵向清单，界面上
+   看不出任何报错，所以这一条按两级逐个查两侧。
+   方块用 data-ak-block 而不是 data-ak-tui：会话行还要给 paintChrome 留
+   'panel-row' 那个角色，一个属性装不下两个值。 */
+const TWO_TIER = [
+  ['column-field', "'column-field'", "[data-ak-tui='column-field']"],
+  ['session-stack', "'session-stack'", "[data-ak-tui='session-stack']"],
+  ['data-ak-block', "'data-ak-block'", '[data-ak-block]'],
+]
+for (const [name, jsNeedle, cssNeedle] of TWO_TIER) {
+  const marked = terminalUi.indexOf(jsNeedle) !== -1
+  const styled = labCss.indexOf(cssNeedle) !== -1
+  if (marked && styled) ok('终端层标出并由 lab.css 接住：' + name)
+  else if (!marked && !styled) fail('两级选择的 ' + name + ' 两侧都不存在', '列/块模型已断')
+  else fail(name + ' 只有一侧存在', 'JS 标注=' + marked + ' lab.css 规则=' + styled)
+}
+
 /* ------------------------------------------------------------------ *
  * 4. 极性 / 枚举
  * ------------------------------------------------------------------ */

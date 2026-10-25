@@ -115,6 +115,7 @@
     flex-direction: column;
     gap: 2px;
     padding: 12px 10px;
+    overflow-y: auto;
     background: var(--dsw-specific-sidebar-fill);
     border-right: 1px solid var(--dsw-alias-border-l1);
   }
@@ -436,12 +437,19 @@
     </div>
     <div class="new-chat _newSession_5pq1">＋ 新建会话</div>
     <div class="nav-label">会话</div>
-    <div class="nav-item nav-item--active _sessionRow_1zx9 _panelRow_6q">
-      <span class="nav-item__dot"></span>阵营主题的三套皮肤
+    <!-- 会话行住在自己的列表容器里（真实应用如此）：主题的柱/块层要从行本身往上
+         取一层当容器，行直接摊在侧栏上时那一层就是侧栏本身，横排会把铭牌和工作区
+         一起卷进去，所以那种形状下宁可不标。fixture 必须还原真实形状。 -->
+    <div class="_sessionList_8bv4">
+      <div class="nav-item nav-item--active _sessionRow_1zx9 _panelRow_6q _selected_2f">
+        <span class="nav-item__dot"></span><span class="_title_3hb">阵营主题的三套皮肤</span>
+      </div>
+      <div class="nav-item _sessionRow_1zx9 _panelRow_6q"><span class="_title_3hb">令牌层是怎么接上的</span></div>
+      <div class="nav-item _sessionRow_1zx9 _panelRow_6q"><span class="_title_3hb">对比度验算记录</span></div>
+      <div class="nav-item _sessionRow_1zx9 _panelRow_6q"><span class="_title_3hb">构建与门禁</span></div>
+      <div class="nav-item _sessionRow_1zx9 _panelRow_6q"><span class="_title_3hb">柱列与方块的两级选择</span></div>
+      <div class="nav-item _sessionRow_1zx9 _panelRow_6q"><span class="_title_3hb">卸装要收回哪些运行时标注</span></div>
     </div>
-    <div class="nav-item _sessionRow_1zx9 _panelRow_6q">令牌层是怎么接上的</div>
-    <div class="nav-item _sessionRow_1zx9 _panelRow_6q">对比度验算记录</div>
-    <div class="nav-item _sessionRow_1zx9 _panelRow_6q">构建与门禁</div>
     <div data-slot="sidebar.workspaces">
       <div class="nav-label _sectionHeader_7mn3"><span class="_sectionLabel_4rt8">工作区</span></div>
       <div class="nav-item _projectRow_8kd1 _selected_2f" data-row-key="workspace:ds">
@@ -455,6 +463,9 @@
       </div>
       <div class="nav-item _projectRow_8kd1" data-row-key="workspace:token-meter">
         <span class="_title_3hb">token-meter</span>
+      </div>
+      <div class="nav-item _projectRow_8kd1" data-row-key="workspace:cordis">
+        <span class="_title_3hb">cordis patches</span>
       </div>
     </div>
   </aside>

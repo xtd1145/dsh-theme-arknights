@@ -82,13 +82,18 @@
         sectorPrefix: 'SECTOR ',
         sectorUnit: ' SECTORS',
         positionUnit: ' POSITIONS',
+        /* 大读数的标签与键位提示：进阶版说的是「一条纵向列表 + 部署」，莱茵终端
+           档说的是「一根一根的柱列 + 换列／选块」。同一批槽位，两种读法。 */
+        readoutLabel: 'SECTOR',
+        keysHint: '↑ ↓ 浏览 · ENTER 部署',
+        blockLabel: 'SESSION',
       },
       lab: {
         deckBrand: 'RHINE',
         deckLabel: 'TRACK<br>SELECT',
         headChannel: 'RHINE <b>//</b> LIBRARY',
         headTitle: '终端工作位置',
-        headMeta: 'TERMINAL WORKSPACE POSITION',
+        headMeta: 'WORKSPACE POSITION',
         footChannel: 'RHINE <b>//</b> PLAYBACK LEDGER',
         menuChannel: 'RHINE <b>//</b> LIBRARY CONTROL',
         menuTitle: '终端工作位置',
@@ -96,6 +101,9 @@
         sectorPrefix: 'TRACK ',
         sectorUnit: ' TRACKS',
         positionUnit: ' TRACKS',
+        readoutLabel: 'COLUMN',
+        keysHint: '← → 换列 · ↑ ↓ 选块',
+        blockLabel: 'BLOCK',
       },
     }
     const terminalWords = () => (readLayout() === 'lab' ? TERMINAL_WORDS.lab : TERMINAL_WORDS.advanced)
@@ -229,7 +237,11 @@
 
     /* ---- 终端作战位置 ----------------------------------------------------
        侧栏工作区列表上方的一块部署抬头。它跟随群组重渲染，所以每次
-       扫描都要确认它仍然紧贴 sectionHeader。 */
+       扫描都要确认它仍然紧贴 sectionHeader。
+
+       底部那行大读数（「COLUMN 01 / 04」+ 键位提示）是参考项目里「当前第几列 /
+       共几列」那块硬件计数器的对应物：数字永远比标签大、分母永远比分子小，
+       所以三个值各占一个槽位，由样式表分派字号，而不是拼成一串等宽文本。 */
     const buildSectorHead = () => {
       const head = document.createElement('div')
       head.className = 'ak-terminal-sector-head'
@@ -244,6 +256,13 @@
         '<div class="ak-terminal-sector-head__meta">' +
           '<span data-ak-part="headMeta">TERMINAL DEPLOYMENT POSITION</span>' +
           '<span class="ak-terminal-sector-head__live"><i></i>SELECT</span>' +
+        '</div>' +
+        '<div class="ak-terminal-sector-head__readout">' +
+          '<span class="ak-terminal-sector-head__roLabel" data-ak-part="readoutLabel">SECTOR</span>' +
+          '<span class="ak-terminal-sector-head__roActive" data-ak-part="readoutActive">01</span>' +
+          '<i class="ak-terminal-sector-head__roSlash">/</i>' +
+          '<span class="ak-terminal-sector-head__roTotal" data-ak-part="readoutTotal">00</span>' +
+          '<span class="ak-terminal-sector-head__keys" data-ak-part="keysHint">↑ ↓ 浏览 · ENTER 部署</span>' +
         '</div>'
       return head
     }
@@ -380,13 +399,36 @@
       return name === label ? '' : name
     }
 
+    /* ---- 列表容器 --------------------------------------------------------
+       莱茵终端档把可选项排成一排竖柱（工作区）和一排方块（会话）。要做这件事
+       必须知道「哪一层是行的容器」，而那一层的 class 是应用的 CSS-module 哈希，
+       写死等于埋一条永不命中的规则 —— 所以从行本身往上取一层。
+
+       取之前验一次它确实只装这些行：父级就是整条侧栏时（应用把行直接摊在侧栏
+       里），横排会把铭牌、会话、工作区一起卷进同一排，那比不标更糟。 */
+    const akListField = (rows, role) => {
+      if (rows.length < 2) return null
+      const field = rows[0].parentElement
+      if (field === null) return null
+      if (field.getAttribute('data-slot') === 'sidebar') return null
+      /* 已经被别的角色占用的层不抢：一个节点只有一个 data-ak-tui，抢了会把
+         对方那一条样式规则一起改掉。 */
+      const held = field.getAttribute('data-ak-tui')
+      if (held !== null && held !== role) return null
+      if (rows.length / field.children.length < 0.6) return null
+      akMark(field, role)
+      return field
+    }
+
     /* ---- 工位编号 --------------------------------------------------------
        行内的编号是一个真实 span（不是伪元素），所以可以和原生图标、文字
        一起参与 flex 排版；重渲染后由扫描补回。 */
     const paintWorkspaceRows = (sidebar) => {
-      if (sidebar === null) return { count: 0, activeSector: '' }
+      if (sidebar === null) return { count: 0, activeSector: '', field: null }
       /* 空 key 是 DSH 的“未分组”会话桶，不是可部署工作区。 */
-      const rows = sidebar.querySelectorAll('[class*="_projectRow"][data-row-key^="workspace:"]:not([data-row-key="workspace:"])')
+      const rows = Array.prototype.slice.call(
+        sidebar.querySelectorAll('[class*="_projectRow"][data-row-key^="workspace:"]:not([data-row-key="workspace:"])')
+      )
       const deployed = readDeployedWorkspace()
       let activeSector = ''
       rows.forEach((row, index) => {
@@ -418,7 +460,44 @@
         akSetAttr(row, 'data-ak-active', active ? 'true' : 'false')
         if (active && activeSector === '') activeSector = sector
       })
-      return { count: rows.length, activeSector }
+      const field = akListField(rows, 'column-field')
+      if (field !== null) {
+        akSetAttr(field, 'data-ak-columns', terminalPad(rows.length))
+        akSetAttr(field, 'data-ak-active-column', activeSector === '' ? '01' : activeSector)
+      }
+      return { count: rows.length, activeSector, field }
+    }
+
+    /* ---- 会话方块 --------------------------------------------------------
+       参考的第二级选择是「当前列里的一排横向方块」。DSH 的会话行就是这一批
+       条目，所以这里只负责标出容器与块序号，方块本身多大、哪块点亮全在样式表。
+       计数走 data 属性而不是注入节点：读数是一条纯文本，CSS 的 attr() 就够，
+       少造一个要在卸载时收回的节点。
+
+       方块的身份也用 data-ak-block，不再占一个 data-ak-tui 槽位：会话行同时带
+       应用的 `_panelRow` class，paintChrome 会把那一层标成 'panel-row'。两个
+       角色挤同一个属性时后写的赢，方块样式会静默失效——截图门禁真的抓到过。 */
+    const paintSessionBlocks = (sidebar) => {
+      if (sidebar === null) return { count: 0, active: '', field: null }
+      const rows = Array.prototype.slice.call(sidebar.querySelectorAll('[class*="_sessionRow"]'))
+      let active = ''
+      rows.forEach((row, index) => {
+        const block = terminalPad(index + 1)
+        akSetAttr(row, 'data-ak-block', block)
+        const selected = row.className.indexOf('_selected') !== -1
+          || row.getAttribute('aria-selected') === 'true'
+          || row.getAttribute('aria-current') !== null
+          || row.getAttribute('data-state') === 'selected'
+          || row.querySelector('[class*="_selected"]') !== null
+        akSetAttr(row, 'data-ak-active', selected ? 'true' : 'false')
+        if (selected && active === '') active = block
+      })
+      const field = akListField(rows, 'session-stack')
+      if (field !== null) {
+        akSetAttr(field, 'data-ak-blocks', terminalPad(rows.length))
+        akSetAttr(field, 'data-ak-active-block', active === '' ? '01' : active)
+      }
+      return { count: rows.length, active, field }
     }
 
     const paintHero = (activeSector) => {
@@ -521,9 +600,13 @@
         }
 
         const rowsState = paintWorkspaceRows(workspaces)
+        const blocksState = paintSessionBlocks(sidebar)
         if (terminalSectorHeadEl !== null) {
+          const active = rowsState.activeSector === '' ? '01' : rowsState.activeSector
           akSetText(terminalSectorHeadEl.querySelector('[data-ak-part="count"]'), terminalPad(rowsState.count) + terminalWords().sectorUnit)
-          akSetAttr(terminalSectorHeadEl, 'data-ak-active-sector', rowsState.activeSector === '' ? '01' : rowsState.activeSector)
+          akSetAttr(terminalSectorHeadEl, 'data-ak-active-sector', active)
+          akSetText(terminalSectorHeadEl.querySelector('[data-ak-part="readoutActive"]'), active)
+          akSetText(terminalSectorHeadEl.querySelector('[data-ak-part="readoutTotal"]'), terminalPad(rowsState.count))
         }
 
         paintHero(rowsState.activeSector)
@@ -551,9 +634,13 @@
       })
       document.querySelectorAll('.ak-deploy-menu').forEach((node) => node.classList.remove('ak-deploy-menu'))
       document.querySelectorAll('[data-ak-tui]').forEach((node) => node.removeAttribute('data-ak-tui'))
-      document.querySelectorAll('[data-ak-sector]').forEach((node) => node.removeAttribute('data-ak-sector'))
-      document.querySelectorAll('[data-ak-active]').forEach((node) => node.removeAttribute('data-ak-active'))
-      document.querySelectorAll('[data-ak-blank]').forEach((node) => node.removeAttribute('data-ak-blank'))
+      /* 柱列与方块的计数写在 data 属性上（样式表用 attr() 读出来当读数），
+         它们同样是运行时标注，卸装时必须一并收回。 */
+      for (const name of ['data-ak-sector', 'data-ak-active', 'data-ak-blank',
+        'data-ak-block', 'data-ak-blocks', 'data-ak-columns',
+        'data-ak-active-block', 'data-ak-active-column']) {
+        document.querySelectorAll('[' + name + ']').forEach((node) => node.removeAttribute(name))
+      }
     }
 
     const syncTerminalUI = () => {

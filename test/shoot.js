@@ -260,6 +260,25 @@ async function main() {
                不只是叠了 CSS，DOM 层的词表也跟着换了档。 */
             const deck = document.querySelector('[data-ak-part="deckBrand"]');
             const foot = document.querySelector('[data-ak-part="footChannel"]');
+            /* 两级选择的实际形状：容器是否横排、柱子是否纵向、方块是否横向。
+               读 getBoundingClientRect 而不是猜 class——「一列一列」和「一个一个
+               方块」是几何承诺，只有盒子尺寸能证明它兑现了。 */
+            const box = (el) => {
+              if (el === null) return null;
+              const r = el.getBoundingClientRect();
+              return { w: Math.round(r.width), h: Math.round(r.height) };
+            };
+            const dirOf = (sel) => {
+              const el = document.querySelector(sel);
+              if (el === null) return null;
+              const cs = getComputedStyle(el);
+              /* flexDirection 对非 flex 容器也返回 'row'（那是它的初始值，不是
+                 生效值），所以必须先判 display。只看方向会把进阶版误判成横排。 */
+              const flex = cs.display === 'flex' || cs.display === 'inline-flex';
+              return { display: cs.display, row: flex && cs.flexDirection.indexOf('row') === 0 };
+            };
+            const column = document.querySelector("[data-ak-tui='sector-row']");
+            const block = document.querySelector('[data-ak-block]');
             return {
               classes: body.className,
               accent,
@@ -272,6 +291,20 @@ async function main() {
               foot: foot === null ? null : foot.textContent,
               sectors: document.querySelectorAll('[class*="_projectRow"] .ak-sector-code').length,
               tokenRef,
+              columnField: dirOf("[data-ak-tui='column-field']"),
+              sessionStack: dirOf("[data-ak-tui='session-stack']"),
+              column: box(column),
+              block: box(block),
+              blocks: document.querySelectorAll('[data-ak-block]').length,
+              readout: (() => {
+                const a = document.querySelector('[data-ak-part="readoutActive"]');
+                const t = document.querySelector('[data-ak-part="readoutTotal"]');
+                return a === null || t === null ? null : a.textContent + '/' + t.textContent;
+              })(),
+              keys: (() => {
+                const k = document.querySelector('[data-ak-part="keysHint"]');
+                return k === null ? null : k.textContent;
+              })(),
             };
           })()
         `)
@@ -282,7 +315,10 @@ async function main() {
         fs.writeFileSync(path.join(OUT_DIR, name), Buffer.from(shot.data, 'base64'))
         shots.push({ name, faction, mode, tier, stateName, state })
         console.log('  ' + name + '  accent=' + state.accent + '  paper=' + state.paper
-          + '  deck=' + state.deck + '  sectors=' + state.sectors + '  badge=' + state.badge)
+          + '  deck=' + state.deck + '  sectors=' + state.sectors
+          + '  col=' + (state.columnField === null ? '-' : (state.columnField.row ? 'row' : 'col'))
+          + '  blk=' + (state.sessionStack === null ? '-' : (state.sessionStack.row ? 'row' : 'col'))
+          + '  readout=' + state.readout + '  badge=' + state.badge)
         }
       }
     }
@@ -351,6 +387,78 @@ async function main() {
         console.log('  ok   ' + shot.name + ': 工作区行编号 ' + shot.state.sectors + ' 条')
       } else {
         console.log('  FAIL ' + shot.name + ': 侧栏没有一条工作区编号，终端 DOM 层没挂上')
+        problems += 1
+      }
+    }
+
+    /* ---- 两级选择的几何：柱列横排 + 方块横排 ----
+       莱茵终端档的承诺是「工作区纵向一列一列、会话横向一个一个方块」——那是
+       几何而不是颜色，所以判容器的 flex 方向与盒子长宽比。进阶版必须仍然是
+       纵向清单：两档拍出来一样，说明这一档只改了底色没改结构。
+       fixture 没有侧栏滚动条，柱子/方块的尺寸完全由样式表决定，正好当量尺。 */
+    const isLab = shot.tier === 'lab'
+    if (shot.state.columnField === null) {
+      console.log('  --   ' + shot.name + ': 页面上没有柱列/方块容器，跳过几何判定')
+    } else {
+      const dirChecks = [
+        ['柱列容器', shot.state.columnField],
+        ['方块容器', shot.state.sessionStack],
+      ]
+      for (const [label, dir] of dirChecks) {
+        if (dir === null) {
+          console.log('  FAIL ' + shot.name + ': 找不到' + label + '，两级容器没标出来')
+          problems += 1
+          continue
+        }
+        const good = isLab ? dir.row === true : dir.row !== true
+        if (good) {
+          console.log('  ok   ' + shot.name + ': ' + label + ' ' + dir.display
+            + (dir.row ? ' 横排' : ' 纵向'))
+        } else {
+          console.log('  FAIL ' + shot.name + ': ' + label + ' ' + dir.display
+            + (dir.row ? ' 横排' : ' 纵向') + '（' + shot.tier + ' 档应为 ' + (isLab ? '横排' : '纵向') + '）')
+          problems += 1
+        }
+      }
+      /* 两档各给一个判据，不复用同一个取反：进阶版的清单行是「宽>高且很矮」，
+         而 lab 的方块也是「宽>高」——只是高得多。取反会把这两种形状混为一谈。 */
+      const shapes = [
+        ['工作区柱子', shot.state.column, (b) => b.h > b.w && b.h >= 90, (b) => b.w > b.h && b.h < 48, '竖柱', '清单行'],
+        ['会话方块', shot.state.block, (b) => b.w > b.h && b.h >= 60, (b) => b.w > b.h && b.h < 48, '横方块', '清单行'],
+      ]
+      for (const [label, box, labTest, advTest, labWant, advWant] of shapes) {
+        if (box === null) {
+          console.log('  FAIL ' + shot.name + ': 找不到' + label + '，终端层没挂上')
+          problems += 1
+          continue
+        }
+        const good = isLab ? labTest(box) : advTest(box)
+        if (good) {
+          console.log('  ok   ' + shot.name + ': ' + label + ' ' + box.w + '×' + box.h
+            + ' = ' + (isLab ? labWant : advWant))
+        } else {
+          console.log('  FAIL ' + shot.name + ': ' + label + ' ' + box.w + '×' + box.h
+            + '，' + shot.tier + ' 档应为 ' + (isLab ? labWant : advWant))
+          problems += 1
+        }
+      }
+      if (/^\d\d\/\d\d$/.test(String(shot.state.readout))) {
+        console.log('  ok   ' + shot.name + ': 大读数 ' + shot.state.readout + '（当前列 / 总列）')
+      } else {
+        console.log('  FAIL ' + shot.name + ': 大读数不是两位/两位 (' + shot.state.readout + ')')
+        problems += 1
+      }
+      const wantedKeys = isLab ? '换列' : '浏览'
+      if (String(shot.state.keys).indexOf(wantedKeys) !== -1) {
+        console.log('  ok   ' + shot.name + ': 键位提示跟随档位')
+      } else {
+        console.log('  FAIL ' + shot.name + ': 键位提示是「' + shot.state.keys + '」，缺「' + wantedKeys + '」')
+        problems += 1
+      }
+      if (!isLab || Number(shot.state.blocks) > 0) {
+        console.log('  ok   ' + shot.name + ': 会话方块 ' + shot.state.blocks + ' 块')
+      } else {
+        console.log('  FAIL ' + shot.name + ': 一块会话方块都没标出来')
         problems += 1
       }
     }

@@ -902,6 +902,43 @@ body.theme-arknights-advanced .ak-terminal-sector-head__live i {
   box-shadow: 0 0 0 2px rgba(var(--edge-accent-rgb), 0.12);
 }
 
+/* 大读数行：「SECTOR 01 / 04」+ 一句键位提示。分子比标签大、分母比分子小，
+   这一档读起来像终端的状态行；莱茵终端档把它拉成参考那种硬件计数器（lab.css）。 */
+body.theme-arknights-advanced .ak-terminal-sector-head__readout {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--ak-line);
+  font-size: 6.5px;
+  letter-spacing: 0.16em;
+  color: var(--edge-ink-2);
+}
+
+body.theme-arknights-advanced .ak-terminal-sector-head__roActive {
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--edge-accent);
+}
+
+body.theme-arknights-advanced .ak-terminal-sector-head__roSlash {
+  font-style: normal;
+  opacity: 0.5;
+}
+
+body.theme-arknights-advanced .ak-terminal-sector-head__roTotal {
+  color: var(--edge-ink);
+}
+
+body.theme-arknights-advanced .ak-terminal-sector-head__keys {
+  margin-left: auto;
+  font-size: 6px;
+  letter-spacing: 0.1em;
+  opacity: 0.8;
+}
+
 /* 原生 sectionHeader 变成抬头下方的工具条 */
 body.theme-arknights-advanced [data-ak-tui='section-header'] {
   display: flex;
