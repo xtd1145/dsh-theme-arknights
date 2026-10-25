@@ -229,7 +229,7 @@ body.theme-arknights-themed.theme-arknights-laterano { --edge-paper: #eceef2; --
 2. **静态气氛层**（`frame::after`）：两处强调色径向光晕 + 点阵 + 一条 180px 的内联噪声 SVG 纸张颗粒。莱茵的点阵换成橙色，信号感只出现在这里。
 3. **扫描光带**：只有罗德岛保留常驻动效，12 秒从上到下扫过，`prefers-reduced-motion` 下关闭。
 
-等高线背景开启时，几何遮罩层通过 `:not(:has(> [data-endfield-contour]))` 整层让位，避免两种背景互相干扰。纹理层固定在 `z-index: 1` 且 `pointer-events: none`，不抢菜单、弹窗与用户点击。
+纹理层固定在 `z-index: 1` 且 `pointer-events: none`，不抢菜单、弹窗与用户点击。
 
 ---
 

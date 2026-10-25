@@ -1,7 +1,7 @@
 {
   "name": "dsh-theme-arknights",
   "version": "0.1.0",
-  "description": "DeepSeek Harness web theme: three Arknights faction skins (Rhodes Island, Laterano, Rhine Lab) with a Universal / Advanced layout switch, contour background, boot plate, thunder plate, balance capsule and host-side audio notifications.",
+  "description": "DeepSeek Harness web theme: three Arknights faction skins (Rhodes Island, Laterano, Rhine Lab) with a Universal / Advanced layout switch, boot plate, thunder plate, balance capsule and host-side audio notifications.",
   "keywords": [
     "deepseek-harness",
     "dsh",
@@ -44,8 +44,6 @@
     "check": "node scripts/build.js --check && node check.js",
     "test": "node scripts/build.js --check && node check.js && node test/palette-contrast.test.js",
     "shots": "node test/shoot.js",
-    "check:worker": "node scripts/build-contour-worker.js --check",
-    "build:worker": "node scripts/build-contour-worker.js",
     "build:sounds": "node scripts/build-sounds.js",
     "verify": "node test/verify-real.js"
   },

@@ -78,28 +78,28 @@
         const node = balanceEl.querySelector('[' + attr + ']')
         if (node) node.textContent = text
       }
-      setText('data-endfield-credit-int', paint.int)
-      setText('data-endfield-credit-unit', paint.unitText)
-      setText('data-endfield-credit-channel', paint.channel)
+      setText('data-ak-credit-int', paint.int)
+      setText('data-ak-credit-unit', paint.unitText)
+      setText('data-ak-credit-channel', paint.channel)
       // Consumption read for the right-hand slot in credits mode. The dial's
-      // share rides the same --endfield-balance-sweep custom property the
+      // share rides the same --ak-balance-sweep custom property the
       // pricing clock uses, so mode switches never re-layout the pill: the
       // value just changes meaning. No quota (quotaTotal 0) keeps the sweep
       // empty rather than inventing a percentage.
-      setText('data-endfield-credit-pct', paint.pctText || '')
+      setText('data-ak-credit-pct', paint.pctText || '')
       // The ring sweep follows the slot's meaning: 已用xx% sweeps the consumed
       // share, 剩余xx% sweeps the remaining share — dial and readout always
       // tell the same story. (The wallet pricing clock early-returns in
       // credits mode, so this property is ours to write here.)
       if (typeof balanceEl.style?.setProperty === 'function') {
         balanceEl.style.setProperty(
-          '--endfield-balance-sweep',
+          '--ak-balance-sweep',
           (Number.isFinite(paint.sweepPct) ? paint.sweepPct * 3.6 : 0) + 'deg',
         )
       }
       // The two modes are mutually exclusive DOM states driven by one attribute
       // the stylesheet keys off — no inline style writes, no per-poll churn.
-      balanceEl.setAttribute('data-endfield-credit-mode', paint.mode)
+      balanceEl.setAttribute('data-ak-credit-mode', paint.mode)
     }
 
     /* The capsule paints ONE mode at a time. 'wallet' keeps the DeepSeek

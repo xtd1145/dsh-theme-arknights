@@ -1,13 +1,14 @@
 /**
  * dsh-theme-arknights — Edge Intelligence Theme (browser client bundle)
- * 还原自《明日方舟：终末地》（Arknights: Endfield）官网的「工业编辑风」。
- * 参考：https://endfield.hypergryph.com
+ * 《明日方舟》三阵营终端风主题：罗德岛 / 拉特兰 / 莱茵生命。
+ * 底色的工业编辑风最早还原自《明日方舟：终末地》官网
+ * （https://endfield.hypergryph.com）；视觉层、阵营系统与终端层已在本项目重写。
  *
  * Client 半部：
- *   1) theme.overrideTokens —— 覆盖主题令牌（亮/暗双色），映射终末地官网色板；
+ *   1) theme.overrideTokens —— 覆盖主题令牌（亮/暗双色），跟随当前阵营的调色板；
  *   2) insertCss —— 注入字体栈、强调色、直角化、去蓝、hover 反色等全局样式。
  *      （动态插件环境走 styles.insert；安装为独立 bundle 时直接注入 <style> 到 head。）
- *   3) 设置页「终末地主题设置」—— 设置项按四组分类（主题 / 背景 / 动画 / 娱乐），
+ *   3) 设置页「明日方舟阵营主题」—— 设置项按五组分类（主题 / 背景 / 动画 / 娱乐 / 音频），
  *      默认值 / 语义标记通过 DSH 的设置命名空间随 profile 落盘。DSH 0.1.7-rc.1 起
  *      走 client `ctx.configForms`（host index.js 导出的 volatile `Config`，命名空间
  *      = profile entry id `theme-arknights`）；旧版 DSH 回落到 `ctx.settingsScope`
@@ -47,7 +48,7 @@ window.__ModuleLoader__.load({
    through and re-install. The marker also rides in the sheet as a comment, so
    which build is mounted can be read straight out of devtools. Bump it whenever
    the stylesheet changes. */
-const SHEET_MARKER = 'endfield-build/2026-10-25-terminal-deployment'
+const SHEET_MARKER = 'ak-build/2026-10-25-terminal-deployment'
 
 function insertCss(css) {
   // Dynamic Cordis runner provides the `styles` global; standalone bundle does not.
@@ -168,13 +169,6 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       factionBar: '1',
       radius: 'square',
       glass: 'off',
-      contour: '0',
-      contourAnim: '1',
-      contourFps: '24',
-      contourSpeed: '2',
-      contourRenderer: 'canvas',
-      contourScrollPause: '1',
-      contourTrail: '0',
       /* 输出滚动动画 —— default ON: it changes nothing about what the app decides
          (the read-back stays exact) and only softens the streaming pin, so it is a
          pure improvement for a feature whose whole point is that the output was
@@ -244,9 +238,8 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
        from the other by stripping the namespace prefix — the old
        `k.slice(PREFS_NS.length + 1)` — is the bug this table exists to kill: it
        turned 'dsh-theme-arknights-thunder-anim' into 'thunder-anim', while the
-       schema declares 'thunderAnim'. Six fields were affected (thunderAnim,
-       contourAnim, contourFps, contourSpeed, contourScrollPause,
-       watermarkPersist): the write landed on an UNDECLARED key, schemastery
+       schema declares 'thunderAnim'. Every compound field was affected this way
+       (thunderAnim, watermarkPersist): the write landed on an UNDECLARED key, schemastery
        kept it (it validates declared fields and passes extras through) but the
        declared field stayed at its default, so the switch worked for the page
        session, persisted junk into settings.yaml, and came back at its default
@@ -260,20 +253,6 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       'dsh-theme-arknights-faction-bar': 'factionBar',
       'dsh-theme-arknights-radius': 'radius',
       'dsh-theme-arknights-glass': 'glass',
-      'dsh-theme-arknights-contour': 'contour',
-      'dsh-theme-arknights-contour-anim': 'contourAnim',
-      'dsh-theme-arknights-contour-fps': 'contourFps',
-      'dsh-theme-arknights-contour-speed': 'contourSpeed',
-      'dsh-theme-arknights-contour-renderer': 'contourRenderer',
-      /* The renderer row's own key is the BARE 'contourRenderer' (a
-         localStorage-era name), not the namespaced spelling. It is listed
-         explicitly because test/settings-namespace.test.js requires the table to
-         cover every UI key the panel uses, and because the prefix-strip fallback
-         turning 'contourRenderer' into 'contourrenderer' is exactly the class of
-         silent mismatch this table exists to prevent. */
-      contourRenderer: 'contourRenderer',
-      'dsh-theme-arknights-contour-scroll-pause': 'contourScrollPause',
-      'dsh-theme-arknights-contour-trail': 'contourTrail',
       /* 输出滚动动画. The two keys happen to equal their schema fields, so the
          prefix-strip fallback would also resolve them — they are listed explicitly
          because the table is the ONE place a UI key becomes a field, and because
@@ -309,7 +288,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       'dsh-theme-arknights-audio-diag': 'audioDiag',
     }
     /* The pre-migration spelling of a compound field, for the sections that the
-       buggy build already wrote: 'contourAnim' -> 'contour-anim'. Derived from
+       buggy build already wrote: 'thunderAnim' -> 'thunder-anim'. Derived from
        the table (not from the schema, which cannot know it) so the two can never
        drift, and only for fields that really do have a distinct legacy double:
        every single-word field maps to itself and is skipped. */
@@ -692,9 +671,9 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
     const prefsGetValue = () => {
       const base = prefsFieldValue || PREFS_FIELD_DEFAULTS
       if (prefsLocalEdited.size === 0) return base
-      /* Hot path: the contour loop and the watermark observer read prefs many
-         times per frame. Rebuilding this overlay per read allocated a fresh
-         ~24-key object every time; caching it against the base-section
+      /* Hot path: the watermark observer and the output-scroll animator read
+         prefs many times per frame. Rebuilding this overlay per read allocated a
+         fresh object with every field each time; caching it against the base-section
          REFERENCE keeps those reads allocation-free. prefsSet invalidates on
          every edit (the only place prefsLocalEdited grows), and a new section
          from the host arrives as a different `base` reference, so a stale pair
@@ -959,8 +938,8 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       return out
     }
     /* Sections written by the BUILD THAT SHIPPED THE FIELD-NAME BUG still carry
-       the pre-migration spelling of a compound field ('contourAnim' written as
-       'contour-anim'), because that write landed on an undeclared key the schema
+       the pre-migration spelling of a compound field ('thunderAnim' written as
+       'thunder-anim'), because that write landed on an undeclared key the schema
        passes through instead of storing it into the declared field. Without this
        pass the user's stored choice is ignored and the field default silently
        wins — for them the switch would look like it reset again after the fix.
@@ -1302,13 +1281,13 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
     const syncGlass = () => {
       if (typeof document === 'undefined' || document.body === null) return
       const value = readGlass()
-      if (isEnabled() && value !== 'off') document.body.setAttribute?.('data-endfield-glass', value)
-      else document.body.removeAttribute?.('data-endfield-glass')
+      if (isEnabled() && value !== 'off') document.body.setAttribute?.('data-ak-glass', value)
+      else document.body.removeAttribute?.('data-ak-glass')
     }
     const syncRadiusMode = () => {
       // The bundle can run before <body> exists (see runLoader's DOMContentLoaded
       // deferral for the same window); a classList touch on null would throw and
-      // kill the whole install. syncPaletteClass guards the same way.
+      // kill the whole install. syncFactionClass guards the same way.
       if (typeof document === 'undefined' || document.body === null) return
       const mode = prefsGet(RADIUS_KEY) || 'square'
       if (mode === 'round') document.body.classList.add('theme-arknights-round')
@@ -1326,9 +1305,8 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
        'rhodes' 是默认，所以未设置与任何无法识别的值都回落到它——一份坏掉的
        持久化文档不会让界面停在「无阵营」的半吊子状态。
 
-       唯一的例外仍是等高线画布（canvas 描边不能是 CSS 变量），它改为**读
-       --edge-accent 的实时值**再自行加 alpha，因此三套阵营（以及未来任何新增
-       配色）都自动跟随，不必在这里再列举一遍颜色。 */
+       因此三套阵营（以及未来任何新增配色）都自动跟随，不必在这里再列举
+       一遍颜色。 */
     const FACTION_KEY = 'dsh-theme-arknights-faction'
     const FACTION_IDS = ['rhodes', 'laterano', 'rhine']
     /* 默认阵营不带 class —— 它就是样式表里不带阵营 class 的那一组。 */
@@ -1395,14 +1373,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       return '#888888'
     }
 
-    /* ---- 兼容名 ----------------------------------------------------------
-       下面这几个名字是 20-contour.js / 43-unmount.js 仍在引用的旧接口。保留它们
-       比在多个文件里改名字安全：两套阵营时代的调用点都指向同一件事。 */
-    const PALETTE_CLASS = FACTION_CLASS.rhine
-    const syncPaletteClass = syncFactionClass
-    const isWulingPalette = () => isFaction('rhine')
-
-    /* ---------- background ENDFIELD watermark (settings-toggleable) ----------
+    /* ---------- background ARKNIGHTS watermark (settings-toggleable) ----------
        Two independent switches:
          WATERMARK_KEY  — the watermark itself (default ON), shown on the hero page.
          WATERMARK_PERSIST_KEY — "keep showing it off the hero page" (default OFF),
@@ -1447,6 +1418,21 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       }
       return null
     }
+    /** The app frame — the persist-mode fallback anchor.
+     *  Located via its CENTRE COLUMN child rather than by matching '_frame': that
+     *  suffix is used by three components (layout frame plus two question cards),
+     *  so a [class*='_frame'] match is ambiguous and could mount the mark inside a
+     *  card. '_centerCol' is unique to the layout frame, and matching the module
+     *  SUFFIX instead of a pinned hash survives an app rebuild that rehashes. */
+    const findAppFrame = () => {
+      if (typeof document === 'undefined') return null
+      const col = document.querySelector('[class$="_centerCol"], [class*="_centerCol "]')
+      const frame = col !== null ? col.parentElement : null
+      if (frame === null) return null
+      const r = frame.getBoundingClientRect()
+      if (r.width === 0 || r.height === 0) return null
+      return frame
+    }
     const findVisibleHeadline = () => {
       if (typeof document === 'undefined') return null
       /* DSH 0.2 renamed the hero headline export from '*_headlineText' to
@@ -1480,9 +1466,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       // in it the stylesheet gives the frame isolation:isolate (the same pair of
       // properties the conversation column gets above), so -1 stays above the
       // frame background and strictly below the page content. body is only the
-      // last resort for a page that has no frame at all. findAppFrame is declared
-      // further down but only ever called from here at runtime, never during the
-      // synchronous apply pass.
+      // last resort for a page that has no frame at all.
       const frame = findAppFrame()
       return { mode: 'persist', parent: frame !== null ? frame : document.body }
     }
@@ -1496,7 +1480,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
     }
     const positionWatermark = () => {
       if (!watermarkEl) return
-      if (watermarkEl.getAttribute('data-endfield-watermark') === 'persist') {
+      if (watermarkEl.getAttribute('data-ak-watermark') === 'persist') {
         // Centred in its own positioned parent — no per-frame measurement needed.
         return
       }
@@ -1524,7 +1508,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
     const watermarkRafLoop = () => {
       // Only the hero placement is measured per frame; persist mode is pure CSS, so
       // the loop must stop when the mode changes rather than spin for nothing.
-      if (!watermarkEl || watermarkEl.getAttribute('data-endfield-watermark') !== 'hero') {
+      if (!watermarkEl || watermarkEl.getAttribute('data-ak-watermark') !== 'hero') {
         watermarkRaf = null
         return
       }
@@ -1608,7 +1592,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          off — is still caught on the same batch. */
       if (watermarkEl !== null && watermarkHost !== null && watermarkHost.isConnected
         && typeof document !== 'undefined'
-        && watermarkEl.getAttribute('data-endfield-watermark') === 'persist'
+        && watermarkEl.getAttribute('data-ak-watermark') === 'persist'
         && isEnabled() && isWatermarkOn() && isWatermarkPersistOn()
         && document.querySelector('[class$="_root"][data-phase="hero"]') === null) return
       const on = isEnabled() && isWatermarkOn()
@@ -1619,8 +1603,8 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         && (target.mode === 'hero' || isWatermarkPersistOn())
       if (shouldShow && watermarkEl) {
         // A page change can flip the mode or move the parent — restyle/reparent in place.
-        if (watermarkEl.getAttribute('data-endfield-watermark') !== target.mode) {
-          watermarkEl.setAttribute('data-endfield-watermark', target.mode)
+        if (watermarkEl.getAttribute('data-ak-watermark') !== target.mode) {
+          watermarkEl.setAttribute('data-ak-watermark', target.mode)
           styleWatermark(watermarkEl, target.mode)
         }
         if (watermarkHost !== target.parent) {
@@ -1629,7 +1613,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         }
       } else if (shouldShow && !watermarkEl) {
         const el = document.createElement('div')
-        el.setAttribute('data-endfield-watermark', target.mode)
+        el.setAttribute('data-ak-watermark', target.mode)
         /* Translation-proofing. The wordmark is a brand name that must never be
            rewritten by Chrome/Edge "translate this page", a Google Translate widget
            or a translator extension.
@@ -1657,7 +1641,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       // While visible, follow the headline every frame (page switches, sidebar
       // width changes, animations) — no reliance on observer timing. The persist
       // placement is pure CSS, so it needs no frame loop.
-      const needsLoop = watermarkEl !== null && watermarkEl.getAttribute('data-endfield-watermark') === 'hero'
+      const needsLoop = watermarkEl !== null && watermarkEl.getAttribute('data-ak-watermark') === 'hero'
       if (needsLoop && !watermarkRaf && typeof requestAnimationFrame === 'function') {
         watermarkRaf = requestAnimationFrame(watermarkRafLoop)
       } else if (!needsLoop && watermarkRaf !== null && typeof cancelAnimationFrame === 'function') {
@@ -1666,31 +1650,23 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       }
     }
     const onWatermarkResize = () => { if (watermarkEl) positionWatermark() }
-    let contourScrollHook = () => {}
-    let contourScrollEndHook = () => {}
-    const onContourScrollEvent = () => { contourScrollHook() }
-    const onContourScrollEndEvent = () => { contourScrollEndHook() }
     if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
       window.addEventListener('resize', onWatermarkResize)
-      window.addEventListener('scroll', onContourScrollEvent, true)
-      window.addEventListener('scrollend', onContourScrollEndEvent, true)
     }
     let watermarkObserver = null
-    /* Assigned to syncContour once that is defined below. Declared here as a real
-       mutable binding rather than referenced directly, because a `const` declared
-       later is in its temporal dead zone during apply() — and `typeof` does NOT
-       protect against a TDZ ReferenceError the way it does for an undeclared name. */
-    let contourSyncHook = () => {}
-    /* Same seam for the output-scroll animator: it too has to attach to nodes the
-       app renders asynchronously (the conversation scrollport), and the observer
-       below is already the page's "something changed, re-attach" channel. Declared
-       here as a real binding and assigned in the fragment that defines it, for the
-       TDZ reason given above. */
+    /* The re-attach seam for the output-scroll animator: it has to attach to nodes
+       the app renders asynchronously (the conversation scrollport), and the
+       observer below is already the page's "something changed, re-attach" channel.
+       Declared here as a real mutable binding — not referenced directly, and not
+       `const` — because the fragment that defines it is concatenated AFTER this
+       one and a later `const` sits in its temporal dead zone during apply(), where
+       `typeof` does NOT protect against a TDZ ReferenceError the way it does for an
+       undeclared name. Assigned inside that fragment. */
     let scrollAnimSyncHook = () => {}
     /* The bundle can be evaluated before <body> exists (the same window runLoader
        defends with a DOMContentLoaded deferral). The old code created the observer
        only when body was already there and never retried, so an early-boot apply
-       left the watermark and the contour sheet without their (re)attach channel
+       left the watermark and the animator without their (re)attach channel
        for good. Deferred install instead, and right after installing, catch up on
        everything the observer missed while it did not exist yet. */
     const installWatermarkObserver = () => {
@@ -1702,7 +1678,6 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         // route changes, so the layer has to be able to (re)attach later. This
         // fires on every DOM change on the page, including every streaming token,
         // so the hook's first act is an O(1) "still attached?" check.
-        contourSyncHook()
         scrollAnimSyncHook()
       })
       watermarkObserver.observe(document.body, { childList: true, subtree: true })
@@ -1711,1685 +1686,20 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       installWatermarkObserver()
       if (watermarkObserver === null) return
       syncWatermarkVisibility()
-      contourSyncHook()
       scrollAnimSyncHook()
     }
     if (typeof document !== 'undefined' && document.body !== null) installWatermarkObserver()
     else if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
       document.addEventListener('DOMContentLoaded', watermarkObserverLate, { once: true })
     }
-
-    /* ---------- contour (topographic) background ------------------------------
-       A signal-yellow topographic sheet behind the whole app, in the style of the
-       supplied reference: nested closed loops forming irregular "islands", thin
-       even strokes, organic spacing.
-
-       Two independent switches, each a no-op when off:
-         CONTOUR_KEY        the layer itself (default OFF — it is decoration).
-         CONTOUR_ANIM_KEY   the field slowly morphs (islands breathe/drift).
-
-       HOW IT IS DRAWN. The lines are real iso-contours of a scalar field, not a
-       tiled bitmap or a hand-drawn path set, because the field is what makes the
-       animation coherent: morphing one field and re-extracting gives loops that
-       merge and split like terrain, which a translated texture cannot do.
-         field  = sum of gaussian bumps of mixed sign (peaks AND basins)
-         lines  = marching squares at ~20 evenly spaced levels
-         joins  = segments stitched into polylines via EDGE IDS
-       Stitching turns thousands of loose segments into ~85 continuous strokes, so
-       the whole sheet is drawn as one canvas path instead of thousands of moveTo
-       pairs.
-
-       WHERE IT IS MOUNTED, and why this specific parent. Measured from the app's
-       own CSS, three elements paint an OPAQUE --dsw-alias-bg-base over any
-       body-level layer: the app frame ([class$='_frame']), the conversation column
-       ([class$='_root'] inside the centre column) and the details column. A fixed
-       <body> child would therefore be invisible on every real page. The layer is
-       instead a child of the app FRAME, with those descendant fills neutralised to
-       transparent while the layer is mounted (the :has() guard makes all of it
-       vanish when off).
-       The frame is already position:relative and creates NO stacking context, so
-       an inset:0 z-index:0 child sits above the frame's own background and below
-       every positioned descendant. The sidebar keeps its own colour because in
-       this theme --dsw-specific-sidebar-fill and --dsw-alias-bg-base are the same
-       value, so making it transparent changes no pixel except letting the sheet
-       through.
-
-       DENSITY. Level and bump counts adapt to the viewport: a phone-width frame
-       draws fewer levels (wider line spacing) and fewer islands, because the
-       desktop-tuned constants squeezed into a narrow frame read as a tangled
-       pile. See the note on VIEWPORT-ADAPTIVE DENSITY below.
-
-       COST. One canvas, throttled, and completely idle when the switch is off:
-         static  one extraction, redrawn only on resize/scheme change;
-         animated ~24fps, measured in the verification renderer at 1440x900,
-                  step 10 (145x91 grid), 20 levels, 22 bumps:
-                    naive per-point evaluation  8.30 ms/frame
-                    bounded scatter (used here) 4.40 ms/frame  -> 1.9x faster
-                  Bounded scatter is the reason this is affordable: a gaussian is
-                  numerically dead past ~2.6 sigma, so each bump writes only the
-                  cells inside its own bounding box instead of every bump being
-                  evaluated at every grid point. */
-    const CONTOUR_KEY = 'dsh-theme-arknights-contour'
-    const CONTOUR_ANIM_KEY = 'dsh-theme-arknights-contour-anim'
-    const CONTOUR_FPS_KEY = 'dsh-theme-arknights-contour-fps'
-    const CONTOUR_SPEED_KEY = 'dsh-theme-arknights-contour-speed'
-    const CONTOUR_SCROLL_PAUSE_KEY = 'dsh-theme-arknights-contour-scroll-pause'
-    const CONTOUR_TRAIL_KEY = 'dsh-theme-arknights-contour-trail'
-    const CONTOUR_FPS_OPTIONS = [24, 60, 120]
-    const CONTOUR_SPEED_OPTIONS = [1, 2, 4]
-    const CONTOUR_PHASE_STEP = 1 / 150
-    // Default OFF (=== '1'): a background pattern must be opt-in.
-    const isContourOn = () => prefsGet(CONTOUR_KEY) === '1'
-    // Defaults ON, so enabling the layer shows the effect at once; it is
-    // meaningless while the layer itself is off.
-    const isContourAnimOn = () => prefsGet(CONTOUR_ANIM_KEY) !== '0'
-    const readContourFps = () => {
-      const fps = Number(prefsGet(CONTOUR_FPS_KEY))
-      return CONTOUR_FPS_OPTIONS.includes(fps) ? fps : 24
-    }
-    const readContourSpeed = () => {
-      const speed = Number(prefsGet(CONTOUR_SPEED_KEY))
-      return CONTOUR_SPEED_OPTIONS.includes(speed) ? speed : 2
-    }
-    const isContourScrollPauseOn = () => prefsGet(CONTOUR_SCROLL_PAUSE_KEY) !== '0'
-    const isContourTrailOn = () => prefsGet(CONTOUR_TRAIL_KEY) === '1'
-
-    /* Optional pointer deformation, adapted from the Endfield Glass plugin.
-       Only the latest mouse position is consumed by each existing contour frame:
-       no second rAF, no pointer-handler layout reads, no persistent coordinates.
-       Head and tail quotas are fixed before age decay, so expiring an old point
-       cannot brighten surviving points. The history is bounded at 24 samples. */
-    const createContourTrail = () => {
-      const points = []
-      const prune = (now) => {
-        while (points.length && now - points[0].t > 2700) points.shift()
-      }
-      return {
-        clear() { points.length = 0 },
-        view(now) { prune(now); return points },
-        push(x, y, time, now) {
-          if (![x, y, now].every(Number.isFinite) || now < 0) return false
-          prune(now)
-          // Some browsers use epoch timestamps. Use the reception clock for
-          // those, but keep a trustworthy event's real age after a busy frame.
-          const t = Number.isFinite(time) && time >= 0 && time < 1e12 && time <= now + 4
-            ? Math.min(time, now) : now
-          if (now - t > 2700) return false
-          const last = points[points.length - 1]
-          if (last && (t - last.t < 8 || (x - last.x) ** 2 + (y - last.y) ** 2 < 4)) return false
-          if (points.length === 24) points.shift()
-          points.push({ x, y, t })
-          return true
-        },
-      }
-    }
-    const contourOverlayTrail = (field, points, now) => {
-      const { cols, rows, step, F } = field
-      // A smooth Gaussian is added AFTER the ambient smoothing/EMA. It never
-      // enters previous, so it responds immediately and leaves no temporal ghost.
-      // 28 CSS px approximates the original 26 px kernel after spatial smoothing.
-      const sigma = 28, radius = sigma * Math.sqrt(2 * 6.76)
-      const inv = 1 / (2 * sigma * sigma)
-      for (let rank = 0; rank < points.length; rank++) {
-        const point = points[points.length - 1 - rank]
-        const age = now - point.t
-        if (age < 0 || age > 2700) continue
-        const quota = rank === 0 ? .9 : .6 * .2 * Math.pow(.8, rank - 1)
-        const amplitude = quota * Math.exp(-age / 900)
-        const i0 = Math.max(0, Math.floor((point.x - radius) / step))
-        const i1 = Math.min(cols - 1, Math.ceil((point.x + radius) / step))
-        const j0 = Math.max(0, Math.floor((point.y - radius) / step))
-        const j1 = Math.min(rows - 1, Math.ceil((point.y + radius) / step))
-        for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
-          const q = ((i * step - point.x) ** 2 + (j * step - point.y) ** 2) * inv
-          if (q >= 6.76) continue
-          const t = Math.max(0, (q - 4.8) / (6.76 - 4.8))
-          F[j * cols + i] += amplitude * Math.exp(-q) * (1 - t * t * (3 - 2 * t))
-        }
-      }
-    }
-
-    /* Deterministic PRNG (mulberry32), used with a PER-PAGE-LOAD seed.
-       Determinism is still required WITHIN one load: contourBuild() is re-run on
-       every resize, and if the bump layout were re-drawn from Math.random() each
-       time, dragging the window would reshuffle the whole landscape instead of
-       re-fitting it. So the seed is drawn once per load and reused for every
-       rebuild in that load.
-       It used to be a hardcoded constant, which made the "random" terrain the
-       SAME picture on every single visit -- measured: two independent page loads
-       produced 85 paths and 42497px of stroke, identical vertex for vertex. */
-    const contourRng = (seed) => {
-      let a = seed >>> 0
-      return () => {
-        a = (a + 0x6D2B79F5) >>> 0
-        let t = Math.imul(a ^ (a >>> 15), 1 | a)
-        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-      }
-    }
-    /* One seed per page load. crypto.getRandomValues() when available, else a
-       time/Math.random mix -- neither global is guaranteed in this sandbox, so both
-       are probed rather than assumed. Forced to a non-zero uint32 because
-       mulberry32 seeded with 0 is a legal but needlessly degenerate start. */
-    const contourSeed = (() => {
-      let s = 0
-      const c = (typeof crypto !== 'undefined' && crypto
-        && typeof crypto.getRandomValues === 'function') ? crypto : null
-      if (c !== null) {
-        try {
-          const buf = new Uint32Array(1)
-          c.getRandomValues(buf)
-          s = buf[0]
-        } catch (e) { s = 0 }
-      }
-      if (s === 0) {
-        const t = (typeof Date !== 'undefined' && typeof Date.now === 'function') ? Date.now() : 0
-        const r = (typeof Math !== 'undefined' && typeof Math.random === 'function') ? Math.random() : 0
-        s = ((t ^ Math.floor(r * 0xFFFFFFFF)) >>> 0)
-      }
-      return (s >>> 0) || 0x5eed4242
-    })()
-
-    let contourHost = null      // the frame element the layer is mounted in
-    let contourWrap = null      // positioned wrapper holding the canvas
-    let contourLineCv = null
-    let contourRaf = null
-    let contourRo = null        // ResizeObserver on the frame
-    let contourPaths = []       // stitched polylines
-    let contourGeom = null      // { w, h, cols, rows, step } of the current field
-    let contourField = null     // typed-array state, rebuilt only on resize
-    let contourLastField = -1   // timestamp of the last field extraction
-    let contourLastCost = 0     // measured cost of the last refresh (ms); ~0 while the worker paints
-    let contourPhase = 0
-    const contourTrail = createContourTrail()
-    let contourTrailPointer = null
-    let contourTrailListening = false
-    let contourTrailPainted = false
-    let contourMotionQuery = null
-    /* Last applied animation state. Declared HERE, above every function that touches
-       it, because contourTeardown() assigns it and is itself reachable from
-       unmount() — a `let` declared further down would still be in its temporal dead
-       zone at that point and throw a ReferenceError. */
-    let contourSwitchSig = ''
-
-    const CONTOUR_STEP = 6      // balanced sampling/detail point for 1px contour strokes
-    const CONTOUR_LEVELS = 20
-    const CONTOUR_SPAN = 1.45   // levels span [-SPAN, +SPAN]
-    /* GRID-CELL CAP. Every pass of the sheet — evaluate, extract, and the draw
-       list — is linear in cols*rows, and cols*rows grows with the SQUARE of the
-       viewport. Past this cap the sampling step grows instead, which keeps the cost
-       of one sheet roughly constant in frame AREA. The cap is set so every ordinary
-       window keeps the shipped 6px grid byte-for-byte (1440x900 is 36k cells,
-       1920x1080 is 58k); only genuinely large canvases coarsen, and the spline still
-       rounds the coarser polyline at a 1px stroke. It also keeps a large HiDPI
-       canvas inside the worker's own backing-store limit, so the sheet stays on the
-       off-main-thread path instead of falling back to the synchronous painter. */
-    const CONTOUR_MAX_CELLS = 60000
-    /* Bump radius floor, in grid samples. The radius was `(0.05..0.14) * min(w, h)`,
-       which ties the terrain's feature size to the frame's SHORTER side: in a short
-       (or very narrow) frame the gaussians shrink below the sampling step and the
-       field becomes ALIASED — adjacent samples jump across many levels, so marching
-       squares emits tightly nested rings with hairpin cusps that read as tangled,
-       piled-up lines instead of terrain. Reproduced at 1440x130 (at 1440x60 it
-       degenerates into bracket-shaped debris). Four samples per sigma is where the
-       crossings stop racing each other; at any ordinary window the relative term is
-       already far above this floor, so the shipped look is unchanged. */
-    const CONTOUR_MIN_BUMPSAMPLES = 4
-    /* Chaikin pass budget by extracted-vertex count. Each pass DOUBLES the point
-       count, so three passes hand the painter 8x the extracted vertices (measured
-       37,865 bezierCurveTo per sheet at 1440x900 from ~4.7k extracted). A sheet at or
-       under CONTOUR_SMOOTH_FULL keeps the shipped three passes, so ordinary windows
-       render exactly as before; a bigger sheet drops to two and then one, where the
-       clamped cubic below is still doing the rounding and a 1px stroke cannot show
-       the difference. */
-    const CONTOUR_SMOOTH_FULL = 8000
-    const CONTOUR_SMOOTH_LIMIT = 20000
-    /* Animation duty-cycle ceiling for the SYNCHRONOUS painter. When the worker is
-       driving the sheet, one refresh costs well under a millisecond and this clamp
-       never binds; when the canvas is large enough that the worker refuses it (or the
-       worker is unavailable) the draw runs on the main thread, and a sheet that costs
-       more than its nominal frame must give the thread back rather than queue another
-       update. The phase still advances by exactly one nominal step per UPDATE — never
-       by the elapsed wall-clock gap, which is what made the morph twitch — so a
-       loaded machine sees the same motion played back at a lower rate. */
-    const CONTOUR_DUTY = 0.5
-    /** Sampling step for a viewport: the shipped 6px grid, coarsened only when the
-     *  cell count would otherwise blow past CONTOUR_MAX_CELLS. */
-    const contourStepFor = (w, h) => {
-      let step = CONTOUR_STEP
-      const cells = (s) => (Math.ceil(w / s) + 1) * (Math.ceil(h / s) + 1)
-      while (step < 40 && cells(step) > CONTOUR_MAX_CELLS) step += 1
-      return step
-    }
-    /* VIEWPORT-ADAPTIVE DENSITY. The shipped look was tuned on a desktop frame:
-       20 levels over the +/-1.45 span and 22 gaussian bumps. Those are per-AREA
-       constants, but the sheet is judged per-VIEWPORT -- a phone-width frame
-       squeezes the same 21 lines and 22 islands into a fraction of the width, so
-       the nested rings tighten until they read as a tangled pile (reproduced at
-       375x812: islands merge into stacked bullseyes across the whole sheet).
-
-       The lever is the level count: line spacing is span*2/LEVELS of field, which
-       scales the on-screen median gap directly. Below a 640px short side the
-       level count eases down toward 10 (the gap roughly doubles at the floor) and
-       the bump count eases toward 10 so islands stay separated instead of
-       stacking; at and above 640px both return the shipped values, so every
-       desktop window renders exactly as before. 640px is the boundary above which
-       phone widths (360-430) and narrow split panes no longer dominate the short
-       side; the 320px floor keeps the smallest usable frame a coherent picture.
-       contourBuildCandidate(), contourCoverageScore() and contourExtract() all
-       derive from these, so the layout validator judges a viewport against the
-       density that viewport will actually draw. */
-    const CONTOUR_DENSITY_ANCHOR = 640 // short side at/above which density is the shipped one
-    /* Block-bodied on purpose: the splice-style tests and the worker build pull
-       kernel functions out by brace balance, which a one-line arrow breaks. */
-    const contourMinSide = (w, h) => {
-      return Math.min(w, h)
-    }
-    /* 0 at the 320px floor, 1 at the 640px anchor, linear in between. */
-    const contourDensityT = (w, h) => {
-      return Math.max(0, Math.min(1,
-        (contourMinSide(w, h) - 320) / (CONTOUR_DENSITY_ANCHOR - 320)))
-    }
-    const contourLevelsFor = (w, h) => {
-      const t = contourDensityT(w, h)
-      return Math.max(6, Math.round(10 + t * (CONTOUR_LEVELS - 10)))
-    }
-    const contourBumpsFor = (w, h) => {
-      const t = contourDensityT(w, h)
-      return Math.max(6, Math.round(10 + t * (22 - 10)))
-    }
-    const contourFieldFps = () => readContourFps()
-    /* Speck rejection. Marching squares legitimately produces two kinds of debris
-       that read as "mysterious little dots" rather than terrain:
-
-         1. OFF-CANVAS SLIVERS. The grid is ceil(w/step)+1 by ceil(h/step)+1, so its
-            last row/column lands ON or BEYOND the canvas edge (measured at
-            1432x753: +8px horizontally, +7px vertically). Contours found out there
-            are clipped to a stub, or to nothing at all: of 85 paths, 33 held
-            vertices outside the canvas and 3 had ZERO visible length -- pure cost,
-            no pixels.
-         2. APEX RINGS. Within a couple of grid cells of a gaussian peak the
-            innermost level closes into a tiny circle. Measured: 4 closed rings with
-            a bounding box under 26x26, the smallest 11.8x15.1px.
-
-       Both are judged against the sheet's OWN scale, not an absolute guess. The
-       inter-line gap was measured over 7322 samples: median 21px, p25 13px. A ring
-       whose whole bounding box is under one line spacing cannot read as a nested
-       island -- there is no room for a neighbour inside it -- so it reads as a dot.
-       MIN_VISIBLE_LEN removes fragments too short to be a stroke; dropping
-       everything under 40px costs 0.223% of total ink length, so this is debris
-       removal, not thinning. */
-    const CONTOUR_MIN_LEN = 40      // px of on-canvas stroke; below this it is a speck
-    const CONTOUR_MIN_RING_BOX = 21 // px; one median line spacing
-    /* keep() judges the RAW stitched polyline, but contourRefresh(false) redraws it as
-       a smoothed curve (Chaikin corner-cutting followed by a clamped cubic spline),
-       which does not follow the raw polyline exactly: corner-cutting drops the
-       sharp extremes, so measured against the real output a path can land slightly
-       SHORTER or with a slightly smaller box than its raw form -- and a raw
-       measurement sitting just above a threshold can still draw a speck. Observed
-       exactly that: raw-clean runs still emitted a 35.1px stroke and 15.4x17.8 /
-       2.1x20.1 rings.
-       The thresholds are therefore applied with headroom, and the smoothing
-       shrinks a path by at most one half-segment at each end (segments average
-       7.8px), so ~1.35x on length and ~1.5x on ring box covers it with margin. */
-    const CONTOUR_KEEP_LEN = CONTOUR_MIN_LEN * 1.35
-    const CONTOUR_KEEP_RING = CONTOUR_MIN_RING_BOX * 1.5
-    /* Minimum level bands a coverage cell's field must sweep for that region to read
-       as terrain. Measured: at 1 the predicate passed cells that rendered 0.16-0.44%
-       ink (a level grazing one corner), so 1 is geometrically true but visually
-       blank. 3 is the smallest value that survived the sweep below without pushing
-       the re-roll loop to its attempt cap. */
-    const CONTOUR_MIN_CROSSINGS = 3
-    /* ...but a crossing COUNT is not ink. Three bands can all graze one corner of a
-       cell and leave it nearly empty, so the count alone does not certify the thing
-       the coverage test asserts (rendered ink per cell). That gap is what made
-       contour-specks flaky: on a CI rasterizer the thinnest accepted layouts measured
-       0.47% against the 0.6% line while the validator reported them sound.
-
-       So each region is ALSO scored by a cheap ink proxy: for every field quad inside
-       it, count the drawn levels that fall inside that quad's clamped corner range.
-       One such incidence means the isoline passes through that quad, i.e. roughly
-       `step` px of stroke, so summing them tracks the region's line length without
-       running marching squares or an extraction inside the validator.
-
-       Calibrated on 400 random layouts at 1406x756 and 1440x757 against the REAL
-       extracted stroke length per 8x5 region (striated at 8 substeps per segment):
-         ink proxy  47-52  ->  182-201px of stroke in the thinnest region
-         ink proxy      80  ->  ~310px
-         ink proxy      92  ->  ~437px   (median layout)
-       The floor below therefore lifts the guaranteed thinnest region from ~182px to
-       ~310px, which is the margin the pixel metric needed. Cost over 300 seeds: mean
-       attempts 3.97 -> 8.06, p95 24, and 2 of 300 loads reach the 32-attempt cap
-       (0.7%, against 0 at the old floor) - those ship the best of the 32, whose
-       thinnest region sits just under the floor, so even the fallback improves on
-       today's worst case. The alternatives were measured, not guessed: 4 CROSSINGS
-       exhausts the cap on 39% of loads and ink 100 on 11%, while a 1px sample stride
-       with an alpha>0 threshold moves the same cell by only 1.25x - i.e. the thin
-       cells are genuinely thin, not a measurement artifact. */
-    const CONTOUR_MIN_INK = 80
-
-    const isDarkScheme = () => typeof document !== 'undefined'
-      && document.body
-      && document.body.hasAttribute('data-ds-dark-theme')
-
-    /* Someone who asked the OS for less motion gets the pattern without the motion.
-       The boot plate already honours this (see finish()), so the contour sheet must
-       not be the one animated surface that ignores it. The layer itself still
-       renders — a static topographic texture is not motion — but the field morph
-       does not start. This is checked live rather than cached so changing the OS
-       setting takes effect on the next reconciliation. */
+    /* ---- OS 减弱动效偏好 ------------------------------------------------
+       被三处共用：输出滚动动画（23-*）、雷霆大字（31-*）的动画门，以及设置页里
+       「动画开了但系统要求减弱」时对该行的置灰。定义在这里而不是各自的片段里，
+       是因为这三处必须给出同一个答案——半套界面理会系统偏好、另一套不理会，比全
+       不理会更难解释。实时读取而不是启动时缓存一次：改完系统设置不需要刷新页面。 */
     const prefersReducedMotion = () => typeof window !== 'undefined'
       && typeof window.matchMedia === 'function'
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const contourWantsAnim = () => isContourAnimOn() && !prefersReducedMotion()
-      && !contourLoaderActive && !contourScrollPaused
-      && (typeof document === 'undefined' || !document.hidden)
-    let contourLoaderActive = false
-    let contourScrollPaused = false
-    let contourScrollTimer = null
-    let contourResizePending = false
-    const contourHasScrollEnd = typeof window !== 'undefined' && 'onscrollend' in window
-    const contourPauseOnScroll = () => {
-      if (!isEnabled() || contourWrap === null || !isContourScrollPauseOn() || !isContourAnimOn()) return
-      if (!contourScrollPaused) {
-        contourScrollPaused = true
-        if (contourWorker) contourWorker.pending = null
-        contourSwitchSig = ''
-        contourStopLoop()
-      }
-      if (!contourHasScrollEnd && typeof setTimeout === 'function') {
-        if (contourScrollTimer !== null && typeof clearTimeout === 'function') clearTimeout(contourScrollTimer)
-        contourScrollTimer = setTimeout(() => {
-          contourScrollTimer = null
-          contourScrollPaused = false
-          contourSwitchSig = ''
-          contourApplySwitches()
-        }, 10)
-      }
-    }
-    const contourResumeAfterScroll = () => {
-      if (!contourScrollPaused) return
-      if (contourScrollTimer !== null && typeof clearTimeout === 'function') clearTimeout(contourScrollTimer)
-      const resume = () => {
-        contourScrollTimer = null
-        contourScrollPaused = false
-        contourSwitchSig = ''
-        if (contourResizePending && contourHost !== null) {
-          contourResizePending = false
-          if (contourSizeTo(contourHost)) {
-            contourRefresh(true)
-          }
-        }
-        contourApplySwitches()
-      }
-      if (typeof setTimeout === 'function') contourScrollTimer = setTimeout(resume, 10)
-      else resume()
-    }
-    const onContourScroll = () => { contourPauseOnScroll() }
-    const onContourScrollEnd = () => { contourResumeAfterScroll() }
-    contourScrollHook = onContourScroll
-    contourScrollEndHook = onContourScrollEnd
-    const contourPauseForLoader = () => {
-      contourLoaderActive = true
-      if (contourWrap !== null && contourRaf !== null) {
-        contourSwitchSig = ''
-        contourStopLoop()
-      }
-    }
-    const contourResumeAfterLoader = () => {
-      contourLoaderActive = false
-      if (contourWrap !== null) {
-        contourSwitchSig = ''
-        contourApplySwitches()
-      }
-    }
-
-    /** Allocate the field + marching-squares scratch buffers for a viewport size. */
-    const contourBuild = (w, h) => {
-      /* ACCEPT-OR-REROLL. A random layout is not automatically a GOOD layout, and
-         this is the concrete lesson from making the seed per-load: the old fixed
-         seed had silently guaranteed a well-spread field, and once real randomness
-         arrived, some layouts left regions with no contour lines at all. Measured on
-         the 8x5 coverage grid ("near-empty" = under 0.6% ink):
-             independent uniform placement   5 failures in 12 seeds (up to 3 cells)
-             stratified placement alone      6 failures in 24 seeds (down to 0.00%)
-         Stratification fixes clumping but cannot fix the real mechanism: lines
-         appear only where the field CROSSES one of the 21 fixed levels, so a region
-         that is locally flat between two levels is blank no matter how the bumps
-         sit. Forcing a gradient steep enough to guarantee a crossing per cell would
-         take ~9.5 parallel lines across the width, which reads as stripes, not
-         terrain -- so distorting the field is the wrong lever.
-         Instead the candidate layout is CHECKED against the same invariant the test
-         asserts, and rejected if it fails. Each attempt is cheap (one field
-         evaluation on a coarse grid, no extraction, no drawing) and bounded, so the
-         worst case is a handful of evaluations at mount/resize time only.
-
-         The two halves are BOTH load-bearing, which was verified rather than
-         assumed -- with the validator in place but placement reverted to uniform,
-         4 of 8 loads exhausted the 12-attempt cap and shipped a fallback layout
-         (one run in four still rendered a blank cell). Stratification is what makes
-         an acceptable layout the common case: mean 2.5 candidates, max 6, never at
-         the cap. Validation is what makes it a guarantee. */
-      const attempts = 32
-      const step = contourStepFor(w, h)
-      let best = null
-      for (let attempt = 0; attempt < attempts; attempt++) {
-        const cand = contourBuildCandidate(w, h, attempt, step)
-        const score = contourCoverageScore(cand, w, h)
-        /* Prefer more crossing bands, then more ink in the thinnest region. The
-           tiebreak only matters if every attempt fails validation and the best of the
-           32 ships — measured at 0 of 200 seeds with the floor in place. */
-        if (best === null || score.worst > best.score.worst
-          || (score.worst === best.score.worst && score.ink > best.score.ink)) best = { cand, score }
-        // Comfortably above the 0.6%-ink failure line, in field terms: every cell
-        // must contain a spread of values wider than one level gap, so at least one
-        // level is guaranteed to cross it.
-        if (score.ok) break
-      }
-      contourField = best.cand.field
-      contourGeom = { w, h, cols: best.cand.cols, rows: best.cand.rows, step }
-    }
-
-    /* One candidate landscape. `salt` varies the draw per attempt while staying
-       deterministic for a given page load, so a resize reproduces the same accepted
-       layout instead of reshuffling the terrain under the user. */
-    const contourBuildCandidate = (w, h, salt, step) => {
-      const cols = Math.ceil(w / step) + 1
-      const rows = Math.ceil(h / step) + 1
-      /* Bump count adapts to the viewport -- see the note on VIEWPORT-ADAPTIVE
-         DENSITY. At or above the 640px short side this is the shipped 22, and a
-         narrow frame gets fewer islands so they stay separated instead of
-         stacking into bullseyes. */
-      const K = contourBumpsFor(w, h)
-      const rnd = contourRng((contourSeed + salt * 0x9E3779B1) >>> 0)
-      const m = Math.min(w, h)
-      const bx = new Float32Array(K), by = new Float32Array(K)
-      const ba = new Float32Array(K), bs = new Float32Array(K)
-      const dx = new Float32Array(K), dy = new Float32Array(K)
-      /* STRATIFIED placement, not independent uniform draws.
-
-         Uniform sampling clumps: measured over 12 random seeds it left up to 3
-         near-empty cells. Jittered grid instead -- the viewport is cut into a
-         near-square lattice of at least K cells and each bump is placed at a random
-         point inside its own cell. That keeps placement random while making a large
-         empty patch geometrically impossible. Cells are ordered by a Fisher-Yates
-         shuffle so the bump INDEX carries no positional bias: index drives
-         amplitude, radius and drift below, and walking cells in raster order would
-         correlate "left side of the screen" with "first sizes drawn".
-         The lattice spans the same -0.1..1.1 over-scan as before, so islands are
-         still cut by the viewport edges rather than all sitting fully inside. */
-      const gx = Math.max(1, Math.round(Math.sqrt(K * (w / Math.max(1, h)))))
-      const gy = Math.max(1, Math.ceil(K / gx))
-      const cells = []
-      for (let j = 0; j < gy; j++) for (let i = 0; i < gx; i++) cells.push(i + j * gx)
-      for (let i = cells.length - 1; i > 0; i--) {
-        const j = Math.floor(rnd() * (i + 1))
-        const t = cells[i]; cells[i] = cells[j]; cells[j] = t
-      }
-      const spanX = 1.2 * w, spanY = 1.2 * h
-      for (let k = 0; k < K; k++) {
-        const cell = cells[k % cells.length]
-        const ci = cell % gx
-        const cj = Math.floor(cell / gx)
-        // Random point inside this cell, in the over-scanned -0.1..1.1 space.
-        bx[k] = -0.1 * w + ((ci + rnd()) / gx) * spanX
-        by[k] = -0.1 * h + ((cj + rnd()) / gy) * spanY
-        // Mixed sign gives peaks AND basins; equal signs would read as one blob.
-        ba[k] = (rnd() < 0.5 ? -1 : 1) * (0.6 + rnd() * 0.9)
-        /* Radius: relative to the frame for the shipped look, but never below
-           CONTOUR_MIN_BUMPSAMPLES grid samples or the field aliases — see the note on
-           that constant. This floor is the fix for the tangled/piled-up lines. */
-        bs[k] = Math.max(step * CONTOUR_MIN_BUMPSAMPLES, (0.05 + rnd() * 0.09) * m)
-        dx[k] = rnd() * 2 - 1
-        dy[k] = rnd() * 2 - 1
-      }
-      /* Base undulation: three long, low-amplitude sine ridges spanning the whole
-         viewport. Reason this exists, from reviewing the first render: a sum of
-         gaussians decays to EXACTLY zero between islands, so the field there is
-         perfectly flat, no level ever crosses it, and the result had large blank
-         patches that exposed the construction. Real terrain has no such voids. The
-         ridges are far too gentle to create islands of their own — they just tilt
-         the whole sheet enough that contour lines keep running through the gaps,
-         which is what turns isolated bullseyes into one continuous landscape. */
-      const W2 = new Float32Array(9)
-      for (let i = 0; i < 3; i++) {
-        W2[i * 3] = (0.35 + rnd() * 0.5) * (Math.PI * 2) / Math.max(1, w)  // x freq
-        W2[i * 3 + 1] = (0.35 + rnd() * 0.5) * (Math.PI * 2) / Math.max(1, h) // y freq
-        W2[i * 3 + 2] = rnd() * Math.PI * 2                                 // phase
-      }
-      const hCount = (cols - 1) * rows
-      const eCount = hCount + cols * (rows - 1)
-      const field = {
-        cols, rows, step, K, bx, by, ba, bs, dx, dy, hCount, W2,
-        F: new Float32Array(cols * rows),
-        previous: new Float32Array(cols * rows),
-        hasPrevious: false,
-        smooth: new Float32Array(cols * rows),
-        // Exact row-block bounds include both rows and the shared right vertex.
-        // They reject empty regions without changing retained cells or path order.
-        blockCols: Math.ceil((cols - 1) / 16),
-        blockMin: new Float32Array(Math.ceil((cols - 1) / 16) * (rows - 1)),
-        blockMax: new Float32Array(Math.ceil((cols - 1) / 16) * (rows - 1)),
-        boundsReady: false,
-        ex: new Float32Array(eCount),
-        ey: new Float32Array(eCount),
-        es: new Int32Array(eCount).fill(-1),
-        n1: new Int32Array(eCount).fill(-1),
-        n2: new Int32Array(eCount).fill(-1),
-        seen: new Int32Array(eCount).fill(-1),
-        touched: new Int32Array(eCount),
-        seq: 0,
-      }
-      return { field, cols, rows }
-    }
-
-    /* Score a candidate landscape on the SAME invariant the coverage test asserts,
-       but measured on the field rather than on rendered pixels -- no extraction and
-       no canvas needed, so a rejected attempt costs one coarse evaluation.
-
-       A cell gets contour lines when the field inside it SPANS level boundaries.
-       Counting them is the right question, but "at least one" is NOT enough, and
-       that was measured: with a 1-crossing bar, 4 blank cells still slipped through
-       and every one of them DID contain drawn vertices -- a level was crossed in
-       just a corner of the cell, yielding a few pixels of stroke against a 0.6%-ink
-       bar. A grazing crossing is geometrically present and visually absent.
-       CONTOUR_MIN_CROSSINGS therefore demands the field sweep several level bands in
-       every cell, which is what "this region reads as terrain" actually means. */
-    const contourCoverageScore = (cand, w, h) => {
-      const f = cand.field
-      // Evaluate at phase 0: the accepted layout must be sound as first painted.
-      const prev = contourField
-      contourField = f
-      contourEvaluate(0)
-      contourField = prev
-      const { cols, rows, F } = f
-      const GX = 8, GY = 5
-      const span = CONTOUR_SPAN
-      /* Judge against the density this viewport will actually DRAW, not the
-         shipped constant: a narrow frame extracts fewer levels, so its per-quad
-         incidence count is proportionally smaller. Scoring it on CONTOUR_LEVELS
-         would demand 2x the ink of a 10-level sheet and push the re-roll loop to
-         its cap on every small window. */
-      const levelStep = (span * 2) / contourLevelsFor(w, h)
-      let worst = Infinity
-      let ok = true
-      let ink = Infinity
-      for (let gy = 0; gy < GY; gy++) {
-        for (let gx = 0; gx < GX; gx++) {
-          const i0 = Math.floor(gx * (cols - 1) / GX), i1 = Math.ceil((gx + 1) * (cols - 1) / GX)
-          const j0 = Math.floor(gy * (rows - 1) / GY), j1 = Math.ceil((gy + 1) * (rows - 1) / GY)
-          let mn = Infinity, mx = -Infinity
-          /* The ink proxy is accumulated over the QUADS of this region, in the same
-             walk that takes its min/max — see CONTOUR_MIN_INK. */
-          let regionInk = 0
-          for (let j = j0; j <= j1 && j < rows; j++) {
-            const row = j * cols
-            for (let i = i0; i <= i1 && i < cols; i++) {
-              const v = F[row + i]
-              if (v < mn) mn = v
-              if (v > mx) mx = v
-              if (j < j1 && j < rows - 1 && i < i1 && i < cols - 1) {
-                const a = v, b = F[row + i + 1]
-                const c = F[row + cols + i], d = F[row + cols + i + 1]
-                let qmn = a < b ? a : b, qmx = a > b ? a : b
-                if (c < qmn) qmn = c; if (c > qmx) qmx = c
-                if (d < qmn) qmn = d; if (d > qmx) qmx = d
-                if (qmn < -span) qmn = -span
-                if (qmx > span) qmx = span
-                if (qmx > qmn) regionInk += Math.floor(qmx / levelStep) - Math.ceil(qmn / levelStep) + 1
-              }
-            }
-          }
-          // Clamp to the drawn level range: values beyond +/-SPAN produce no lines.
-          const lo = Math.max(mn, -span), hi = Math.min(mx, span)
-          // How many level boundaries fall inside this cell's clamped range.
-          const crossings = hi <= lo ? 0
-            : Math.floor(hi / levelStep) - Math.ceil(lo / levelStep) + 1
-          if (crossings < worst) worst = crossings
-          if (crossings < CONTOUR_MIN_CROSSINGS) ok = false
-          if (regionInk < ink) ink = regionInk
-          if (regionInk < CONTOUR_MIN_INK) ok = false
-        }
-      }
-      return { ok, worst, ink }
-    }
-
-    /* Evaluate the field at `phase`. Bounded scatter: each bump adds itself only
-       within 2.6 sigma of its (drifting) centre. This is the measured 1.9x win
-       over evaluating every bump at every grid point. */
-    const contourEvaluate = (phase) => {
-      const f = contourField
-      if (f !== null) f.boundsReady = false
-      if (f === null) return
-      const { cols, rows, step, K, bx, by, ba, bs, dx, dy, F, W2 } = f
-      /* Seed the sheet with the base undulation instead of zero, so the gaps
-         between islands still have a gradient for the levels to cross. Separable
-         evaluation: sin(a+b) is expanded so the y term is computed once per row
-         rather than once per cell, which keeps this pass cheap. */
-      const BASE = 0.62
-      for (let i = 0; i < 3; i++) {
-        const fx = W2[i * 3], fy = W2[i * 3 + 1], ph = W2[i * 3 + 2] + phase * 0.11
-        const amp = BASE / 3
-        for (let j = 0; j < rows; j++) {
-          const yb = fy * (j * step) + ph
-          const sy = Math.sin(yb), cy2 = Math.cos(yb)
-          const row = j * cols
-          for (let c2 = 0; c2 < cols; c2++) {
-            const xb = fx * (c2 * step)
-            // sin(xb + yb) without a per-cell sin() of the sum
-            const v = Math.sin(xb) * cy2 + Math.cos(xb) * sy
-            if (i === 0) F[row + c2] = amp * v
-            else F[row + c2] += amp * v
-          }
-        }
-      }
-      for (let k = 0; k < K; k++) {
-        const s = bs[k]
-        const amp = s * 0.55
-        const cx = bx[k] + Math.sin(phase * dx[k] + k * 1.7) * amp
-        const cy = by[k] + Math.cos(phase * dy[k] + k * 2.3) * amp
-        const a = ba[k]
-        const inv = 1 / (2 * s * s)
-        const rad = 2.6 * s
-        let i0 = Math.floor((cx - rad) / step)
-        let i1 = Math.ceil((cx + rad) / step)
-        let j0 = Math.floor((cy - rad) / step)
-        let j1 = Math.ceil((cy + rad) / step)
-        if (i0 < 0) i0 = 0
-        if (j0 < 0) j0 = 0
-        if (i1 > cols - 1) i1 = cols - 1
-        if (j1 > rows - 1) j1 = rows - 1
-        for (let j = j0; j <= j1; j++) {
-          const ddy = j * step - cy
-          const dy2 = ddy * ddy
-          const row = j * cols
-          for (let i = i0; i <= i1; i++) {
-            const ddx = i * step - cx
-            const q = (ddx * ddx + dy2) * inv
-            if (q < 6.76) {
-              let weight = Math.exp(-q)
-              if (q > 4.8) {
-                const t = (q - 4.8) / (6.76 - 4.8)
-                const fade = 1 - t * t * (3 - 2 * t)
-                weight *= fade
-              }
-              F[row + i] += a * weight
-            }
-          }
-        }
-      }
-      const smooth = f.smooth
-      for (let pass = 0; pass < 5; pass++) {
-        for (let j = 0; j < rows; j++) {
-          const row = j * cols
-          for (let i = 0; i < cols; i++) {
-            const left = F[row + Math.max(0, i - 1)]
-            const center = F[row + i]
-            const right = F[row + Math.min(cols - 1, i + 1)]
-            smooth[row + i] = (left + 2 * center + right) * 0.25
-          }
-        }
-        for (let j = 0; j < rows; j++) {
-          const row = j * cols
-          const up = Math.max(0, j - 1) * cols
-          const down = Math.min(rows - 1, j + 1) * cols
-          for (let i = 0; i < cols; i++) {
-            F[row + i] = (smooth[up + i] + 2 * smooth[row + i] + smooth[down + i]) * 0.25
-          }
-        }
-      }
-      /* Track the field continuously between animation samples. Marching squares
-         can change an entire path at once when a saddle crosses a level; blending
-         the sampled field keeps that topology change from appearing as a twitch. */
-      if (f.hasPrevious && f.previous !== undefined) {
-        for (let i = 0; i < F.length; i++) {
-          f.previous[i] = f.previous[i] * 0.65 + F[i] * 0.35
-          F[i] = f.previous[i]
-        }
-      } else if (f.previous !== undefined) {
-        f.previous.set(F)
-      }
-      f.hasPrevious = true
-    }
-
-    /* Marching squares for one level, stitched into polylines.
-       Adjacency uses EDGE IDS in two Int32Arrays rather than float-position
-       matching or a Map: a contour edge has at most two neighbours, adjacent cells
-       address the identical edge id, so joins are exact and allocation-free. */
-    const contourExtractLevel = (L, out) => {
-      const f = contourField
-      const { cols, rows, step, F, ex, ey, es, n1, n2, seen, touched, hCount } = f
-      const st = ++f.seq
-      let tn = 0
-      const pt = (id, i0, j0, i1, j1) => {
-        if (es[id] === st) return id
-        const a = F[j0 * cols + i0]
-        const b = F[j1 * cols + i1]
-        let t = (L - a) / (b - a)
-        if (!(t >= 0)) t = 0
-        else if (t > 1) t = 1
-        ex[id] = (i0 + (i1 - i0) * t) * step
-        ey[id] = (j0 + (j1 - j0) * t) * step
-        es[id] = st
-        n1[id] = -1
-        n2[id] = -1
-        touched[tn++] = id
-        return id
-      }
-      const link = (a, b) => {
-        if (n1[a] < 0) n1[a] = b
-        else if (n2[a] < 0) n2[a] = b
-        if (n1[b] < 0) n1[b] = a
-        else if (n2[b] < 0) n2[b] = a
-      }
-      for (let j = 0; j < rows - 1; j++) {
-        const row = j * cols
-        for (let i = 0; i < cols - 1; i++) {
-          if (f.boundsReady && i % 16 === 0) {
-            const block = j * f.blockCols + Math.floor(i / 16)
-            if (L <= f.blockMin[block] || L > f.blockMax[block]) {
-              i = Math.min(i + 16, cols - 1) - 1
-              continue
-            }
-          }
-          const p0 = row + i
-          const p1 = p0 + 1
-          const p3 = p0 + cols
-          const p2 = p3 + 1
-          const v0 = F[p0], v1 = F[p1], v2 = F[p2], v3 = F[p3]
-          let mn = v0, mx = v0
-          if (v1 < mn) mn = v1; else if (v1 > mx) mx = v1
-          if (v2 < mn) mn = v2; else if (v2 > mx) mx = v2
-          if (v3 < mn) mn = v3; else if (v3 > mx) mx = v3
-          // Whole cell on one side of the level: nothing crosses it.
-          if (L <= mn || L > mx) continue
-          const idx = (v0 > L ? 1 : 0) | (v1 > L ? 2 : 0) | (v2 > L ? 4 : 0) | (v3 > L ? 8 : 0)
-          const T = () => pt(j * (cols - 1) + i, i, j, i + 1, j)
-          const B = () => pt((j + 1) * (cols - 1) + i, i, j + 1, i + 1, j + 1)
-          const Le = () => pt(hCount + j * cols + i, i, j, i, j + 1)
-          const Ri = () => pt(hCount + j * cols + i + 1, i + 1, j, i + 1, j + 1)
-          switch (idx) {
-            case 1: case 14: link(T(), Le()); break
-            case 2: case 13: link(T(), Ri()); break
-            case 3: case 12: link(Le(), Ri()); break
-            case 4: case 11: link(Ri(), B()); break
-            case 6: case 9: link(T(), B()); break
-            case 7: case 8: link(Le(), B()); break
-            // Ambiguous saddles use the bilinear asymptotic decider. The sign of
-            // a*c-b*d selects whether the diagonal high/low regions are connected;
-            // using the cell average alone is wrong when opposite corners differ in
-            // magnitude and produces the long V-shaped joins seen in the render.
-            case 5: {
-              const a = v0 - L, b = v1 - L, c = v2 - L, d = v3 - L
-              const saddle = a * c - b * d
-              if (saddle > 0) { link(T(), Ri()); link(Le(), B()) }
-              else { link(T(), Le()); link(Ri(), B()) }
-              break
-            }
-            case 10: {
-              const a = v0 - L, b = v1 - L, c = v2 - L, d = v3 - L
-              const saddle = a * c - b * d
-              if (saddle < 0) { link(T(), Le()); link(Ri(), B()) }
-              else { link(T(), Ri()); link(Le(), B()) }
-              break
-            }
-          }
-        }
-      }
-      const walk = (start) => {
-        const path = []
-        let cur = start
-        let prev = -1
-        for (;;) {
-          path.push(ex[cur], ey[cur])
-          seen[cur] = st
-          const a = n1[cur]
-          const b = n2[cur]
-          let nx = -1
-          if (a >= 0 && a !== prev && seen[a] !== st) nx = a
-          else if (b >= 0 && b !== prev && seen[b] !== st) nx = b
-          if (nx < 0) {
-            // Closed loop: step back onto the first point so the ring has no gap.
-            if ((a === start || b === start) && path.length > 4) path.push(ex[start], ey[start])
-            break
-          }
-          prev = cur
-          cur = nx
-        }
-        return path
-      }
-      /* Reject debris before it reaches the draw list. Judged on the path's
-         ON-CANVAS geometry, so an off-grid sliver with no visible pixels is
-         dropped even when its raw length looks respectable. See the note on
-         CONTOUR_MIN_LEN / CONTOUR_MIN_RING_BOX for the measurements behind both
-         thresholds. */
-      const W = contourGeom !== null ? contourGeom.w : 0
-      const H = contourGeom !== null ? contourGeom.h : 0
-      const keep = (p) => {
-        if (p.length < 8) return false
-        // Visible length, plus the bounding box of the part actually on screen.
-        let vis = 0
-        let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity
-        let seenIn = false
-        for (let k = 0; k < p.length; k += 2) {
-          const x = p[k], y = p[k + 1]
-          const inside = x >= 0 && x <= W && y >= 0 && y <= H
-          if (inside) {
-            seenIn = true
-            if (x < minx) minx = x
-            if (x > maxx) maxx = x
-            if (y < miny) miny = y
-            if (y > maxy) maxy = y
-          }
-          if (k >= 2) {
-            const px2 = p[k - 2], py2 = p[k - 1]
-            const prevIn = px2 >= 0 && px2 <= W && py2 >= 0 && py2 <= H
-            if (inside && prevIn) {
-              const dx = x - px2, dy = y - py2
-              vis += Math.sqrt(dx * dx + dy * dy)
-            }
-          }
-        }
-        if (!seenIn) return false            // entirely off-canvas: pure debris
-        if (vis < CONTOUR_KEEP_LEN) return false
-        /* A tiny CLOSED ring is an apex bullseye and reads as a dot. Open chains of
-           the same extent are left alone: they are the visible corner of a stroke
-           that continues off-canvas, and clipping one would punch a hole in a line
-           the user can see running to the edge. */
-        const gapx = p[0] - p[p.length - 2]
-        const gapy = p[1] - p[p.length - 1]
-        const closed = (gapx * gapx + gapy * gapy) < 4
-        if (closed && (maxx - minx) < CONTOUR_KEEP_RING
-          && (maxy - miny) < CONTOUR_KEEP_RING) return false
-        return true
-      }
-      /* TANGENCY NEEDLES. Where a level runs nearly TANGENT to the field, the true
-         isoline has a smooth, very high curvature tip. Marching squares interpolates
-         linearly on a 10px grid, so it cannot represent that tip: it emits a hairpin
-         that goes out and comes straight back, with a BASE (the gap between the
-         apex's two neighbours) far narrower than the 1px stroke. Measured on the real
-         output, worst case: apex 6.26px out from a base of 0.831px.
-
-         At that width the outbound and return strokes paint the SAME pixels, so the
-         pair does not read as a narrow valley — only the protruding whisker shows,
-         which is precisely the "irregular sharp angle" in issue #3. Smoothing cannot
-         help: the midpoint spline faithfully reproduces a feature that is genuinely
-         in the geometry, so it has to be removed here, at the source.
-
-         The whole hairpin is collapsed (see the note on the merge below). Both tests
-         are required and were measured over 24 frames (152.6k vertices, 1.18Mpx of
-         ink):
-           base < 2px   the stroke cannot resolve it (a 1px line is ~1px wide)
-           turn > 90    it doubles back rather than merely turning a corner
-         That is 0.7 vertices per frame and 0.0037% of total ink -- artifact removal,
-         not thinning. Real narrow features are untouched: turns over 90 degrees have
-         a median base of 4.03px, well clear of the cutoff, and the whole 8-12px base
-         band (29562 vertices) has a p99 turn of only 21.7 degrees. */
-      const deneedle = (p) => {
-        const n = p.length / 2
-        if (n < 4) return p
-        /* Scan first and return the ORIGINAL array when there is nothing to do, so
-           the overwhelmingly common path allocates nothing at 24fps. */
-        let found = false
-        for (let k = 1; k < n - 1; k++) {
-          const bx = p[(k + 1) * 2] - p[(k - 1) * 2]
-          const by = p[(k + 1) * 2 + 1] - p[(k - 1) * 2 + 1]
-          if (bx * bx + by * by >= 4) continue          // base >= 2px: keep
-          const ax = p[k * 2] - p[(k - 1) * 2]
-          const ay = p[k * 2 + 1] - p[(k - 1) * 2 + 1]
-          const cx = p[(k + 1) * 2] - p[k * 2]
-          const cy = p[(k + 1) * 2 + 1] - p[k * 2 + 1]
-          // turn > 90 degrees <=> the two segment vectors point against each other.
-          if (ax * cx + ay * cy < 0) { found = true; break }
-        }
-        if (!found) return p
-        const gx = p[0] - p[(n - 1) * 2]
-        const gy = p[1] - p[(n - 1) * 2 + 1]
-        const closed = (gx * gx + gy * gy) < 4
-        /* COLLAPSE THE WHOLE NEEDLE, not just its tip. Dropping the apex alone leaves
-           the base itself as a real segment, and that was measured to be worse than
-           the disease: a 0.831px stub inherits the reversal as TWO ~78-degree turns
-           (10.20 -> 0.83 -> 10.25px). The apex AND its far neighbour are therefore
-           both consumed, and the surviving previous vertex is pulled onto the base
-           midpoint -- a sub-pixel move (half of at most 2px) that no 1px stroke can
-           show, leaving one smooth vertex where the hairpin was.
-           Each test uses the SURVIVING previous vertex, so a run of needles collapses
-           progressively instead of each test being fooled by a neighbour that is
-           itself about to be consumed. */
-        const q = [p[0], p[1]]
-        let k = 1
-        while (k < n - 1) {
-          const px = q[q.length - 2], py = q[q.length - 1]
-          const bx = p[(k + 1) * 2] - px, by = p[(k + 1) * 2 + 1] - py
-          if (bx * bx + by * by < 4) {
-            const ax = p[k * 2] - px, ay = p[k * 2 + 1] - py
-            const cx = p[(k + 1) * 2] - p[k * 2], cy = p[(k + 1) * 2 + 1] - p[k * 2 + 1]
-            if (ax * cx + ay * cy < 0) {
-              if (k + 1 < n - 1) {
-                q[q.length - 2] = (px + p[(k + 1) * 2]) / 2
-                q[q.length - 1] = (py + p[(k + 1) * 2 + 1]) / 2
-                k += 2
-                continue
-              }
-              // The far neighbour is the final vertex, which must survive to keep an
-              // endpoint (or a ring's closure) intact: consume only the apex.
-              k += 1
-              continue
-            }
-          }
-          q.push(p[k * 2], p[k * 2 + 1])
-          k += 1
-        }
-        q.push(p[(n - 1) * 2], p[(n - 1) * 2 + 1])
-        /* A ring is closed by REPEATING its start vertex, and the merge above may have
-           nudged that start. Re-anchor the repeat so the ring stays exactly closed and
-           both keep() and the cyclic draw path still classify it as one. */
-        if (closed) {
-          q[q.length - 2] = q[0]
-          q[q.length - 1] = q[1]
-        }
-        return q
-      }
-      // Open chains first (they have a free end), then whatever remains is a loop.
-      // Doing it in this order stops a ring being entered mid-way and split in two.
-      for (let k = 0; k < tn; k++) {
-        const id = touched[k]
-        if (seen[id] !== st && n2[id] < 0) {
-          const p = deneedle(walk(id))
-          if (keep(p)) out.push(p)
-        }
-      }
-      for (let k = 0; k < tn; k++) {
-        const id = touched[k]
-        if (seen[id] !== st) {
-          const p = deneedle(walk(id))
-          if (keep(p)) out.push(p)
-        }
-      }
-    }
-
-    const contourExtract = (phase, trailPoints, trailNow) => {
-      if (contourField === null) return
-      contourEvaluate(phase)
-      if (trailPoints && trailPoints.length) contourOverlayTrail(contourField, trailPoints, trailNow)
-      const f = contourField
-      // One O(cells) range pass is shared by all 21 extraction levels. Scratch
-      // survives across frames; no resolution, smoothing or density is reduced.
-      for (let j = 0; j < f.rows - 1; j++) {
-        const row = j * f.cols
-        for (let block = 0; block < f.blockCols; block++) {
-          const begin = block * 16
-          const end = Math.min(begin + 16, f.cols - 1)
-          let min = Infinity, max = -Infinity
-          for (let i = begin; i <= end; i++) {
-            const a = f.F[row + i], b = f.F[row + f.cols + i]
-            if (a < min) min = a
-            if (a > max) max = a
-            if (b < min) min = b
-            if (b > max) max = b
-          }
-          const k = j * f.blockCols + block
-          f.blockMin[k] = min
-          f.blockMax[k] = max
-        }
-      }
-      f.boundsReady = true
-      contourPaths = []
-      const span = CONTOUR_SPAN
-      /* Level count follows the viewport: the same VIEWPORT-ADAPTIVE DENSITY
-         contourBuildCandidate() laid the bumps out with. At or above the 640px
-         short side this is exactly the shipped loop, so desktop output is
-         unchanged. */
-      const levels = contourLevelsFor(contourGeom.w, contourGeom.h)
-      const stepL = (span * 2) / levels
-      for (let n = 0; n <= levels; n++) {
-        contourExtractLevel(-span + n * stepL, contourPaths)
-      }
-    }
-
-    /* Stroke colour. Values are measured, not guessed: on cream the pure signal
-       yellow #fff500 is almost invisible (it is nearly as light as the paper), so
-       light mode uses a darkened olive-yellow at higher alpha, while dark mode can
-       use the signal yellow itself at low alpha. Both were checked by sampling a
-       render: the pattern reads as texture and body text keeps full contrast
-       because the sheet sits BEHIND it.
-
-       A canvas stroke cannot be a CSS variable — this is the ONE accent surface the
-       palette switch cannot reach declaratively, so the palette is read here and
-       the sheet is redrawn when it changes (see the palette MutationObserver).
-
-       Written as 8-DIGIT HEX (#RRGGBBAA) so every accent value in this package is
-       expressed the same way. Verified in a real browser rather than assumed:
-       canvas normalises '#14d0d045' to exactly the rgba() it would have parsed
-       (measured fillStyle 'rgba(20, 208, 208, 0.267)', painted pixel alpha 68/255).
-
-       The cyan alphas are NOT copied from the yellow ones. Equal alpha does not
-       mean equal presence: cyan composited at yellow's 0.20 over #101110 measured
-       1.332:1 against the yellow's 1.734:1 — a 23% drop, which reads as the
-       feature having quietly weakened on switch. Each palette is therefore tuned
-       to the same composited contrast rather than the same number, and
-       test/palette-contrast.test.js fails if the two drift more than 20% apart:
-         谷地黄 dark  #fff50033  (0.20)  1.734:1
-         谷地黄 light #beaf006b  (0.42)  1.291:1
-         武陵青 dark  #14d0d045  (0.27)  1.755:1  (+1.2%)
-         武陵青 light #14d0d07a  (0.48)  1.289:1  (-0.2%)
-       Both cyan alphas came DOWN from the first version (0.32 / 0.30 at the old
-       darker accent): a brighter stroke composites stronger, so holding the same
-       on-screen strength means less of it. Light-mode cyan still needs no darkened
-       variant the way yellow does, because it is not close to paper-white. The tags
-       below are what the test greps for, so renaming them breaks the check loudly
-       instead of silently. */
-    const contourStroke = () => {
-      /* 强调色改为**读 --edge-accent 的实时值**，不再按配色名硬编码两三个色值：
-         三套阵营（以及将来任何新增配色）因此都自动跟随，这里不必再列一遍。
-         8 位 hex（#RRGGBBAA）的 alpha 沿用原设计的两档——暗色底上「叠加」亮度
-         比纸底上「减去」亮度显得更响，所以暗色用更低的 alpha（0x33 vs 0x6b）。 */
-      const accent = readAccentHex()
-      return accent + (isDarkScheme() ? '33' : '6b')
-    }
-
-    const contourDrawLines = () => {
-      if (contourLineCv === null || contourGeom === null) return
-      const ctx = contourLineCv.getContext('2d')
-      if (!ctx) return
-      const { w, h } = contourGeom
-      /* Geometry stays in CSS px; scale the context to the backing store that
-         contourSizeTo sized at (capped) devicePixelRatio, so strokes rasterise
-         at device resolution instead of being upsampled into blur on HiDPI
-         screens. Derived from the canvas itself, and skipped entirely at a 1x
-         store or when the context has no setTransform (the spliced-in test
-         harnesses), so a 1x render is byte-identical to before. */
-      const scale = (w > 0 && typeof contourLineCv.width === 'number' && contourLineCv.width > 0 && contourLineCv.width !== w)
-        ? contourLineCv.width / w : 1
-      if (scale !== 1 && typeof ctx.setTransform === 'function') ctx.setTransform(scale, 0, 0, scale, 0, 0)
-      ctx.clearRect(0, 0, w, h)
-      ctx.strokeStyle = contourStroke()
-      ctx.lineWidth = 1
-      ctx.lineJoin = 'round'
-      /* Marching squares emits one vertex per grid-cell edge. Three Chaikin passes
-         cut local corners before the clamped cubic B-spline rounds broad bends.
-         This reduces angularity without changing the field or adding another
-         extraction pass. Open endpoints remain fixed; closed rings wrap cyclically.
-
-         PASS COUNT IS SIZE-ADAPTIVE: see CONTOUR_SMOOTH_FULL. Every ordinary window
-         keeps three passes; a bigger sheet drops to two and then one. */
-      const smoothPath = (source) => {
-        const count = source.length / 2
-        if (count < 3) return source
-        const closed = (source[0] - source[source.length - 2]) ** 2
-          + (source[1] - source[source.length - 1]) ** 2 < 4
-        /* Flat scratch throughout: the previous shape built one [x, y] array per
-           point PER PASS — ~14 small arrays per source vertex, ~65k per sheet at
-           1440x900 — which is pure GC inside the animation frame on both painters. */
-        let points = closed ? source.slice(0, source.length - 2) : source.slice()
-        const passes = count <= CONTOUR_SMOOTH_FULL ? 3 : (count <= CONTOUR_SMOOTH_LIMIT ? 2 : 1)
-        for (let pass = 0; pass < passes; pass++) {
-          const n = points.length / 2
-          const limit = closed ? n : n - 1
-          const next = new Array(n * 4)
-          let w2 = 0
-          if (!closed) { next[w2++] = points[0]; next[w2++] = points[1] }
-          for (let k = 0; k < limit; k++) {
-            const a = k * 2
-            const b = ((k + 1) % n) * 2
-            const ax = points[a], ay = points[a + 1]
-            const bx = points[b], by = points[b + 1]
-            next[w2++] = ax * 0.75 + bx * 0.25
-            next[w2++] = ay * 0.75 + by * 0.25
-            next[w2++] = ax * 0.25 + bx * 0.75
-            next[w2++] = ay * 0.25 + by * 0.75
-          }
-          if (!closed) { next[w2++] = points[points.length - 2]; next[w2++] = points[points.length - 1] }
-          points = w2 === next.length ? next : next.slice(0, w2)
-        }
-        if (!closed) return points
-        // Re-anchor the repeated start vertex so the ring stays exactly closed.
-        const out = points.slice()
-        out.push(out[0], out[1])
-        return out
-      }
-      /* Chaikin removes local grid noise. A constrained Catmull-Rom cubic then
-         gives each join one shared tangent. The handle cap prevents overshoot at
-         narrow saddles while the larger tangent factor removes long rounded-polygon
-         bends that remain visible with midpoint quadratics. */
-      const drawSmoothPath = (source) => {
-        const count = source.length / 2
-        if (count < 3) {
-          ctx.moveTo(source[0], source[1])
-          for (let k = 2; k < source.length; k += 2) ctx.lineTo(source[k], source[k + 1])
-          return
-        }
-        const closed = (source[0] - source[source.length - 2]) ** 2
-          + (source[1] - source[source.length - 1]) ** 2 < 4
-        const limit = closed ? count - 1 : count
-        const at = (index) => {
-          const k = closed
-            ? (index + limit) % limit
-            : Math.max(0, Math.min(limit - 1, index))
-          return k * 2
-        }
-        /* Tangents from scalars, with squared lengths wherever the comparison allows
-           it. The previous shape allocated eight [x, y] arrays and ran up to six
-           Math.hypot per SEGMENT — tens of thousands of segments per frame, on both
-           the WebGL painter and the canvas fallback. Math.sqrt replaces hypot because
-           every argument here is a pixel delta, far from hypot's overflow range. */
-        const tangentAt = (index, out) => {
-          const i = at(index)
-          const p = at(index - 1)
-          const n = at(index + 1)
-          const cx = source[i], cy = source[i + 1]
-          const inX = cx - source[p], inY = cy - source[p + 1]
-          const outX = source[n] - cx, outY = source[n + 1] - cy
-          let tx, ty, cap
-          if (!closed && index === 0) {
-            tx = outX * 0.4
-            ty = outY * 0.4
-            cap = Math.sqrt(outX * outX + outY * outY) * 0.55
-          } else if (!closed && index === limit - 1) {
-            tx = inX * 0.4
-            ty = inY * 0.4
-            cap = Math.sqrt(inX * inX + inY * inY) * 0.55
-          } else {
-            tx = (source[n] - source[p]) * 0.32
-            ty = (source[n + 1] - source[p + 1]) * 0.32
-            cap = Math.sqrt(Math.min(inX * inX + inY * inY, outX * outX + outY * outY)) * 0.62
-          }
-          const len2 = tx * tx + ty * ty
-          if (len2 > cap * cap && len2 > 0) {
-            const s = cap / Math.sqrt(len2)
-            tx *= s
-            ty *= s
-          }
-          out[0] = tx
-          out[1] = ty
-        }
-        ctx.moveTo(source[0], source[1])
-        const segments = closed ? limit : limit - 1
-        const t0 = [0, 0]
-        const t1 = [0, 0]
-        for (let k = 0; k < segments; k++) {
-          const s = at(k)
-          const e = at(k + 1)
-          tangentAt(k, t0)
-          tangentAt(k + 1, t1)
-          ctx.bezierCurveTo(
-            source[s] + t0[0], source[s + 1] + t0[1],
-            source[e] - t1[0], source[e + 1] - t1[1],
-            source[e], source[e + 1],
-          )
-        }
-        /* Mark a ring as a RING. The cyclic tangents above already make the seam C1
-           and the final span already lands exactly on the start point, so this adds
-           no geometry — but without it the canvas treats the path as open and butts
-           two caps together at the seam instead of joining them, which is defect (2)
-           of issue #3. contour-cusps.test.js guards this. */
-        if (closed) ctx.closePath()
-      }
-      const isRing = (p) => {
-        const n = p.length - 2
-        return n >= 2 && (p[0] - p[n]) ** 2 + (p[1] - p[n + 1]) ** 2 < 4
-      }
-      /* ONE STROKE, RINGS FIRST — and the ORDER matters for the canvas fallback, not
-         for looks. `closePath()` on a real 2D context finalises the current subpath by
-         splicing it into the path accumulated so far, so its cost grows with
-         everything already in that path (measured on the canvas fallback: 18 calls per
-         sheet averaging 0.278 ms, max 1.2 ms, ~16% of the frame). Drawing the rings
-         while the path still holds only other rings bounds every splice to ring
-         geometry. Output is unchanged either way: canvas stroke coverage is a union,
-         and the WebGL painter blends with MAX (commutative), so subpath order cannot
-         affect the result. Stroking each path separately would also fix the cost but
-         double-composites overlapping strokes and visibly darkens every crossing —
-         the very "piled-up lines" look this avoids. */
-      ctx.beginPath()
-      for (let i = 0; i < contourPaths.length; i++) {
-        const p = contourPaths[i]
-        if (isRing(p)) drawSmoothPath(smoothPath(p))
-      }
-      for (let i = 0; i < contourPaths.length; i++) {
-        const p = contourPaths[i]
-        if (!isRing(p)) drawSmoothPath(smoothPath(p))
-      }
-      ctx.stroke()
-    }
-
-    /* Optional worker backend. One in-flight frame and one latest pending frame. */
-    const CONTOUR_RENDERER_KEY = 'dsh-theme-arknights-contour-renderer'
-    const readContourRenderer = () => prefsGet(CONTOUR_RENDERER_KEY) === 'worker-webgl' ? 'worker-webgl' : 'canvas'
-    let contourWorker = null, contourWorkerFailed = false, contourBackendChoice = 'canvas'
-    const contourDisposeWorker = () => {
-      const state = contourWorker
-      contourWorker = null
-      if (!state) return
-      clearTimeout(state.timer)
-      state.worker.terminate()
-      URL.revokeObjectURL(state.url)
-      state.pending = null
-    }
-    const contourWorkerFail = (state, reason) => {
-      if (contourWorker !== state) return
-      contourWorkerFailed = true
-      contourTeardown()
-      syncContour()
-      if (contourWrap) contourWrap.setAttribute('data-endfield-renderer-reason', reason)
-    }
-    const contourFlushWorker = () => {
-      const state = contourWorker
-      if (!state || !state.ready || state.busy || !state.pending || document.hidden) return
-      const frame = state.pending
-      state.pending = null; state.busy = true
-      state.seq += 1
-      state.timer = setTimeout(() => contourWorkerFail(state, 'worker render timeout'), 2000)
-      try { state.worker.postMessage({...frame, type:'frame', seq:state.seq}) }
-      catch (error) { contourWorkerFail(state, 'worker frame submission failed') }
-    }
-    const contourStartWorker = (canvas) => {
-      if (readContourRenderer() !== 'worker-webgl' || contourWorkerFailed) return
-      if (typeof Worker !== 'function' || typeof OffscreenCanvas !== 'function'
-        || typeof canvas.transferControlToOffscreen !== 'function') {
-        contourWorkerFailed = true
-        return
-      }
-      let url = null, worker = null
-      try {
-        url = URL.createObjectURL(new Blob([CONTOUR_WORKER_SOURCE], {type:'text/javascript'}))
-        worker = new Worker(url)
-        const state = {worker,url,ready:false,busy:false,pending:null,seq:0,timer:null}
-        contourWorker = state
-        state.timer = setTimeout(() => contourWorkerFail(state, 'worker initialization timeout'), 8000)
-        worker.onmessage = ({data}) => {
-          if (contourWorker !== state) return
-          if (data.type === 'ready') {
-            try {
-              const offscreen = canvas.transferControlToOffscreen()
-              worker.postMessage({type:'init',canvas:offscreen,seed:contourSeed},[offscreen])
-            } catch(error) { contourWorkerFail(state,'canvas transfer failed') }
-          } else if (data.type === 'initialized') {
-            clearTimeout(state.timer); state.ready = true
-            if (contourWrap) contourWrap.setAttribute('data-endfield-renderer',data.rasterizer)
-            contourFlushWorker()
-          } else if (data.type === 'painted') {
-            if (!state.busy || data.seq !== state.seq) return
-            clearTimeout(state.timer);state.busy = false
-            contourFlushWorker()
-          } else if (data.type === 'error') contourWorkerFail(state,data.message || 'worker failed')
-        }
-        worker.addEventListener('error', () => contourWorkerFail(state,'worker error'))
-        worker.addEventListener('messageerror', () => contourWorkerFail(state,'worker message error'))
-      } catch(error) {
-        if(worker)worker.terminate()
-        if(url)URL.revokeObjectURL(url)
-        contourWorker = null;contourWorkerFailed = true
-      }
-    }
-    const contourRefresh = (geometry) => {
-      if (contourWorker !== null) {
-        if (!contourGeom || document.hidden) return
-        const ratio = Math.min(2, Math.max(.1, window.devicePixelRatio || 1))
-        const pending = contourWorker.pending
-        contourWorker.pending = {w:contourGeom.w,h:contourGeom.h,dpr:ratio,phase:contourPhase,
-          color:contourStroke(),geometry:geometry || !!(pending && pending.geometry)}
-        contourFlushWorker()
-      } else {
-        /* The main-thread painter runs the SAME entry point the animation frame
-           uses, so the mouse trail is sampled and folded into the field here too;
-           calling contourExtract directly would bypass the trail entirely. */
-        if (geometry) contourExtractFrame(contourPhase)
-        contourDrawLines()
-      }
-    }
-
-    /* The app frame: the only ancestor that is both position:relative and free of a
-       stacking context, so an inset:0 child paints above the frame's own background
-       and below every positioned descendant.
-
-       It is located via its CENTRE COLUMN child, not by matching '_frame' directly.
-       Verified against the installed bundles: '_frame' as a CSS-module suffix is
-       used by three different components (the layout frame, two user-question
-       components), so a [class*='_frame'] match is ambiguous and could attach the
-       layer to a question card. '_centerCol' and '_sidebarCol' are each unique to
-       the layout frame, so the frame is identified as their parent. Matching on the
-       module SUFFIX rather than the current hash keeps this working across an app
-       rebuild that rehashes the module. */
-    const findAppFrame = () => {
-      if (typeof document === 'undefined') return null
-      const col = document.querySelector('[class$="_centerCol"], [class*="_centerCol "]')
-      const frame = col !== null ? col.parentElement : null
-      if (frame === null) return null
-      const r = frame.getBoundingClientRect()
-      if (r.width === 0 || r.height === 0) return null
-      return frame
-    }
-
-    // DOM sampling stays outside the extraction kernel, which remains usable
-    // by headless geometry tests and future renderers with explicit trail input.
-    const contourExtractFrame = (phase) => {
-      if (!contourTrailListening) { contourExtract(phase); return }
-      const now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
-        ? performance.now() : Date.now()
-      if (contourTrailPointer !== null && contourHost !== null) {
-        const point = contourTrailPointer
-        contourTrailPointer = null
-        const rect = contourHost.getBoundingClientRect()
-        const x = point.x - rect.left, y = point.y - rect.top
-        if (x >= 0 && y >= 0 && x <= rect.width && y <= rect.height) {
-          contourTrail.push(x, y, point.t, point.receivedAt)
-        }
-      }
-      const points = contourTrail.view(now)
-      contourExtract(phase, points, now)
-      contourTrailPainted = points.length > 0
-    }
-
-    const onContourPointerMove = (event) => {
-      if (event.pointerType !== 'mouse' || event.isPrimary === false || !contourTrailListening) return
-      contourTrailPointer = { x: event.clientX, y: event.clientY, t: event.timeStamp,
-        receivedAt: (typeof performance !== 'undefined' && typeof performance.now === 'function')
-          ? performance.now() : Date.now() }
-    }
-    const onContourPointerLeave = () => { contourTrailPointer = null }
-    const contourResetTrail = (redraw) => {
-      const painted = contourTrailPainted
-      contourTrail.clear()
-      contourTrailPointer = null
-      contourTrailPainted = false
-      if (redraw && painted && contourWrap !== null && contourField !== null) {
-        contourExtractFrame(contourPhase)
-        contourDrawLines()
-      }
-    }
-    const contourSyncTrail = (active) => {
-      if (active === contourTrailListening) return
-      contourTrailListening = active
-      if (contourHost !== null && typeof contourHost.addEventListener === 'function') {
-        if (active) {
-          contourHost.addEventListener('pointermove', onContourPointerMove, { passive: true, capture: true })
-          contourHost.addEventListener('pointerleave', onContourPointerLeave, { passive: true })
-        } else {
-          contourHost.removeEventListener('pointermove', onContourPointerMove, true)
-          contourHost.removeEventListener('pointerleave', onContourPointerLeave)
-        }
-      }
-      if (!active) contourResetTrail(true)
-    }
-    const onContourEnvironmentChange = () => {
-      contourResetTrail(true)
-      contourSwitchSig = ''
-      contourApplySwitches()
-    }
-    const contourSizeTo = (host) => {
-      const r = host.getBoundingClientRect()
-      const w = Math.max(1, Math.round(r.width))
-      const h = Math.max(1, Math.round(r.height))
-      /* Backing store at device resolution (capped at 2): the sheet is 1px
-         strokes, and a 1x store on a HiDPI screen upsamples them into blur.
-         Capped because an uncapped 4K-plus-retina store is a lot of canvas for
-         a background texture. contourDrawLines reads the scale back off the
-         canvas dimensions, so nothing else has to know about it. */
-      const ratio = (typeof window !== 'undefined'
-        && typeof window.devicePixelRatio === 'number'
-        && window.devicePixelRatio > 0) ? window.devicePixelRatio : 1
-      const dpr = Math.min(2, ratio)
-      if (contourWorker !== null) {
-        const changed = contourGeom === null || contourGeom.w !== w || contourGeom.h !== h || contourGeom.dpr !== dpr
-        contourGeom = {w,h,dpr}
-        if (contourLineCv) { contourLineCv.style.width = w + 'px'; contourLineCv.style.height = h + 'px' }
-        return changed
-      }
-      const bw = Math.max(1, Math.round(w * dpr))
-      const bh = Math.max(1, Math.round(h * dpr))
-      if (contourGeom !== null && contourGeom.w === w && contourGeom.h === h
-        && (contourLineCv === null || (contourLineCv.width === bw && contourLineCv.height === bh))) return false
-      contourResetTrail(false)
-      contourBuild(w, h)
-      if (contourLineCv !== null) {
-        contourLineCv.width = bw
-        contourLineCv.height = bh
-        contourLineCv.style.width = w + 'px'
-        contourLineCv.style.height = h + 'px'
-      }
-      return true
-    }
-
-    /* One chain per run. The refresh inside the frame can reenter this loop from
-       the worker-failure path (contourWorkerFail -> contourTeardown -> syncContour
-       -> contourStartLoop) and queue the next frame while this callback is still
-       executing; the stamp lets the tail notice that and keep its hands off,
-       instead of stranding a second chain that no later teardown can cancel. */
-    let contourLoopGen = 0
-    const contourFrame = () => {
-      const gen = contourLoopGen
-      if (contourWrap === null) {
-        contourRaf = null
-        return
-      }
-      // Stop the loop entirely when animation is off: an "off" switch must cost
-      // nothing, not merely skip work inside a still-running rAF.
-      if (!contourWantsAnim()) {
-        contourRaf = null
-        contourApplySwitches()
-        return
-      }
-      const now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
-        ? performance.now() : Date.now()
-      /* Field pass, throttled: this is the expensive part (~4.4 ms measured for the
-         field alone). The interval also respects the measured cost of the last
-         refresh, which only binds on the synchronous painter — see CONTOUR_DUTY. */
-      const fps = contourFieldFps()
-      const interval = Math.max(1000 / fps, contourLastCost > 0 ? contourLastCost / CONTOUR_DUTY : 0)
-      if (contourLastField < 0 || now - contourLastField >= interval) {
-        /* Always advance by ONE NOMINAL FRAME. A delayed rAF must not catch up by
-           applying its whole wall-clock gap: that makes the extracted contour jump
-           and creates a visible twitch. The animation resumes smoothly instead of
-           teleporting after a scroll, resize or busy main-thread interval — and with
-           the duty cycle above, "resumes smoothly" is the slow path too, rather than
-           a stall followed by a jump. */
-        contourLastField = now
-        contourPhase += CONTOUR_PHASE_STEP * readContourSpeed() // speed changes drift, not refresh rate
-        contourRefresh(true)
-        contourLastCost = ((typeof performance !== 'undefined' && typeof performance.now === 'function')
-          ? performance.now() : Date.now()) - now
-      }
-      if (gen !== contourLoopGen) return
-      contourRaf = (typeof requestAnimationFrame === 'function') ? requestAnimationFrame(contourFrame) : null
-    }
-
-    const contourStartLoop = () => {
-      if (contourRaf !== null) return
-      if (typeof requestAnimationFrame !== 'function') return
-      if (!contourWantsAnim()) return
-      contourLastField = -1
-      contourLoopGen += 1
-      contourRaf = requestAnimationFrame(contourFrame)
-    }
-    const contourStopLoop = () => {
-      contourLoopGen += 1
-      if (contourRaf !== null && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(contourRaf)
-      contourRaf = null
-      contourSyncTrail(false)
-    }
-
-    const contourTeardown = () => {
-      contourResetTrail(false)
-      contourStopLoop()
-      if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
-        document.removeEventListener('visibilitychange', onContourEnvironmentChange)
-      }
-      if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
-        window.removeEventListener('blur', onContourEnvironmentChange)
-      }
-      if (contourMotionQuery !== null && typeof contourMotionQuery.removeEventListener === 'function') {
-        contourMotionQuery.removeEventListener('change', onContourEnvironmentChange)
-      }
-      contourMotionQuery = null
-      contourDisposeWorker()
-      if (contourRo !== null) {
-        contourRo.disconnect()
-        contourRo = null
-      }
-      if (contourWrap !== null && contourWrap.parentNode) contourWrap.parentNode.removeChild(contourWrap)
-      contourWrap = null
-      contourLineCv = null
-      contourHost = null
-      contourPaths = []
-      contourField = null
-      contourGeom = null
-      /* Restart the morph clock too. The accept-or-reroll validator evaluates every
-         candidate at phase 0, which seeds the field's temporal blend (previous=F0);
-         if the sheet remounted later with phase far ahead, the first live frame
-         would blend 65% of that phase-0 snapshot into the current field and the
-         landscape would visibly snap backwards before resuming. A fresh mount at
-         phase 0 has no such transient — which is exactly what this restores. */
-      contourPhase = 0
-      // Nothing is drawn any more, so the next mount must re-apply the switch rather
-      // than trust a signature describing a canvas that no longer exists.
-      contourSwitchSig = ''
-    }
-
-    /* Reconcile the animation switch against what is currently on screen.
-       Separated from mounting because the two have very different costs and very
-       different triggers: mounting needs layout reads, while this only needs to run
-       when the switch actually changed. The last applied state is cached so the
-       common case (called from a subtree MutationObserver, i.e. on every streaming
-       token) is a single string compare. */
-    const contourApplySwitches = () => {
-      const anim = contourWantsAnim()
-      const trail = anim && contourHost !== null && isContourTrailOn()
-      const sig = (anim ? 'a' : '-') + (trail ? 't' : '-')
-      if (sig === contourSwitchSig) return
-      contourSwitchSig = sig
-      contourSyncTrail(trail)
-      // Animation just switched off: redraw once from the current phase so the
-      // static sheet is a complete picture rather than a half-updated frame.
-      if (!anim && contourWrap !== null && contourGeom !== null) contourRefresh(false)
-      if (anim) contourStartLoop()
-      else contourStopLoop()
-    }
-
-    /** Build/refresh/remove the layer to match the switches and the current page. */
-    const syncContour = () => {
-      const choice = readContourRenderer()
-      if (choice !== contourBackendChoice) {
-        contourTeardown()
-        contourWorkerFailed = false
-        contourBackendChoice = choice
-      }
-      const on = isEnabled() && isContourOn()
-      if (!on) {
-        if (contourWrap !== null) contourTeardown()
-        contourSwitchSig = ''
-        return
-      }
-      /* Fast path for the ALREADY-MOUNTED case. This runs from a subtree
-         MutationObserver, so the common case must not touch layout: skipping
-         findAppFrame() here is what avoids forcing a synchronous reflow on every
-         mutation. Note it skips only the mount work — the switch reconciliation
-         below still runs, because that is how a settings toggle takes effect while
-         the layer is already on screen. */
-      const attached = contourWrap !== null && contourHost !== null
-        && contourWrap.parentNode === contourHost && contourHost.isConnected
-      if (!attached) {
-        const host = findAppFrame()
-        if (host === null) {
-          // The frame is not on screen yet (very early boot): a later mutation will
-          // bring us back here rather than the layer never mounting.
-          if (contourWrap !== null) contourTeardown()
-          contourSwitchSig = ''
-          return
-        }
-        if (contourWrap !== null && contourHost !== host) contourTeardown()
-        if (contourWrap === null) {
-          const wrap = document.createElement('div')
-          wrap.setAttribute('data-endfield-contour', '')
-          wrap.setAttribute('aria-hidden', 'true')
-          const line = document.createElement('canvas')
-          line.setAttribute('data-endfield-contour-lines', '')
-          wrap.appendChild(line)
-          contourLineCv = line
-          // First child: keeps the layer at the bottom of the frame's paint order.
-          if (host.firstChild) host.insertBefore(wrap, host.firstChild)
-          else host.appendChild(wrap)
-          contourWrap = wrap
-          contourHost = host
-          document.addEventListener('visibilitychange', onContourEnvironmentChange)
-          if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-            window.addEventListener('blur', onContourEnvironmentChange)
-          }
-          if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-            contourMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-            if (typeof contourMotionQuery.addEventListener === 'function') {
-              contourMotionQuery.addEventListener('change', onContourEnvironmentChange)
-            }
-          }
-          contourStartWorker(line)
-          wrap.setAttribute('data-endfield-renderer', contourWorker ? 'starting' : 'main-canvas2d')
-          if (contourWorkerFailed) wrap.setAttribute('data-endfield-renderer-reason', 'worker unavailable; main Canvas2D fallback')
-          contourSizeTo(host)
-          contourRefresh(true)
-          // A fresh mount has drawn nothing switch-specific yet, so force the
-          // reconciliation below to run rather than trusting a stale signature.
-          contourSwitchSig = ''
-          if (typeof ResizeObserver !== 'undefined') {
-            contourRo = new ResizeObserver(() => {
-              if (contourHost === null) return
-              if (contourScrollPaused) {
-                contourResizePending = true
-                return
-              }
-              if (contourSizeTo(contourHost)) {
-                contourRefresh(true)
-              }
-            })
-            contourRo.observe(host)
-          }
-        }
-      }
-      contourApplySwitches()
-    }
-
-    /* Colour scheme changes are a token flip on <body>, not a resize, so the
-       stroke colour has to be re-derived when the attribute changes.
-       The palette is a CLASS on the same element and has exactly the same
-       consequence for the canvas, so one observer watches both: 'class' is added to
-       the filter rather than building a second observer. This is also what makes a
-       palette change in ANOTHER tab (or a browser restoring the class) repaint the
-       sheet, not just a click in this tab's settings panel. */
-    let contourSchemeObserver = null
-    /* Deferred install for the same early-boot reason as the page observer above:
-       body may not exist at apply() time, and a missed install here would leave a
-       later-mounted sheet stuck on its first colour across a scheme flip. */
-    const installContourSchemeObserver = () => {
-      if (contourSchemeObserver !== null) return
-      if (typeof MutationObserver === 'undefined' || typeof document === 'undefined' || document.body === null) return
-      contourSchemeObserver = new MutationObserver(() => {
-        if (contourWrap === null) return
-        contourRefresh(false)
-      })
-      contourSchemeObserver.observe(document.body, { attributes: true, attributeFilter: ['data-ds-dark-theme', 'class'] })
-    }
-    const contourSchemeObserverLate = () => {
-      installContourSchemeObserver()
-      // Catch up: the scheme may have settled while the observer was absent.
-      if (contourSchemeObserver !== null && contourWrap !== null) contourRefresh(false)
-    }
-    if (typeof document !== 'undefined' && document.body !== null) installContourSchemeObserver()
-    else if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
-      document.addEventListener('DOMContentLoaded', contourSchemeObserverLate, { once: true })
-    }
-    // Let the page observer declared above re-attach the layer as the app renders.
-    contourSyncHook = syncContour
-    /* BEGIN GENERATED CONTOUR WORKER */
-    const CONTOUR_WORKER_SOURCE = "/* Dedicated contour worker. Kernel is extracted from client.js by the build script.\n * MIT; original terrain Copyright (c) 2026 ymh0000123. */\nconst CONTOUR_STEP = 6, CONTOUR_LEVELS = 20, CONTOUR_SPAN = 1.45\nconst CONTOUR_MIN_LEN = 40, CONTOUR_MIN_RING_BOX = 21\nconst CONTOUR_KEEP_LEN = CONTOUR_MIN_LEN * 1.35, CONTOUR_KEEP_RING = CONTOUR_MIN_RING_BOX * 1.5\nconst CONTOUR_MIN_CROSSINGS = 3\n/* The kernel's own constants. The build script extracts FUNCTIONS only, so anything\n   contourBuild / contourBuildCandidate / contourDrawLines close over has to be mirrored\n   here by hand: the grid cap and the bump-radius floor, plus the Chaikin pass budget\n   `smoothPath` reads. A missing name is a ReferenceError inside the worker. */\nconst CONTOUR_MAX_CELLS = 60000, CONTOUR_MIN_BUMPSAMPLES = 4\nconst CONTOUR_SMOOTH_FULL = 8000, CONTOUR_SMOOTH_LIMIT = 20000\nconst CONTOUR_MIN_INK = 80\n/* Viewport-adaptive density (see src/client/20-contour.js): contourBuildCandidate,\n   contourCoverageScore and contourExtract all call these, so the mirrored names\n   have to come across or the worker throws at its first frame. The expressions are\n   identical to the kernel's. */\nconst CONTOUR_DENSITY_ANCHOR = 640\nconst contourMinSide = (w, h) => {\n  return Math.min(w, h)\n}\nconst contourDensityT = (w, h) => {\n  return Math.max(0, Math.min(1,\n    (contourMinSide(w, h) - 320) / (CONTOUR_DENSITY_ANCHOR - 320)))\n}\nconst contourLevelsFor = (w, h) => {\n  const t = contourDensityT(w, h)\n  return Math.max(6, Math.round(10 + t * (CONTOUR_LEVELS - 10)))\n}\nconst contourBumpsFor = (w, h) => {\n  const t = contourDensityT(w, h)\n  return Math.max(6, Math.round(10 + t * (22 - 10)))\n}\nlet contourSeed = 1, contourField = null, contourGeom = null, contourPaths = []\nlet contourLineCv = null, canvas = null, painter = null, stroke = 'rgba(0,0,0,0)', rasterizer = null\nconst contourStroke = () => stroke\nconst contourRng = (seed) => {\n      let a = seed >>> 0\n      return () => {\n        a = (a + 0x6D2B79F5) >>> 0\n        let t = Math.imul(a ^ (a >>> 15), 1 | a)\n        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t\n        return ((t ^ (t >>> 14)) >>> 0) / 4294967296\n      }\n    }\nconst contourStepFor = (w, h) => {\n      let step = CONTOUR_STEP\n      const cells = (s) => (Math.ceil(w / s) + 1) * (Math.ceil(h / s) + 1)\n      while (step < 40 && cells(step) > CONTOUR_MAX_CELLS) step += 1\n      return step\n    }\nconst contourBuild = (w, h) => {\n      /* ACCEPT-OR-REROLL. A random layout is not automatically a GOOD layout, and\n         this is the concrete lesson from making the seed per-load: the old fixed\n         seed had silently guaranteed a well-spread field, and once real randomness\n         arrived, some layouts left regions with no contour lines at all. Measured on\n         the 8x5 coverage grid (\"near-empty\" = under 0.6% ink):\n             independent uniform placement   5 failures in 12 seeds (up to 3 cells)\n             stratified placement alone      6 failures in 24 seeds (down to 0.00%)\n         Stratification fixes clumping but cannot fix the real mechanism: lines\n         appear only where the field CROSSES one of the 21 fixed levels, so a region\n         that is locally flat between two levels is blank no matter how the bumps\n         sit. Forcing a gradient steep enough to guarantee a crossing per cell would\n         take ~9.5 parallel lines across the width, which reads as stripes, not\n         terrain -- so distorting the field is the wrong lever.\n         Instead the candidate layout is CHECKED against the same invariant the test\n         asserts, and rejected if it fails. Each attempt is cheap (one field\n         evaluation on a coarse grid, no extraction, no drawing) and bounded, so the\n         worst case is a handful of evaluations at mount/resize time only.\n\n         The two halves are BOTH load-bearing, which was verified rather than\n         assumed -- with the validator in place but placement reverted to uniform,\n         4 of 8 loads exhausted the 12-attempt cap and shipped a fallback layout\n         (one run in four still rendered a blank cell). Stratification is what makes\n         an acceptable layout the common case: mean 2.5 candidates, max 6, never at\n         the cap. Validation is what makes it a guarantee. */\n      const attempts = 32\n      const step = contourStepFor(w, h)\n      let best = null\n      for (let attempt = 0; attempt < attempts; attempt++) {\n        const cand = contourBuildCandidate(w, h, attempt, step)\n        const score = contourCoverageScore(cand, w, h)\n        /* Prefer more crossing bands, then more ink in the thinnest region. The\n           tiebreak only matters if every attempt fails validation and the best of the\n           32 ships — measured at 0 of 200 seeds with the floor in place. */\n        if (best === null || score.worst > best.score.worst\n          || (score.worst === best.score.worst && score.ink > best.score.ink)) best = { cand, score }\n        // Comfortably above the 0.6%-ink failure line, in field terms: every cell\n        // must contain a spread of values wider than one level gap, so at least one\n        // level is guaranteed to cross it.\n        if (score.ok) break\n      }\n      contourField = best.cand.field\n      contourGeom = { w, h, cols: best.cand.cols, rows: best.cand.rows, step }\n    }\nconst contourBuildCandidate = (w, h, salt, step) => {\n      const cols = Math.ceil(w / step) + 1\n      const rows = Math.ceil(h / step) + 1\n      /* Bump count adapts to the viewport -- see the note on VIEWPORT-ADAPTIVE\n         DENSITY. At or above the 640px short side this is the shipped 22, and a\n         narrow frame gets fewer islands so they stay separated instead of\n         stacking into bullseyes. */\n      const K = contourBumpsFor(w, h)\n      const rnd = contourRng((contourSeed + salt * 0x9E3779B1) >>> 0)\n      const m = Math.min(w, h)\n      const bx = new Float32Array(K), by = new Float32Array(K)\n      const ba = new Float32Array(K), bs = new Float32Array(K)\n      const dx = new Float32Array(K), dy = new Float32Array(K)\n      /* STRATIFIED placement, not independent uniform draws.\n\n         Uniform sampling clumps: measured over 12 random seeds it left up to 3\n         near-empty cells. Jittered grid instead -- the viewport is cut into a\n         near-square lattice of at least K cells and each bump is placed at a random\n         point inside its own cell. That keeps placement random while making a large\n         empty patch geometrically impossible. Cells are ordered by a Fisher-Yates\n         shuffle so the bump INDEX carries no positional bias: index drives\n         amplitude, radius and drift below, and walking cells in raster order would\n         correlate \"left side of the screen\" with \"first sizes drawn\".\n         The lattice spans the same -0.1..1.1 over-scan as before, so islands are\n         still cut by the viewport edges rather than all sitting fully inside. */\n      const gx = Math.max(1, Math.round(Math.sqrt(K * (w / Math.max(1, h)))))\n      const gy = Math.max(1, Math.ceil(K / gx))\n      const cells = []\n      for (let j = 0; j < gy; j++) for (let i = 0; i < gx; i++) cells.push(i + j * gx)\n      for (let i = cells.length - 1; i > 0; i--) {\n        const j = Math.floor(rnd() * (i + 1))\n        const t = cells[i]; cells[i] = cells[j]; cells[j] = t\n      }\n      const spanX = 1.2 * w, spanY = 1.2 * h\n      for (let k = 0; k < K; k++) {\n        const cell = cells[k % cells.length]\n        const ci = cell % gx\n        const cj = Math.floor(cell / gx)\n        // Random point inside this cell, in the over-scanned -0.1..1.1 space.\n        bx[k] = -0.1 * w + ((ci + rnd()) / gx) * spanX\n        by[k] = -0.1 * h + ((cj + rnd()) / gy) * spanY\n        // Mixed sign gives peaks AND basins; equal signs would read as one blob.\n        ba[k] = (rnd() < 0.5 ? -1 : 1) * (0.6 + rnd() * 0.9)\n        /* Radius: relative to the frame for the shipped look, but never below\n           CONTOUR_MIN_BUMPSAMPLES grid samples or the field aliases — see the note on\n           that constant. This floor is the fix for the tangled/piled-up lines. */\n        bs[k] = Math.max(step * CONTOUR_MIN_BUMPSAMPLES, (0.05 + rnd() * 0.09) * m)\n        dx[k] = rnd() * 2 - 1\n        dy[k] = rnd() * 2 - 1\n      }\n      /* Base undulation: three long, low-amplitude sine ridges spanning the whole\n         viewport. Reason this exists, from reviewing the first render: a sum of\n         gaussians decays to EXACTLY zero between islands, so the field there is\n         perfectly flat, no level ever crosses it, and the result had large blank\n         patches that exposed the construction. Real terrain has no such voids. The\n         ridges are far too gentle to create islands of their own — they just tilt\n         the whole sheet enough that contour lines keep running through the gaps,\n         which is what turns isolated bullseyes into one continuous landscape. */\n      const W2 = new Float32Array(9)\n      for (let i = 0; i < 3; i++) {\n        W2[i * 3] = (0.35 + rnd() * 0.5) * (Math.PI * 2) / Math.max(1, w)  // x freq\n        W2[i * 3 + 1] = (0.35 + rnd() * 0.5) * (Math.PI * 2) / Math.max(1, h) // y freq\n        W2[i * 3 + 2] = rnd() * Math.PI * 2                                 // phase\n      }\n      const hCount = (cols - 1) * rows\n      const eCount = hCount + cols * (rows - 1)\n      const field = {\n        cols, rows, step, K, bx, by, ba, bs, dx, dy, hCount, W2,\n        F: new Float32Array(cols * rows),\n        previous: new Float32Array(cols * rows),\n        hasPrevious: false,\n        smooth: new Float32Array(cols * rows),\n        // Exact row-block bounds include both rows and the shared right vertex.\n        // They reject empty regions without changing retained cells or path order.\n        blockCols: Math.ceil((cols - 1) / 16),\n        blockMin: new Float32Array(Math.ceil((cols - 1) / 16) * (rows - 1)),\n        blockMax: new Float32Array(Math.ceil((cols - 1) / 16) * (rows - 1)),\n        boundsReady: false,\n        ex: new Float32Array(eCount),\n        ey: new Float32Array(eCount),\n        es: new Int32Array(eCount).fill(-1),\n        n1: new Int32Array(eCount).fill(-1),\n        n2: new Int32Array(eCount).fill(-1),\n        seen: new Int32Array(eCount).fill(-1),\n        touched: new Int32Array(eCount),\n        seq: 0,\n      }\n      return { field, cols, rows }\n    }\nconst contourCoverageScore = (cand, w, h) => {\n      const f = cand.field\n      // Evaluate at phase 0: the accepted layout must be sound as first painted.\n      const prev = contourField\n      contourField = f\n      contourEvaluate(0)\n      contourField = prev\n      const { cols, rows, F } = f\n      const GX = 8, GY = 5\n      const span = CONTOUR_SPAN\n      /* Judge against the density this viewport will actually DRAW, not the\n         shipped constant: a narrow frame extracts fewer levels, so its per-quad\n         incidence count is proportionally smaller. Scoring it on CONTOUR_LEVELS\n         would demand 2x the ink of a 10-level sheet and push the re-roll loop to\n         its cap on every small window. */\n      const levelStep = (span * 2) / contourLevelsFor(w, h)\n      let worst = Infinity\n      let ok = true\n      let ink = Infinity\n      for (let gy = 0; gy < GY; gy++) {\n        for (let gx = 0; gx < GX; gx++) {\n          const i0 = Math.floor(gx * (cols - 1) / GX), i1 = Math.ceil((gx + 1) * (cols - 1) / GX)\n          const j0 = Math.floor(gy * (rows - 1) / GY), j1 = Math.ceil((gy + 1) * (rows - 1) / GY)\n          let mn = Infinity, mx = -Infinity\n          /* The ink proxy is accumulated over the QUADS of this region, in the same\n             walk that takes its min/max — see CONTOUR_MIN_INK. */\n          let regionInk = 0\n          for (let j = j0; j <= j1 && j < rows; j++) {\n            const row = j * cols\n            for (let i = i0; i <= i1 && i < cols; i++) {\n              const v = F[row + i]\n              if (v < mn) mn = v\n              if (v > mx) mx = v\n              if (j < j1 && j < rows - 1 && i < i1 && i < cols - 1) {\n                const a = v, b = F[row + i + 1]\n                const c = F[row + cols + i], d = F[row + cols + i + 1]\n                let qmn = a < b ? a : b, qmx = a > b ? a : b\n                if (c < qmn) qmn = c; if (c > qmx) qmx = c\n                if (d < qmn) qmn = d; if (d > qmx) qmx = d\n                if (qmn < -span) qmn = -span\n                if (qmx > span) qmx = span\n                if (qmx > qmn) regionInk += Math.floor(qmx / levelStep) - Math.ceil(qmn / levelStep) + 1\n              }\n            }\n          }\n          // Clamp to the drawn level range: values beyond +/-SPAN produce no lines.\n          const lo = Math.max(mn, -span), hi = Math.min(mx, span)\n          // How many level boundaries fall inside this cell's clamped range.\n          const crossings = hi <= lo ? 0\n            : Math.floor(hi / levelStep) - Math.ceil(lo / levelStep) + 1\n          if (crossings < worst) worst = crossings\n          if (crossings < CONTOUR_MIN_CROSSINGS) ok = false\n          if (regionInk < ink) ink = regionInk\n          if (regionInk < CONTOUR_MIN_INK) ok = false\n        }\n      }\n      return { ok, worst, ink }\n    }\nconst contourEvaluate = (phase) => {\n      const f = contourField\n      if (f !== null) f.boundsReady = false\n      if (f === null) return\n      const { cols, rows, step, K, bx, by, ba, bs, dx, dy, F, W2 } = f\n      /* Seed the sheet with the base undulation instead of zero, so the gaps\n         between islands still have a gradient for the levels to cross. Separable\n         evaluation: sin(a+b) is expanded so the y term is computed once per row\n         rather than once per cell, which keeps this pass cheap. */\n      const BASE = 0.62\n      for (let i = 0; i < 3; i++) {\n        const fx = W2[i * 3], fy = W2[i * 3 + 1], ph = W2[i * 3 + 2] + phase * 0.11\n        const amp = BASE / 3\n        for (let j = 0; j < rows; j++) {\n          const yb = fy * (j * step) + ph\n          const sy = Math.sin(yb), cy2 = Math.cos(yb)\n          const row = j * cols\n          for (let c2 = 0; c2 < cols; c2++) {\n            const xb = fx * (c2 * step)\n            // sin(xb + yb) without a per-cell sin() of the sum\n            const v = Math.sin(xb) * cy2 + Math.cos(xb) * sy\n            if (i === 0) F[row + c2] = amp * v\n            else F[row + c2] += amp * v\n          }\n        }\n      }\n      for (let k = 0; k < K; k++) {\n        const s = bs[k]\n        const amp = s * 0.55\n        const cx = bx[k] + Math.sin(phase * dx[k] + k * 1.7) * amp\n        const cy = by[k] + Math.cos(phase * dy[k] + k * 2.3) * amp\n        const a = ba[k]\n        const inv = 1 / (2 * s * s)\n        const rad = 2.6 * s\n        let i0 = Math.floor((cx - rad) / step)\n        let i1 = Math.ceil((cx + rad) / step)\n        let j0 = Math.floor((cy - rad) / step)\n        let j1 = Math.ceil((cy + rad) / step)\n        if (i0 < 0) i0 = 0\n        if (j0 < 0) j0 = 0\n        if (i1 > cols - 1) i1 = cols - 1\n        if (j1 > rows - 1) j1 = rows - 1\n        for (let j = j0; j <= j1; j++) {\n          const ddy = j * step - cy\n          const dy2 = ddy * ddy\n          const row = j * cols\n          for (let i = i0; i <= i1; i++) {\n            const ddx = i * step - cx\n            const q = (ddx * ddx + dy2) * inv\n            if (q < 6.76) {\n              let weight = Math.exp(-q)\n              if (q > 4.8) {\n                const t = (q - 4.8) / (6.76 - 4.8)\n                const fade = 1 - t * t * (3 - 2 * t)\n                weight *= fade\n              }\n              F[row + i] += a * weight\n            }\n          }\n        }\n      }\n      const smooth = f.smooth\n      for (let pass = 0; pass < 5; pass++) {\n        for (let j = 0; j < rows; j++) {\n          const row = j * cols\n          for (let i = 0; i < cols; i++) {\n            const left = F[row + Math.max(0, i - 1)]\n            const center = F[row + i]\n            const right = F[row + Math.min(cols - 1, i + 1)]\n            smooth[row + i] = (left + 2 * center + right) * 0.25\n          }\n        }\n        for (let j = 0; j < rows; j++) {\n          const row = j * cols\n          const up = Math.max(0, j - 1) * cols\n          const down = Math.min(rows - 1, j + 1) * cols\n          for (let i = 0; i < cols; i++) {\n            F[row + i] = (smooth[up + i] + 2 * smooth[row + i] + smooth[down + i]) * 0.25\n          }\n        }\n      }\n      /* Track the field continuously between animation samples. Marching squares\n         can change an entire path at once when a saddle crosses a level; blending\n         the sampled field keeps that topology change from appearing as a twitch. */\n      if (f.hasPrevious && f.previous !== undefined) {\n        for (let i = 0; i < F.length; i++) {\n          f.previous[i] = f.previous[i] * 0.65 + F[i] * 0.35\n          F[i] = f.previous[i]\n        }\n      } else if (f.previous !== undefined) {\n        f.previous.set(F)\n      }\n      f.hasPrevious = true\n    }\nconst contourExtractLevel = (L, out) => {\n      const f = contourField\n      const { cols, rows, step, F, ex, ey, es, n1, n2, seen, touched, hCount } = f\n      const st = ++f.seq\n      let tn = 0\n      const pt = (id, i0, j0, i1, j1) => {\n        if (es[id] === st) return id\n        const a = F[j0 * cols + i0]\n        const b = F[j1 * cols + i1]\n        let t = (L - a) / (b - a)\n        if (!(t >= 0)) t = 0\n        else if (t > 1) t = 1\n        ex[id] = (i0 + (i1 - i0) * t) * step\n        ey[id] = (j0 + (j1 - j0) * t) * step\n        es[id] = st\n        n1[id] = -1\n        n2[id] = -1\n        touched[tn++] = id\n        return id\n      }\n      const link = (a, b) => {\n        if (n1[a] < 0) n1[a] = b\n        else if (n2[a] < 0) n2[a] = b\n        if (n1[b] < 0) n1[b] = a\n        else if (n2[b] < 0) n2[b] = a\n      }\n      for (let j = 0; j < rows - 1; j++) {\n        const row = j * cols\n        for (let i = 0; i < cols - 1; i++) {\n          if (f.boundsReady && i % 16 === 0) {\n            const block = j * f.blockCols + Math.floor(i / 16)\n            if (L <= f.blockMin[block] || L > f.blockMax[block]) {\n              i = Math.min(i + 16, cols - 1) - 1\n              continue\n            }\n          }\n          const p0 = row + i\n          const p1 = p0 + 1\n          const p3 = p0 + cols\n          const p2 = p3 + 1\n          const v0 = F[p0], v1 = F[p1], v2 = F[p2], v3 = F[p3]\n          let mn = v0, mx = v0\n          if (v1 < mn) mn = v1; else if (v1 > mx) mx = v1\n          if (v2 < mn) mn = v2; else if (v2 > mx) mx = v2\n          if (v3 < mn) mn = v3; else if (v3 > mx) mx = v3\n          // Whole cell on one side of the level: nothing crosses it.\n          if (L <= mn || L > mx) continue\n          const idx = (v0 > L ? 1 : 0) | (v1 > L ? 2 : 0) | (v2 > L ? 4 : 0) | (v3 > L ? 8 : 0)\n          const T = () => pt(j * (cols - 1) + i, i, j, i + 1, j)\n          const B = () => pt((j + 1) * (cols - 1) + i, i, j + 1, i + 1, j + 1)\n          const Le = () => pt(hCount + j * cols + i, i, j, i, j + 1)\n          const Ri = () => pt(hCount + j * cols + i + 1, i + 1, j, i + 1, j + 1)\n          switch (idx) {\n            case 1: case 14: link(T(), Le()); break\n            case 2: case 13: link(T(), Ri()); break\n            case 3: case 12: link(Le(), Ri()); break\n            case 4: case 11: link(Ri(), B()); break\n            case 6: case 9: link(T(), B()); break\n            case 7: case 8: link(Le(), B()); break\n            // Ambiguous saddles use the bilinear asymptotic decider. The sign of\n            // a*c-b*d selects whether the diagonal high/low regions are connected;\n            // using the cell average alone is wrong when opposite corners differ in\n            // magnitude and produces the long V-shaped joins seen in the render.\n            case 5: {\n              const a = v0 - L, b = v1 - L, c = v2 - L, d = v3 - L\n              const saddle = a * c - b * d\n              if (saddle > 0) { link(T(), Ri()); link(Le(), B()) }\n              else { link(T(), Le()); link(Ri(), B()) }\n              break\n            }\n            case 10: {\n              const a = v0 - L, b = v1 - L, c = v2 - L, d = v3 - L\n              const saddle = a * c - b * d\n              if (saddle < 0) { link(T(), Le()); link(Ri(), B()) }\n              else { link(T(), Ri()); link(Le(), B()) }\n              break\n            }\n          }\n        }\n      }\n      const walk = (start) => {\n        const path = []\n        let cur = start\n        let prev = -1\n        for (;;) {\n          path.push(ex[cur], ey[cur])\n          seen[cur] = st\n          const a = n1[cur]\n          const b = n2[cur]\n          let nx = -1\n          if (a >= 0 && a !== prev && seen[a] !== st) nx = a\n          else if (b >= 0 && b !== prev && seen[b] !== st) nx = b\n          if (nx < 0) {\n            // Closed loop: step back onto the first point so the ring has no gap.\n            if ((a === start || b === start) && path.length > 4) path.push(ex[start], ey[start])\n            break\n          }\n          prev = cur\n          cur = nx\n        }\n        return path\n      }\n      /* Reject debris before it reaches the draw list. Judged on the path's\n         ON-CANVAS geometry, so an off-grid sliver with no visible pixels is\n         dropped even when its raw length looks respectable. See the note on\n         CONTOUR_MIN_LEN / CONTOUR_MIN_RING_BOX for the measurements behind both\n         thresholds. */\n      const W = contourGeom !== null ? contourGeom.w : 0\n      const H = contourGeom !== null ? contourGeom.h : 0\n      const keep = (p) => {\n        if (p.length < 8) return false\n        // Visible length, plus the bounding box of the part actually on screen.\n        let vis = 0\n        let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity\n        let seenIn = false\n        for (let k = 0; k < p.length; k += 2) {\n          const x = p[k], y = p[k + 1]\n          const inside = x >= 0 && x <= W && y >= 0 && y <= H\n          if (inside) {\n            seenIn = true\n            if (x < minx) minx = x\n            if (x > maxx) maxx = x\n            if (y < miny) miny = y\n            if (y > maxy) maxy = y\n          }\n          if (k >= 2) {\n            const px2 = p[k - 2], py2 = p[k - 1]\n            const prevIn = px2 >= 0 && px2 <= W && py2 >= 0 && py2 <= H\n            if (inside && prevIn) {\n              const dx = x - px2, dy = y - py2\n              vis += Math.sqrt(dx * dx + dy * dy)\n            }\n          }\n        }\n        if (!seenIn) return false            // entirely off-canvas: pure debris\n        if (vis < CONTOUR_KEEP_LEN) return false\n        /* A tiny CLOSED ring is an apex bullseye and reads as a dot. Open chains of\n           the same extent are left alone: they are the visible corner of a stroke\n           that continues off-canvas, and clipping one would punch a hole in a line\n           the user can see running to the edge. */\n        const gapx = p[0] - p[p.length - 2]\n        const gapy = p[1] - p[p.length - 1]\n        const closed = (gapx * gapx + gapy * gapy) < 4\n        if (closed && (maxx - minx) < CONTOUR_KEEP_RING\n          && (maxy - miny) < CONTOUR_KEEP_RING) return false\n        return true\n      }\n      /* TANGENCY NEEDLES. Where a level runs nearly TANGENT to the field, the true\n         isoline has a smooth, very high curvature tip. Marching squares interpolates\n         linearly on a 10px grid, so it cannot represent that tip: it emits a hairpin\n         that goes out and comes straight back, with a BASE (the gap between the\n         apex's two neighbours) far narrower than the 1px stroke. Measured on the real\n         output, worst case: apex 6.26px out from a base of 0.831px.\n\n         At that width the outbound and return strokes paint the SAME pixels, so the\n         pair does not read as a narrow valley — only the protruding whisker shows,\n         which is precisely the \"irregular sharp angle\" in issue #3. Smoothing cannot\n         help: the midpoint spline faithfully reproduces a feature that is genuinely\n         in the geometry, so it has to be removed here, at the source.\n\n         The whole hairpin is collapsed (see the note on the merge below). Both tests\n         are required and were measured over 24 frames (152.6k vertices, 1.18Mpx of\n         ink):\n           base < 2px   the stroke cannot resolve it (a 1px line is ~1px wide)\n           turn > 90    it doubles back rather than merely turning a corner\n         That is 0.7 vertices per frame and 0.0037% of total ink -- artifact removal,\n         not thinning. Real narrow features are untouched: turns over 90 degrees have\n         a median base of 4.03px, well clear of the cutoff, and the whole 8-12px base\n         band (29562 vertices) has a p99 turn of only 21.7 degrees. */\n      const deneedle = (p) => {\n        const n = p.length / 2\n        if (n < 4) return p\n        /* Scan first and return the ORIGINAL array when there is nothing to do, so\n           the overwhelmingly common path allocates nothing at 24fps. */\n        let found = false\n        for (let k = 1; k < n - 1; k++) {\n          const bx = p[(k + 1) * 2] - p[(k - 1) * 2]\n          const by = p[(k + 1) * 2 + 1] - p[(k - 1) * 2 + 1]\n          if (bx * bx + by * by >= 4) continue          // base >= 2px: keep\n          const ax = p[k * 2] - p[(k - 1) * 2]\n          const ay = p[k * 2 + 1] - p[(k - 1) * 2 + 1]\n          const cx = p[(k + 1) * 2] - p[k * 2]\n          const cy = p[(k + 1) * 2 + 1] - p[k * 2 + 1]\n          // turn > 90 degrees <=> the two segment vectors point against each other.\n          if (ax * cx + ay * cy < 0) { found = true; break }\n        }\n        if (!found) return p\n        const gx = p[0] - p[(n - 1) * 2]\n        const gy = p[1] - p[(n - 1) * 2 + 1]\n        const closed = (gx * gx + gy * gy) < 4\n        /* COLLAPSE THE WHOLE NEEDLE, not just its tip. Dropping the apex alone leaves\n           the base itself as a real segment, and that was measured to be worse than\n           the disease: a 0.831px stub inherits the reversal as TWO ~78-degree turns\n           (10.20 -> 0.83 -> 10.25px). The apex AND its far neighbour are therefore\n           both consumed, and the surviving previous vertex is pulled onto the base\n           midpoint -- a sub-pixel move (half of at most 2px) that no 1px stroke can\n           show, leaving one smooth vertex where the hairpin was.\n           Each test uses the SURVIVING previous vertex, so a run of needles collapses\n           progressively instead of each test being fooled by a neighbour that is\n           itself about to be consumed. */\n        const q = [p[0], p[1]]\n        let k = 1\n        while (k < n - 1) {\n          const px = q[q.length - 2], py = q[q.length - 1]\n          const bx = p[(k + 1) * 2] - px, by = p[(k + 1) * 2 + 1] - py\n          if (bx * bx + by * by < 4) {\n            const ax = p[k * 2] - px, ay = p[k * 2 + 1] - py\n            const cx = p[(k + 1) * 2] - p[k * 2], cy = p[(k + 1) * 2 + 1] - p[k * 2 + 1]\n            if (ax * cx + ay * cy < 0) {\n              if (k + 1 < n - 1) {\n                q[q.length - 2] = (px + p[(k + 1) * 2]) / 2\n                q[q.length - 1] = (py + p[(k + 1) * 2 + 1]) / 2\n                k += 2\n                continue\n              }\n              // The far neighbour is the final vertex, which must survive to keep an\n              // endpoint (or a ring's closure) intact: consume only the apex.\n              k += 1\n              continue\n            }\n          }\n          q.push(p[k * 2], p[k * 2 + 1])\n          k += 1\n        }\n        q.push(p[(n - 1) * 2], p[(n - 1) * 2 + 1])\n        /* A ring is closed by REPEATING its start vertex, and the merge above may have\n           nudged that start. Re-anchor the repeat so the ring stays exactly closed and\n           both keep() and the cyclic draw path still classify it as one. */\n        if (closed) {\n          q[q.length - 2] = q[0]\n          q[q.length - 1] = q[1]\n        }\n        return q\n      }\n      // Open chains first (they have a free end), then whatever remains is a loop.\n      // Doing it in this order stops a ring being entered mid-way and split in two.\n      for (let k = 0; k < tn; k++) {\n        const id = touched[k]\n        if (seen[id] !== st && n2[id] < 0) {\n          const p = deneedle(walk(id))\n          if (keep(p)) out.push(p)\n        }\n      }\n      for (let k = 0; k < tn; k++) {\n        const id = touched[k]\n        if (seen[id] !== st) {\n          const p = deneedle(walk(id))\n          if (keep(p)) out.push(p)\n        }\n      }\n    }\nconst contourExtract = (phase, trailPoints, trailNow) => {\n      if (contourField === null) return\n      contourEvaluate(phase)\n      if (trailPoints && trailPoints.length) contourOverlayTrail(contourField, trailPoints, trailNow)\n      const f = contourField\n      // One O(cells) range pass is shared by all 21 extraction levels. Scratch\n      // survives across frames; no resolution, smoothing or density is reduced.\n      for (let j = 0; j < f.rows - 1; j++) {\n        const row = j * f.cols\n        for (let block = 0; block < f.blockCols; block++) {\n          const begin = block * 16\n          const end = Math.min(begin + 16, f.cols - 1)\n          let min = Infinity, max = -Infinity\n          for (let i = begin; i <= end; i++) {\n            const a = f.F[row + i], b = f.F[row + f.cols + i]\n            if (a < min) min = a\n            if (a > max) max = a\n            if (b < min) min = b\n            if (b > max) max = b\n          }\n          const k = j * f.blockCols + block\n          f.blockMin[k] = min\n          f.blockMax[k] = max\n        }\n      }\n      f.boundsReady = true\n      contourPaths = []\n      const span = CONTOUR_SPAN\n      /* Level count follows the viewport: the same VIEWPORT-ADAPTIVE DENSITY\n         contourBuildCandidate() laid the bumps out with. At or above the 640px\n         short side this is exactly the shipped loop, so desktop output is\n         unchanged. */\n      const levels = contourLevelsFor(contourGeom.w, contourGeom.h)\n      const stepL = (span * 2) / levels\n      for (let n = 0; n <= levels; n++) {\n        contourExtractLevel(-span + n * stepL, contourPaths)\n      }\n    }\nconst contourDrawLines = () => {\n      if (contourLineCv === null || contourGeom === null) return\n      const ctx = contourLineCv.getContext('2d')\n      if (!ctx) return\n      const { w, h } = contourGeom\n      /* Geometry stays in CSS px; scale the context to the backing store that\n         contourSizeTo sized at (capped) devicePixelRatio, so strokes rasterise\n         at device resolution instead of being upsampled into blur on HiDPI\n         screens. Derived from the canvas itself, and skipped entirely at a 1x\n         store or when the context has no setTransform (the spliced-in test\n         harnesses), so a 1x render is byte-identical to before. */\n      const scale = (w > 0 && typeof contourLineCv.width === 'number' && contourLineCv.width > 0 && contourLineCv.width !== w)\n        ? contourLineCv.width / w : 1\n      if (scale !== 1 && typeof ctx.setTransform === 'function') ctx.setTransform(scale, 0, 0, scale, 0, 0)\n      ctx.clearRect(0, 0, w, h)\n      ctx.strokeStyle = contourStroke()\n      ctx.lineWidth = 1\n      ctx.lineJoin = 'round'\n      /* Marching squares emits one vertex per grid-cell edge. Three Chaikin passes\n         cut local corners before the clamped cubic B-spline rounds broad bends.\n         This reduces angularity without changing the field or adding another\n         extraction pass. Open endpoints remain fixed; closed rings wrap cyclically.\n\n         PASS COUNT IS SIZE-ADAPTIVE: see CONTOUR_SMOOTH_FULL. Every ordinary window\n         keeps three passes; a bigger sheet drops to two and then one. */\n      const smoothPath = (source) => {\n        const count = source.length / 2\n        if (count < 3) return source\n        const closed = (source[0] - source[source.length - 2]) ** 2\n          + (source[1] - source[source.length - 1]) ** 2 < 4\n        /* Flat scratch throughout: the previous shape built one [x, y] array per\n           point PER PASS — ~14 small arrays per source vertex, ~65k per sheet at\n           1440x900 — which is pure GC inside the animation frame on both painters. */\n        let points = closed ? source.slice(0, source.length - 2) : source.slice()\n        const passes = count <= CONTOUR_SMOOTH_FULL ? 3 : (count <= CONTOUR_SMOOTH_LIMIT ? 2 : 1)\n        for (let pass = 0; pass < passes; pass++) {\n          const n = points.length / 2\n          const limit = closed ? n : n - 1\n          const next = new Array(n * 4)\n          let w2 = 0\n          if (!closed) { next[w2++] = points[0]; next[w2++] = points[1] }\n          for (let k = 0; k < limit; k++) {\n            const a = k * 2\n            const b = ((k + 1) % n) * 2\n            const ax = points[a], ay = points[a + 1]\n            const bx = points[b], by = points[b + 1]\n            next[w2++] = ax * 0.75 + bx * 0.25\n            next[w2++] = ay * 0.75 + by * 0.25\n            next[w2++] = ax * 0.25 + bx * 0.75\n            next[w2++] = ay * 0.25 + by * 0.75\n          }\n          if (!closed) { next[w2++] = points[points.length - 2]; next[w2++] = points[points.length - 1] }\n          points = w2 === next.length ? next : next.slice(0, w2)\n        }\n        if (!closed) return points\n        // Re-anchor the repeated start vertex so the ring stays exactly closed.\n        const out = points.slice()\n        out.push(out[0], out[1])\n        return out\n      }\n      /* Chaikin removes local grid noise. A constrained Catmull-Rom cubic then\n         gives each join one shared tangent. The handle cap prevents overshoot at\n         narrow saddles while the larger tangent factor removes long rounded-polygon\n         bends that remain visible with midpoint quadratics. */\n      const drawSmoothPath = (source) => {\n        const count = source.length / 2\n        if (count < 3) {\n          ctx.moveTo(source[0], source[1])\n          for (let k = 2; k < source.length; k += 2) ctx.lineTo(source[k], source[k + 1])\n          return\n        }\n        const closed = (source[0] - source[source.length - 2]) ** 2\n          + (source[1] - source[source.length - 1]) ** 2 < 4\n        const limit = closed ? count - 1 : count\n        const at = (index) => {\n          const k = closed\n            ? (index + limit) % limit\n            : Math.max(0, Math.min(limit - 1, index))\n          return k * 2\n        }\n        /* Tangents from scalars, with squared lengths wherever the comparison allows\n           it. The previous shape allocated eight [x, y] arrays and ran up to six\n           Math.hypot per SEGMENT — tens of thousands of segments per frame, on both\n           the WebGL painter and the canvas fallback. Math.sqrt replaces hypot because\n           every argument here is a pixel delta, far from hypot's overflow range. */\n        const tangentAt = (index, out) => {\n          const i = at(index)\n          const p = at(index - 1)\n          const n = at(index + 1)\n          const cx = source[i], cy = source[i + 1]\n          const inX = cx - source[p], inY = cy - source[p + 1]\n          const outX = source[n] - cx, outY = source[n + 1] - cy\n          let tx, ty, cap\n          if (!closed && index === 0) {\n            tx = outX * 0.4\n            ty = outY * 0.4\n            cap = Math.sqrt(outX * outX + outY * outY) * 0.55\n          } else if (!closed && index === limit - 1) {\n            tx = inX * 0.4\n            ty = inY * 0.4\n            cap = Math.sqrt(inX * inX + inY * inY) * 0.55\n          } else {\n            tx = (source[n] - source[p]) * 0.32\n            ty = (source[n + 1] - source[p + 1]) * 0.32\n            cap = Math.sqrt(Math.min(inX * inX + inY * inY, outX * outX + outY * outY)) * 0.62\n          }\n          const len2 = tx * tx + ty * ty\n          if (len2 > cap * cap && len2 > 0) {\n            const s = cap / Math.sqrt(len2)\n            tx *= s\n            ty *= s\n          }\n          out[0] = tx\n          out[1] = ty\n        }\n        ctx.moveTo(source[0], source[1])\n        const segments = closed ? limit : limit - 1\n        const t0 = [0, 0]\n        const t1 = [0, 0]\n        for (let k = 0; k < segments; k++) {\n          const s = at(k)\n          const e = at(k + 1)\n          tangentAt(k, t0)\n          tangentAt(k + 1, t1)\n          ctx.bezierCurveTo(\n            source[s] + t0[0], source[s + 1] + t0[1],\n            source[e] - t1[0], source[e + 1] - t1[1],\n            source[e], source[e + 1],\n          )\n        }\n        /* Mark a ring as a RING. The cyclic tangents above already make the seam C1\n           and the final span already lands exactly on the start point, so this adds\n           no geometry — but without it the canvas treats the path as open and butts\n           two caps together at the seam instead of joining them, which is defect (2)\n           of issue #3. contour-cusps.test.js guards this. */\n        if (closed) ctx.closePath()\n      }\n      const isRing = (p) => {\n        const n = p.length - 2\n        return n >= 2 && (p[0] - p[n]) ** 2 + (p[1] - p[n + 1]) ** 2 < 4\n      }\n      /* ONE STROKE, RINGS FIRST — and the ORDER matters for the canvas fallback, not\n         for looks. `closePath()` on a real 2D context finalises the current subpath by\n         splicing it into the path accumulated so far, so its cost grows with\n         everything already in that path (measured on the canvas fallback: 18 calls per\n         sheet averaging 0.278 ms, max 1.2 ms, ~16% of the frame). Drawing the rings\n         while the path still holds only other rings bounds every splice to ring\n         geometry. Output is unchanged either way: canvas stroke coverage is a union,\n         and the WebGL painter blends with MAX (commutative), so subpath order cannot\n         affect the result. Stroking each path separately would also fix the cost but\n         double-composites overlapping strokes and visibly darkens every crossing —\n         the very \"piled-up lines\" look this avoids. */\n      ctx.beginPath()\n      for (let i = 0; i < contourPaths.length; i++) {\n        const p = contourPaths[i]\n        if (isRing(p)) drawSmoothPath(smoothPath(p))\n      }\n      for (let i = 0; i < contourPaths.length; i++) {\n        const p = contourPaths[i]\n        if (!isRing(p)) drawSmoothPath(smoothPath(p))\n      }\n      ctx.stroke()\n    }\n/* MIT; contributed by higekibaka. GPU stroke painter from Endfield Glass. */\nconst CURVE_TOLERANCE_PX = 0.04;\nconst STRIDE = 6;\nclass StrokeSegments {\n  data = new Float32Array(4096 * STRIDE);\n  used = 0;\n  tolerance = CURVE_TOLERANCE_PX;\n  x = 0;\n  y = 0;\n  startX = 0;\n  startY = 0;\n  first = 0;\n  reset() {\n    this.used = 0;\n    this.first = 0;\n  }\n  moveTo(x, y) {\n    this.x = this.startX = x;\n    this.y = this.startY = y;\n    this.first = this.used;\n  }\n  lineTo(x, y) {\n    if (x === this.x && y === this.y) return;\n    if (this.used + STRIDE > this.data.length) {\n      const next = new Float32Array(this.data.length * 2);\n      next.set(this.data);\n      this.data = next;\n    }\n    const i = this.used;\n    this.data[i] = this.x;\n    this.data[i + 1] = this.y;\n    this.data[i + 2] = x;\n    this.data[i + 3] = y;\n    this.data[i + 4] = i === this.first ? 1 : 0;\n    this.data[i + 5] = 1;\n    if (i > this.first) this.data[i - 1] = 0;\n    this.used += STRIDE;\n    this.x = x;\n    this.y = y;\n  }\n  closePath() {\n    this.lineTo(this.startX, this.startY);\n    if (this.used > this.first) {\n      this.data[this.first + 4] = 0;\n      this.data[this.used - 1] = 0;\n    }\n  }\n  bezierCurveTo(ax, ay, bx, by, x, y) {\n    this.cubic(this.x, this.y, ax, ay, bx, by, x, y, 0);\n  }\n  cubic(x0, y0, x1, y1, x2, y2, x3, y3, depth) {\n    const dx = x3 - x0, dy = y3 - y0, length2 = dx * dx + dy * dy;\n    const tolerance2 = this.tolerance * this.tolerance;\n    const t1 = length2 > 0 ? Math.max(0, Math.min(1, ((x1 - x0) * dx + (y1 - y0) * dy) / length2)) : 0;\n    const t2 = length2 > 0 ? Math.max(0, Math.min(1, ((x2 - x0) * dx + (y2 - y0) * dy) / length2)) : 0;\n    const e1x = x1 - x0 - t1 * dx, e1y = y1 - y0 - t1 * dy;\n    const e2x = x2 - x0 - t2 * dx, e2y = y2 - y0 - t2 * dy;\n    if (e1x * e1x + e1y * e1y <= tolerance2 && e2x * e2x + e2y * e2y <= tolerance2 || depth >= 16) {\n      this.lineTo(x3, y3);\n      return;\n    }\n    const a = (x0 + x1) / 2, b = (y0 + y1) / 2, c = (x1 + x2) / 2, d = (y1 + y2) / 2;\n    const e = (x2 + x3) / 2, f = (y2 + y3) / 2, g = (a + c) / 2, h = (b + d) / 2;\n    const i = (c + e) / 2, j = (d + f) / 2, k = (g + i) / 2, l = (h + j) / 2;\n    this.cubic(x0, y0, a, b, g, h, k, l, depth + 1);\n    this.cubic(k, l, i, j, e, f, x3, y3, depth + 1);\n  }\n}\nfunction parseStrokeColor(value) {\n  const m = value.match(/^rgba?\\(\\s*([\\d.]+)\\s*,\\s*([\\d.]+)\\s*,\\s*([\\d.]+)(?:\\s*,\\s*([\\d.]+))?\\s*\\)$/);\n  if (!m) return null;\n  const values = [Number(m[1]) / 255, Number(m[2]) / 255, Number(m[3]) / 255, m[4] === void 0 ? 1 : Number(m[4])];\n  return values.every((v) => Number.isFinite(v) && v >= 0 && v <= 1) ? values : null;\n}\nconst VERTEX = `#version 300 es\nprecision highp float;\nlayout(location=0) in vec4 segment;\nlayout(location=1) in vec2 caps;\nuniform vec2 viewportSize;\nuniform vec2 scale;\nuniform float width;\nout vec2 local;\nflat out float segmentLength;\nflat out float radius;\nflat out vec2 endCaps;\nvoid main() {\n  vec2 a = segment.xy * scale, b = segment.zw * scale;\n  vec2 delta = b-a;\n  segmentLength = max(length(delta), 0.000001);\n  vec2 tangent = delta / segmentLength;\n  vec2 normal = vec2(-tangent.y, tangent.x);\n  radius = 0.5 * width * scale.x * scale.y * length(segment.zw-segment.xy) / segmentLength;\n  float margin = radius + 1.0;\n  // Two triangles per segment, generated without a second vertex buffer.\n  vec2 corners[6] = vec2[6](vec2(0,-1),vec2(1,-1),vec2(0,1),vec2(0,1),vec2(1,-1),vec2(1,1));\n  vec2 corner = corners[gl_VertexID];\n  local = vec2(mix(-margin, segmentLength+margin, corner.x), corner.y * margin);\n  vec2 pixel = a + tangent * local.x + normal * local.y;\n  gl_Position = vec4(pixel.x/viewportSize.x*2.0-1.0, 1.0-pixel.y/viewportSize.y*2.0, 0, 1);\n  endCaps = caps;\n}`;\nconst FRAGMENT = `#version 300 es\nprecision highp float;\nin vec2 local;\nflat in float segmentLength;\nflat in float radius;\nflat in vec2 endCaps;\nuniform vec4 color;\nout vec4 outputColor;\nvoid main() {\n  vec2 nearest = vec2(clamp(local.x, 0.0, segmentLength), 0);\n  float distance = length(local-nearest)-radius;\n  if (endCaps.x > 0.5) distance = max(distance, -local.x);\n  if (endCaps.y > 0.5) distance = max(distance, local.x-segmentLength);\n  float coverage = clamp(0.5-distance, 0.0, 1.0);\n  float alpha = color.a * coverage;\n  outputColor = vec4(color.rgb * alpha, alpha);\n}`;\nfunction createWebGLContourContext(canvas, onContextLost) {\n  const gl = canvas.getContext(\"webgl2\", {\n    alpha: true,\n    premultipliedAlpha: true,\n    antialias: false,\n    depth: false,\n    stencil: false,\n    preserveDrawingBuffer: false\n  });\n  if (!gl) return null;\n  let program = null;\n  let buffer = null;\n  let vao = null;\n  const shaders = [];\n  const events = canvas;\n  const lost = () => onContextLost?.();\n  const releaseContext = gl.getExtension(\"WEBGL_lose_context\");\n  const release = () => {\n    events.removeEventListener?.(\"webglcontextlost\", lost);\n    if (buffer) gl.deleteBuffer(buffer);\n    if (vao) gl.deleteVertexArray(vao);\n    if (program) gl.deleteProgram(program);\n    for (const shader of shaders) gl.deleteShader(shader);\n    buffer = null;\n    vao = null;\n    program = null;\n    shaders.length = 0;\n    releaseContext?.loseContext();\n  };\n  try {\n    const compile = (type, source) => {\n      const shader = gl.createShader(type);\n      if (!shader) throw new Error(\"WebGL shader allocation failed\");\n      shaders.push(shader);\n      gl.shaderSource(shader, source);\n      gl.compileShader(shader);\n      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(\"Contour shader: \" + gl.getShaderInfoLog(shader));\n      return shader;\n    };\n    const vs = compile(gl.VERTEX_SHADER, VERTEX), fs = compile(gl.FRAGMENT_SHADER, FRAGMENT);\n    program = gl.createProgram();\n    buffer = gl.createBuffer();\n    vao = gl.createVertexArray();\n    if (!program || !buffer || !vao) throw new Error(\"WebGL allocation failed\");\n    gl.attachShader(program, vs);\n    gl.attachShader(program, fs);\n    gl.linkProgram(program);\n    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(\"Contour shader link: \" + gl.getProgramInfoLog(program));\n    gl.useProgram(program);\n    gl.bindVertexArray(vao);\n    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);\n    gl.enableVertexAttribArray(0);\n    gl.vertexAttribPointer(0, 4, gl.FLOAT, false, STRIDE * 4, 0);\n    gl.vertexAttribDivisor(0, 1);\n    gl.enableVertexAttribArray(1);\n    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, STRIDE * 4, 16);\n    gl.vertexAttribDivisor(1, 1);\n    gl.disable(gl.DEPTH_TEST);\n    gl.disable(gl.CULL_FACE);\n    gl.disable(gl.DITHER);\n    gl.enable(gl.BLEND);\n    gl.blendEquation(gl.MAX);\n    gl.blendFunc(gl.ONE, gl.ONE);\n    const viewport = gl.getUniformLocation(program, \"viewportSize\");\n    const scaling = gl.getUniformLocation(program, \"scale\");\n    const color = gl.getUniformLocation(program, \"color\");\n    const width = gl.getUniformLocation(program, \"width\");\n    const segments = new StrokeSegments();\n    let sx = 1, sy = 1, capacity = 0, disposed = false;\n    const context = {\n      strokeStyle: \"rgba(16,17,16,0.16)\",\n      lineWidth: 1,\n      lineJoin: \"round\",\n      setTransform(a, b, c, d, e, f) {\n        if (b !== 0 || c !== 0 || e !== 0 || f !== 0 || a <= 0 || d <= 0) throw new Error(\"Unsupported contour transform\");\n        sx = a;\n        sy = d;\n        segments.tolerance = CURVE_TOLERANCE_PX / Math.max(sx, sy);\n      },\n      clearRect() {\n        if (disposed || gl.isContextLost()) throw new Error(\"Contour WebGL context lost\");\n        gl.viewport(0, 0, canvas.width, canvas.height);\n        gl.clearColor(0, 0, 0, 0);\n        gl.clear(gl.COLOR_BUFFER_BIT);\n      },\n      beginPath: () => segments.reset(),\n      moveTo: (x, y) => segments.moveTo(x, y),\n      lineTo: (x, y) => segments.lineTo(x, y),\n      bezierCurveTo: (a, b, c, d, e, f) => segments.bezierCurveTo(a, b, c, d, e, f),\n      closePath: () => segments.closePath(),\n      stroke() {\n        const rgba = parseStrokeColor(context.strokeStyle);\n        if (!rgba) throw new Error(\"Unsupported contour stroke color\");\n        if (segments.used === 0) {\n          gl.flush();\n          return;\n        }\n        gl.uniform2f(viewport, canvas.width, canvas.height);\n        gl.uniform2f(scaling, sx, sy);\n        gl.uniform4fv(color, rgba);\n        gl.uniform1f(width, context.lineWidth);\n        if (capacity < segments.data.byteLength) {\n          capacity = segments.data.byteLength;\n          gl.bufferData(gl.ARRAY_BUFFER, capacity, gl.STREAM_DRAW);\n        }\n        gl.bufferSubData(gl.ARRAY_BUFFER, 0, segments.data, 0, segments.used);\n        gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, segments.used / STRIDE);\n        gl.flush();\n      },\n      dispose() {\n        if (disposed) return;\n        disposed = true;\n        segments.data = new Float32Array(0);\n        segments.used = 0;\n        release();\n      }\n    };\n    events.addEventListener?.(\"webglcontextlost\", lost);\n    return context;\n  } catch (error) {\n    release();\n    throw error;\n  }\n}\n\nself.onmessage = ({data}) => {\n  try {\n    if (data.type === 'init') {\n      if (canvas !== null) throw new Error('duplicate worker init')\n      canvas = data.canvas; contourSeed = data.seed\n      painter = createWebGLContourContext(canvas, () => self.postMessage({type:'error',message:'WebGL context lost'}))\n      rasterizer = painter ? 'worker-webgl2' : 'worker-canvas2d'\n      if (!painter) painter = canvas.getContext('2d', {willReadFrequently:true})\n      if (!painter) throw new Error('worker canvas unavailable')\n      contourLineCv = {getContext:()=>painter, get width(){return canvas.width},get height(){return canvas.height}}\n      self.postMessage({type:'initialized',rasterizer})\n    } else if (data.type === 'frame') {\n      if (!canvas || !painter) throw new Error('worker not initialized')\n      const {w,h,dpr,phase,geometry,color,seq}=data\n      if (![w,h,dpr,phase,seq].every(Number.isFinite) || w<1 || h<1 || dpr<=0 || dpr>2\n        || Math.round(w*dpr)*Math.round(h*dpr)>8000000 || !/^#[0-9a-f]{8}$/i.test(color)) throw new Error('invalid frame')\n      const resized = !contourGeom || contourGeom.w!==w || contourGeom.h!==h\n      if (resized) contourBuild(w,h)\n      const width=Math.round(w*dpr),height=Math.round(h*dpr)\n      if(canvas.width!==width)canvas.width=width\n      if(canvas.height!==height)canvas.height=height\n      const c=color.slice(1)\n      stroke=`rgba(${parseInt(c.slice(0,2),16)},${parseInt(c.slice(2,4),16)},${parseInt(c.slice(4,6),16)},${parseInt(c.slice(6,8),16)/255})`\n      if(geometry || resized)contourExtract(phase)\n      painter.setTransform(1,0,0,1,0,0)\n      contourDrawLines()\n      self.postMessage({type:'painted',seq,rasterizer})\n    } else if (data.type === 'dispose') {\n      if(painter && painter.dispose)painter.dispose()\n      contourField=null;contourPaths=[];painter=null;canvas=null\n      self.close()\n    }\n  } catch(error) { self.postMessage({type:'error',message:String(error.message || error)}) }\n}\nself.postMessage({type:'ready'})\n"
-    /* END GENERATED CONTOUR WORKER */
-    const onContourVisibility = () => {
-      if (document.hidden && contourWorker) contourWorker.pending = null
-      if (!document.hidden && contourWrap) contourRefresh(true)
-      contourSwitchSig = ''
-      contourApplySwitches()
-    }
-    if (typeof document !== 'undefined' && document.addEventListener) {
-      document.addEventListener('visibilitychange', onContourVisibility)
-      ctx.effect(() => () => document.removeEventListener('visibilitychange', onContourVisibility))
-    }
 
     /* ---------- 输出滚动动画（流式跟随的柔性化） ----------
        DSH streams an answer by appending into the transcript and then PINNING the
@@ -3567,11 +1877,11 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
     let scrollAnimFrameAt = 0
     let scrollAnimMotionQuery = null
 
-    /* Everything that must hold for the feature to run at all. `prefersReducedMotion`
-       is the contour sheet's own reader (declared earlier in this file's order), so
-       the OS preference is read live and honoured identically by both surfaces; the
-       hidden-tab test is the same one the contour loop uses, and here it also keeps
-       a frozen rAF from leaving an offset stranded while the tab is away. */
+    /* Everything that must hold for the feature to run at all. The OS preference is
+       read live through the shared prefersReducedMotion() gate (see 17-motion-gate.js),
+       so every animated surface answers it the same way; the hidden-tab test is here
+       because a frozen rAF would otherwise leave an offset stranded on the
+       transcript while the tab is away. */
     const scrollAnimActive = () => isEnabled() && isScrollAnimOn()
       && !prefersReducedMotion()
       && (typeof document === 'undefined' || !document.hidden)
@@ -3580,8 +1890,8 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
     const scrollAnimMark = (entry, state) => {
       if (entry.state === state) return
       entry.state = state
-      if (state === null) entry.port.removeAttribute('data-endfield-scroll-anim')
-      else entry.port.setAttribute('data-endfield-scroll-anim', state)
+      if (state === null) entry.port.removeAttribute('data-ak-scroll-anim')
+      else entry.port.setAttribute('data-ak-scroll-anim', state)
     }
 
     const scrollAnimClear = (entry) => {
@@ -3917,9 +2227,9 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
     scrollAnimSyncHook = syncScrollAnim
 
     /* ---------- boot loading screen (settings-toggleable, default OFF) ----------
-       Recreates the Endfield launcher boot screen: a full-viewport black plate with
+       Recreates the launcher boot screen this theme's plate is modelled on: a full-viewport black plate with
        an 8px signal-yellow progress rail down the left edge, a meter group (tick +
-       percentage + status line) that rides the fill end, and the centred ENDFIELD
+       percentage + status line) that rides the fill end, and the centred ARKNIGHTS
        wordmark. It plays once per page load, then fades out and removes itself.
 
        Default OFF as requested: a loading plate that covers the app is opt-in, and
@@ -3965,7 +2275,6 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       loaderEl = null
       loaderPlateH = 0
       loaderMeterH = 0
-      contourResumeAfterLoader()
     }
     /* One boot animation. The progress value is derived from elapsed WALL-CLOCK time,
        never accumulated per frame, so it cannot drift.
@@ -4020,13 +2329,12 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       }
       loaderDone = true
       playBootChime()
-      contourPauseForLoader()
 
       const el = document.createElement('div')
-      el.setAttribute('data-endfield-loader', '')
+      el.setAttribute('data-ak-loader', '')
       // Same translation-proofing as the watermark: every glyph the plate shows is
       // brand/UI chrome drawn from CSS `content` or set as textContent on elements
-      // marked notranslate, so "translate this page" cannot rewrite ENDFIELD.
+      // marked notranslate, so "translate this page" cannot rewrite ARKNIGHTS.
       el.setAttribute('translate', 'no')
       el.setAttribute('lang', 'en')
       el.setAttribute('aria-hidden', 'true')
@@ -4045,37 +2353,37 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          plate fades out. It is a separate layer so the sweep can cover the brand
          block and meter without disturbing their layout. */
       el.innerHTML =
-        '<div data-endfield-loader-tex></div>' +
-        '<div data-endfield-loader-track></div>' +
-        '<div data-endfield-loader-fill></div>' +
-        '<div data-endfield-loader-meter>' +
-        '<span data-endfield-loader-tick></span>' +
-        '<span data-endfield-loader-pct></span>' +
-        '<span data-endfield-loader-status></span>' +
+        '<div data-ak-loader-tex></div>' +
+        '<div data-ak-loader-track></div>' +
+        '<div data-ak-loader-fill></div>' +
+        '<div data-ak-loader-meter>' +
+        '<span data-ak-loader-tick></span>' +
+        '<span data-ak-loader-pct></span>' +
+        '<span data-ak-loader-status></span>' +
         '</div>' +
-        '<div data-endfield-loader-brand>' +
-        '<span data-endfield-loader-kicker></span>' +
-        '<span data-endfield-loader-word data-endfield-loader-word1></span>' +
-        '<span data-endfield-loader-word data-endfield-loader-word2></span>' +
-        '<span data-endfield-loader-detail>' +
-        '<span data-endfield-loader-chev></span>' +
-        '<span data-endfield-loader-sub></span>' +
-        '<span data-endfield-loader-seq></span>' +
-        '<span data-endfield-loader-squares>' +
+        '<div data-ak-loader-brand>' +
+        '<span data-ak-loader-kicker></span>' +
+        '<span data-ak-loader-word data-ak-loader-word1></span>' +
+        '<span data-ak-loader-word data-ak-loader-word2></span>' +
+        '<span data-ak-loader-detail>' +
+        '<span data-ak-loader-chev></span>' +
+        '<span data-ak-loader-sub></span>' +
+        '<span data-ak-loader-seq></span>' +
+        '<span data-ak-loader-squares>' +
         '<i data-on></i><i data-on></i><i data-on></i><i></i><i></i><i></i>' +
         '<i data-on></i><i data-on></i><i></i><i></i><i></i><i></i>' +
         '</span>' +
         '</span>' +
-        '<span data-endfield-loader-tag></span>' +
+        '<span data-ak-loader-tag></span>' +
         '</div>' +
-        '<div data-endfield-loader-wipe></div>'
+        '<div data-ak-loader-wipe></div>'
       document.body.appendChild(el)
       loaderEl = el
 
-      const fill = el.querySelector('[data-endfield-loader-fill]')
-      const meter = el.querySelector('[data-endfield-loader-meter]')
-      const pct = el.querySelector('[data-endfield-loader-pct]')
-      const status = el.querySelector('[data-endfield-loader-status]')
+      const fill = el.querySelector('[data-ak-loader-fill]')
+      const meter = el.querySelector('[data-ak-loader-meter]')
+      const pct = el.querySelector('[data-ak-loader-pct]')
+      const status = el.querySelector('[data-ak-loader-status]')
       const DURATION = 1750
       const start = (typeof performance !== 'undefined' && typeof performance.now === 'function')
         ? performance.now()
@@ -4111,7 +2419,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         clearLoaderTimers()
         if (!loaderEl) return
         const el = loaderEl
-        const wipeEl = el.querySelector('[data-endfield-loader-wipe]')
+        const wipeEl = el.querySelector('[data-ak-loader-wipe]')
         const hasRaf = typeof requestAnimationFrame === 'function'
         const hasTimeout = typeof window !== 'undefined' && typeof window.setTimeout === 'function'
         // Someone who asked for less motion gets the plate gone, not a flourish.
@@ -4119,7 +2427,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
           && typeof window.matchMedia === 'function'
           && window.matchMedia('(prefers-reduced-motion: reduce)').matches
         if (reduceMotion || (!hasRaf && !hasTimeout)) { destroyLoader(); return }
-        el.setAttribute('data-endfield-loader-wiping', '')
+        el.setAttribute('data-ak-loader-wiping', '')
         // JS owns opacity from here, so the stylesheet transition must not fight it.
         el.style.transition = 'none'
         const t0 = now()
@@ -4139,7 +2447,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
           // phase 2 — fade the whole plate, yellow included
           const fadeMs = elapsed - WIPE_MS
           if (fadeMs > 0) {
-            if (!exitMarked) { exitMarked = true; el.setAttribute('data-endfield-loader-exit', '') }
+            if (!exitMarked) { exitMarked = true; el.setAttribute('data-ak-loader-exit', '') }
             el.style.opacity = Math.max(0, 1 - fadeMs / EXIT_MS).toFixed(3)
           }
           if (elapsed >= WIPE_MS + EXIT_MS) { destroyLoader(); return }
@@ -4202,7 +2510,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
           }
         }
         if (t >= 1) {
-          el.setAttribute('data-endfield-loader-complete', '')
+          el.setAttribute('data-ak-loader-complete', '')
           // Hold the completed frame for a beat so 100% is actually readable.
           if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
             if (loaderExitTimer === null) loaderExitTimer = window.setTimeout(finish, 220)
@@ -4278,10 +2586,10 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
        which is what stops 「任务开始」 from firing merely because the user switched
        into a session that was already running. */
     const THUNDER_KEY = 'dsh-theme-arknights-thunder'
-    /* The slam-in animation is its OWN switch, default OFF — same shape as
-       等高线背景 → 动态等高线: the layer is one decision, animating it is another.
-       With it off the word still appears instantly, holds 3s and leaves; only the
-       scale punch and the fade are dropped. */
+    /* The slam-in animation is its OWN switch, default OFF: showing the word is
+       one decision, animating it is another. With it off the word still appears
+       instantly, holds 3s and leaves; only the scale punch and the fade are
+       dropped. */
     const THUNDER_ANIM_KEY = 'dsh-theme-arknights-thunder-anim'
     const THUNDER_START = '任务开始'
     const THUNDER_DONE = '任务完成'
@@ -4291,9 +2599,9 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
     const isThunderOn = () => prefsGet(THUNDER_KEY) === '1'
     // Default OFF for the same reason, and read independently of the parent switch.
     const isThunderAnimOn = () => prefsGet(THUNDER_ANIM_KEY) === '1'
-    /* The OS preference still wins over an enabled animation switch, exactly as
-       contourWantsAnim() does for the contour sheet. Checked live rather than
-       cached, so changing the OS setting takes effect on the next announcement. */
+    /* The OS preference still wins over an enabled animation switch. Checked live
+       rather than cached, so changing the OS setting takes effect on the next
+       announcement. */
     const thunderWantsAnim = () => isThunderAnimOn() && !prefersReducedMotion()
     let thunderEl = null
     let thunderTimer = null
@@ -4320,7 +2628,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       if (typeof document === 'undefined' || !document.body) return
       destroyThunder()
       const el = document.createElement('div')
-      el.setAttribute('data-endfield-thunder', '')
+      el.setAttribute('data-ak-thunder', '')
       // Pure decoration over content the user is already reading: never announced,
       // never hit-tested (pointer-events:none lives in the stylesheet).
       el.setAttribute('aria-hidden', 'true')
@@ -4328,9 +2636,9 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          removed by the timer below. Two independent reasons land on this same static
          path — the animation switch being off (the default) and the OS asking for
          reduced motion — so both go through thunderWantsAnim(). */
-      if (!thunderWantsAnim()) el.setAttribute('data-endfield-thunder-still', '')
+      if (!thunderWantsAnim()) el.setAttribute('data-ak-thunder-still', '')
       const word = document.createElement('span')
-      word.setAttribute('data-endfield-thunder-word', '')
+      word.setAttribute('data-ak-thunder-word', '')
       word.textContent = text
       el.appendChild(word)
       document.body.appendChild(el)
@@ -4562,9 +2870,9 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       }
       thunderDetach()
     }
-    /* Switched off costs nothing: no subscription, no timer, no plate. This mirrors
-       the contour layer's rule — an off switch must not leave a listener behind that
-       wakes on every streamed token just to return early. */
+    /* Switched off costs nothing: no subscription, no timer, no plate. An off switch
+       must not leave a listener behind that wakes on every streamed token just to
+       return early. */
     const syncThunder = () => {
       if (!(isEnabled() && isThunderOn())) {
         thunderStopWatch()
@@ -4672,7 +2980,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
     /* ---------- 顶部余额胶囊 ----------
        A fixed capsule at the top center of the frame showing the account
        balance AND the API's peak/off-peak pricing window, styled after the
-       Endfield HUD plate: dark pill, currency + big tnum number, a small
+       Arknights HUD plate: dark pill, currency + big tnum number, a small
        countdown to the next window edge, the elapsed-window percentage pushed
        to the right, and the accent-yellow round badge.
 
@@ -4707,8 +3015,8 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
     /* What the credits mode's RIGHT-hand percentage slot reads: 已用xx% (the
        plugin's own badge reading) or 剩余xx%. Anything other than 'remaining'
        reads as 'used' — the preference is a two-literal choice, stored as
-       exactly one of them, and the tolerant default mirrors how
-       readContourRenderer treats its own select. */
+       exactly one of them, and the tolerant default mirrors how every other
+       two-literal select in this panel reads its stored value. */
     const CREDIT_DISPLAY_KEY = 'creditDisplay'
     const readCreditDisplay = () => (prefsGet(CREDIT_DISPLAY_KEY) === 'used' ? 'used' : 'remaining')
     let balanceEl = null
@@ -4770,7 +3078,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
        与各自开关相与，balanceShadeReason() 仍保留「原始原因合成」语义。
        会话与遮挡无关，重新渲染会话时布局列节点可能被 React 重挂——所以
        sidebarCol 缩放突变时由 ResizeObserver 自己重找目标（isConnected 守卫）。 */
-    const BALANCE_SIDEBAR_PROBE_ATTR = 'data-endfield-balance-sidebar-probe'
+    const BALANCE_SIDEBAR_PROBE_ATTR = 'data-ak-balance-sidebar-probe'
     /* 每次判定都重读偏好（isBalanceSidebarHideOn / isBalanceHoverHideOn）：
        设置页的开关是低频写入、判定是低频事件（列宽变化 / mousemove），重读
        让开关即时生效而无需重建胶囊。开关刚关掉时残留的隐藏态由开关处理器
@@ -4780,8 +3088,8 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       if (balanceEl === null) return
       const wantHide = (isBalanceSidebarHideOn() && balanceSidebarOpen)
         || (isBalanceHoverHideOn() && balanceHoverHide)
-      if (wantHide) balanceEl.setAttribute('data-endfield-balance-shade', '')
-      else balanceEl.removeAttribute('data-endfield-balance-shade')
+      if (wantHide) balanceEl.setAttribute('data-ak-balance-shade', '')
+      else balanceEl.removeAttribute('data-ak-balance-shade')
     }
     /* 在整份 DOM 里找当前布局的侧栏列。两个后缀在客户端 UI 里唯一属于布局
        frame（`_centerCol`/`_sidebarCol`/`_rightbarCol`），位置选择决定盯哪根：
@@ -4969,9 +3277,9 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         const node = balanceEl.querySelector('[' + attr + ']')
         if (node) node.textContent = text
       }
-      setText('data-endfield-balance-int', data.int)
-      setText('data-endfield-balance-frac', data.frac === '' ? '' : '.' + data.frac)
-      setText('data-endfield-balance-currency', data.currency === 'USD' ? '$' : '¥')
+      setText('data-ak-balance-int', data.int)
+      setText('data-ak-balance-frac', data.frac === '' ? '' : '.' + data.frac)
+      setText('data-ak-balance-currency', data.currency === 'USD' ? '$' : '¥')
     }
 
     /* ---------- 渠道额度渲染 (dsh-codearts-auth / jet-hub) ----------
@@ -5053,28 +3361,28 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         const node = balanceEl.querySelector('[' + attr + ']')
         if (node) node.textContent = text
       }
-      setText('data-endfield-credit-int', paint.int)
-      setText('data-endfield-credit-unit', paint.unitText)
-      setText('data-endfield-credit-channel', paint.channel)
+      setText('data-ak-credit-int', paint.int)
+      setText('data-ak-credit-unit', paint.unitText)
+      setText('data-ak-credit-channel', paint.channel)
       // Consumption read for the right-hand slot in credits mode. The dial's
-      // share rides the same --endfield-balance-sweep custom property the
+      // share rides the same --ak-balance-sweep custom property the
       // pricing clock uses, so mode switches never re-layout the pill: the
       // value just changes meaning. No quota (quotaTotal 0) keeps the sweep
       // empty rather than inventing a percentage.
-      setText('data-endfield-credit-pct', paint.pctText || '')
+      setText('data-ak-credit-pct', paint.pctText || '')
       // The ring sweep follows the slot's meaning: 已用xx% sweeps the consumed
       // share, 剩余xx% sweeps the remaining share — dial and readout always
       // tell the same story. (The wallet pricing clock early-returns in
       // credits mode, so this property is ours to write here.)
       if (typeof balanceEl.style?.setProperty === 'function') {
         balanceEl.style.setProperty(
-          '--endfield-balance-sweep',
+          '--ak-balance-sweep',
           (Number.isFinite(paint.sweepPct) ? paint.sweepPct * 3.6 : 0) + 'deg',
         )
       }
       // The two modes are mutually exclusive DOM states driven by one attribute
       // the stylesheet keys off — no inline style writes, no per-poll churn.
-      balanceEl.setAttribute('data-endfield-credit-mode', paint.mode)
+      balanceEl.setAttribute('data-ak-credit-mode', paint.mode)
     }
 
     /* The capsule paints ONE mode at a time. 'wallet' keeps the DeepSeek
@@ -5303,32 +3611,30 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
      * ==================================================================== */
     const FACTION_BAR_KEY = 'dsh-theme-arknights-faction-bar'
 
-    /* 阵营元数据。`accent` 里的颜色只给悬浮条与设置页卡片的色块用，不参与实际
-       渲染——真正生效的颜色全部在样式表的六组 --edge-* 规则里，所以「选之前看到
-       的」与「选之后得到的」来自同一份设计。 */
+    /* 阵营元数据。这里不放颜色：真正生效的配色全部在样式表的六组 --edge-* 规则
+       里，悬浮条与设置页只出形状（.ak-crest 走 currentColor）。在 JS 里再抄一份
+       色值只会和样式表悄悄分叉——上一次就是这样，色块显示的是暖金与青绿，而界面
+       实际给的是电光蓝与单色。hint 描述的是选完之后真的能看到的东西。 */
     const FACTION_META = [
       {
         id: 'rhodes',
         badge: 'R.I.',
         nav: { zh: '罗德岛', en: 'Rhodes Island' },
         hint: { zh: '舰船指挥 · 冷蓝网格', en: 'Ship command · cold blue mesh' },
-        accent: { light: '#0f6bb0', dark: '#4aa8e8' },
         keys: '1',
       },
       {
         id: 'laterano',
         badge: 'LTR',
         nav: { zh: '拉特兰', en: 'Laterano' },
-        hint: { zh: '圣城 · 暖金圣光', en: 'Holy city · warm gold light' },
-        accent: { light: '#886812', dark: '#e8c168' },
+        hint: { zh: '圣城 · 电光蓝图纸', en: 'Holy city · electric-blue blueprint' },
         keys: '2',
       },
       {
         id: 'rhine',
         badge: 'R.L',
         nav: { zh: '莱茵生命', en: 'Rhine Lab' },
-        hint: { zh: '实验室 · 荧光青绿', en: 'Laboratory · fluorescent teal' },
-        accent: { light: '#00795c', dark: '#00d9a3' },
+        hint: { zh: '实验室 · 单色结构', en: 'Laboratory · mono structure' },
         keys: '3',
       },
     ]
@@ -5408,7 +3714,9 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
 
     /* ---- DOM ------------------------------------------------------------ */
     let factionBarRoot = null
-    let factionBarOpen = true
+    /* 默认收起：这是一层压在内容右上角的浮层，展开时三行会盖住第一条消息的尾部。
+       收起后只剩当前阵营一行 + 一个 ▾，切换仍然一次点击到位（▾ → 三选）。 */
+    let factionBarOpen = false
     let factionBarKeysBound = false
 
     const bindFactionKeys = () => {
@@ -5443,6 +3751,10 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         paintFactionBar()
       })
 
+      const crest = document.createElement('span')
+      crest.className = 'ak-crest'
+      crest.setAttribute('data-ak-crest', readFaction())
+      crest.setAttribute('aria-hidden', 'true')
       const badge = document.createElement('span')
       badge.className = 'ak-bar__badge'
       const label = document.createElement('span')
@@ -5450,6 +3762,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       const caret = document.createElement('span')
       caret.className = 'ak-bar__caret'
       caret.textContent = '\u25be'
+      current.appendChild(crest)
       current.appendChild(badge)
       current.appendChild(label)
       current.appendChild(caret)
@@ -5464,15 +3777,15 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         item.title = akPick(meta.hint) + '  \u00b7  Ctrl+Shift+' + meta.keys
         item.addEventListener('click', () => setFaction(meta.id))
 
-        const swatch = document.createElement('span')
-        swatch.className = 'ak-bar__swatch'
-        swatch.setAttribute('data-accent-light', meta.accent.light)
-        swatch.setAttribute('data-accent-dark', meta.accent.dark)
+        const crest = document.createElement('span')
+        crest.className = 'ak-crest'
+        crest.setAttribute('data-ak-crest', meta.id)
+        crest.setAttribute('aria-hidden', 'true')
         const text = document.createElement('span')
         text.className = 'ak-bar__badge'
         text.textContent = meta.badge
 
-        item.appendChild(swatch)
+        item.appendChild(crest)
         item.appendChild(text)
         list.appendChild(item)
       }
@@ -5495,8 +3808,14 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       const meta = factionMetaOf(readFaction())
       factionBarRoot.setAttribute('data-open', factionBarOpen ? 'true' : 'false')
 
+      /* 当前态徽标只有一份 DOM，切换阵营时要跟着换形状；下拉那三枚按 meta.id
+         各自固定，不需要重画。用 .ak-bar__current 限定：badge 在两边同名，
+         而 querySelector 只会命中文档序第一个，把作用域写清楚免得以后调换
+         结构时悄悄改错元素。 */
+      const crest = factionBarRoot.querySelector('.ak-bar__current .ak-crest')
       const badge = factionBarRoot.querySelector('.ak-bar__badge')
       const label = factionBarRoot.querySelector('.ak-bar__label')
+      if (crest !== null) crest.setAttribute('data-ak-crest', meta.id)
       if (badge !== null) badge.textContent = meta.badge
       if (label !== null) label.textContent = akPick(meta.nav)
 
@@ -6220,7 +4539,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
        every tick; before the first balance answer arrives the money half still
        shows its 待机 (¥--) seed, so the capsule never renders an empty slot.
        The dial is driven by ONE custom property: the ring's conic-gradient reads
-       --endfield-balance-sweep, so progress never re-lays-out the pill. */
+       --ak-balance-sweep, so progress never re-lays-out the pill. */
     const balancePaintWindow = () => {
       if (balanceEl === null || typeof document === 'undefined') return
       // Credits mode owns the right-hand dial (consumption share) and has no
@@ -6235,7 +4554,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
           const ready = balanceBootAnswered || waited >= BALANCE_BOOT_MAX_MS
           if (waited >= BALANCE_BOOT_MIN_MS && ready && loaderEl === null) {
             balanceBootAt = 0
-            balanceEl.removeAttribute('data-endfield-balance-boot')
+            balanceEl.removeAttribute('data-ak-balance-boot')
           }
         }
         return
@@ -6250,16 +4569,16 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         const node = balanceEl.querySelector('[' + attr + ']')
         if (node) node.textContent = text
       }
-      const phase = balanceEl.querySelector('[data-endfield-balance-phase]')
+      const phase = balanceEl.querySelector('[data-ak-balance-phase]')
       if (phase) {
         phase.textContent = win.peak ? '高峰' : '低谷'
-        phase.setAttribute('data-endfield-balance-phase-peak', win.peak ? '1' : '0')
+        phase.setAttribute('data-ak-balance-phase-peak', win.peak ? '1' : '0')
       }
-      setText('data-endfield-balance-remain', balanceFormatCountdown(win.remainingMs))
-      setText('data-endfield-balance-pct', (win.peak ? '高峰已过' : '低谷已过') + win.elapsedPct + '%')
+      setText('data-ak-balance-remain', balanceFormatCountdown(win.remainingMs))
+      setText('data-ak-balance-pct', (win.peak ? '高峰已过' : '低谷已过') + win.elapsedPct + '%')
       // The brand pose names the window it opens onto, so the panel never claims
       // 低谷 while the clock has already crossed into 高峰.
-      const brandTitle = balanceEl.querySelector('[data-endfield-balance-brand-title]')
+      const brandTitle = balanceEl.querySelector('[data-ak-balance-brand-title]')
       if (brandTitle) {
         // The pose names the window it opens onto; on a statutory holiday it
         // names the holiday, because 低谷 alone would read as an ordinary night.
@@ -6269,7 +4588,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         if (brandTitle.textContent !== label) brandTitle.textContent = label
       }
       if (typeof balanceEl.style?.setProperty === 'function') {
-        balanceEl.style.setProperty('--endfield-balance-sweep', win.elapsedPct * 3.6 + 'deg')
+        balanceEl.style.setProperty('--ak-balance-sweep', win.elapsedPct * 3.6 + 'deg')
       }
       /* Collapse the brand pose: held for at least MIN so the brand is readable,
          released by the first answer, capped by MAX when the host never replies,
@@ -6283,7 +4602,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         const ready = balanceBootAnswered || waited >= BALANCE_BOOT_MAX_MS
         if (waited >= BALANCE_BOOT_MIN_MS && ready && loaderEl === null) {
           balanceBootAt = 0
-          balanceEl.removeAttribute('data-endfield-balance-boot')
+          balanceEl.removeAttribute('data-ak-balance-boot')
         }
       }
     }
@@ -6319,7 +4638,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       if (typeof document === 'undefined' || !document.body) return
       if (balanceEl !== null) return
       const el = document.createElement('div')
-      el.setAttribute('data-endfield-balance', '')
+      el.setAttribute('data-ak-balance', '')
         /* The pill's silhouette is DRAWN by its background gradients (see the
            stylesheet section): two end discs + a band, correct in every renderer.
            border-radius must therefore be ZERO, pinned inline with priority: the
@@ -6338,59 +4657,59 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       // Informational overlay over navigation: never announced, never hit-tested.
       el.setAttribute('aria-hidden', 'true')
       el.innerHTML =
-        '<span data-endfield-balance-icon></span>' +
-        '<span data-endfield-balance-money>' +
-        '<span data-endfield-balance-currency>¥</span>' +
-        '<span data-endfield-balance-int>--</span>' +
-        '<span data-endfield-balance-frac></span>' +
+        '<span data-ak-balance-icon></span>' +
+        '<span data-ak-balance-money>' +
+        '<span data-ak-balance-currency>¥</span>' +
+        '<span data-ak-balance-int>--</span>' +
+        '<span data-ak-balance-frac></span>' +
         '</span>' +
         // The channel read lives in its own group and swaps with the wallet via
-        // the pill's data-endfield-credit-mode attribute (wallet | credits).
-        '<span data-endfield-credit-money>' +
-        '<span data-endfield-credit-channel></span>' +
-        '<span data-endfield-credit-int>--</span>' +
-        '<span data-endfield-credit-unit></span>' +
+        // the pill's data-ak-credit-mode attribute (wallet | credits).
+        '<span data-ak-credit-money>' +
+        '<span data-ak-credit-channel></span>' +
+        '<span data-ak-credit-int>--</span>' +
+        '<span data-ak-credit-unit></span>' +
         '</span>' +
         // The pricing countdown is the wallet mode's middle read only — peak/
         // off-peak windows are a DeepSeek API concept, so the credits mode
         // hides the whole run via the same mode attribute.
-        '<span data-endfield-balance-window>' +
-        '<span data-endfield-balance-phase>低谷</span>' +
+        '<span data-ak-balance-window>' +
+        '<span data-ak-balance-phase>低谷</span>' +
         // The 「时段剩余hh:mm:ss」 tail is its own group so a phone can drop
         // the countdown while the 高峰/低谷 label survives: the static glue
         // text has no node of its own and could not be hidden any other way.
-        '<span data-endfield-balance-remain-run>' +
+        '<span data-ak-balance-remain-run>' +
         '时段剩余' +
-        '<span data-endfield-balance-remain></span>' +
+        '<span data-ak-balance-remain></span>' +
         '</span>' +
         '</span>' +
         // The right-hand slot carries one read per mode: the elapsed pricing
         // share (wallet) or the channel's consumption share (credits). Two
         // exclusive nodes, swapped by the same attribute.
-        '<span data-endfield-balance-pct></span>' +
-        '<span data-endfield-credit-pct></span>' +
-        '<span data-endfield-balance-badge>' +
-        '<span data-endfield-balance-ring></span>' +
-        '<span data-endfield-balance-clock></span>' +
+        '<span data-ak-balance-pct></span>' +
+        '<span data-ak-credit-pct></span>' +
+        '<span data-ak-balance-badge>' +
+        '<span data-ak-balance-ring></span>' +
+        '<span data-ak-balance-clock></span>' +
         '</span>' +
         // The brand pose lives in the same box, absolutely placed over the row:
         // it is inert when the attribute is off (opacity 0, pointer-events none).
-        '<span data-endfield-balance-brand>' +
-        '<span data-endfield-balance-brand-mark></span>' +
-        '<span data-endfield-balance-brand-copy>' +
-        '<span data-endfield-balance-brand-kicker>/// DEEPSEEK API</span>' +
-        '<span data-endfield-balance-brand-title>DeepSeek 当前低谷</span>' +
+        '<span data-ak-balance-brand>' +
+        '<span data-ak-balance-brand-mark></span>' +
+        '<span data-ak-balance-brand-copy>' +
+        '<span data-ak-balance-brand-kicker>/// DEEPSEEK API</span>' +
+        '<span data-ak-balance-brand-title>DeepSeek 当前低谷</span>' +
         '</span>' +
         '</span>'
       document.body.appendChild(el)
       balanceEl = el
       balanceBootAnswered = false
-      /* 停靠位：CSS 在 [data-endfield-balance-position='left'|'right'] 上换
+      /* 停靠位：CSS 在 [data-ak-balance-position='left'|'right'] 上换
          top/left 定位；居中是基规则，不需要属性。位置偏好变化走
          syncBalanceCapsule -> showBalanceCapsule（destroy 重建），所以这里
          一次性写入即可，运行期不会漂移。 */
       const bootPosition = readBalanceCapsulePosition()
-      if (bootPosition !== 'center') el.setAttribute('data-endfield-balance-position', bootPosition)
+      if (bootPosition !== 'center') el.setAttribute('data-ak-balance-position', bootPosition)
       /* 防遮挡接线（33 片段定义观察器）：先清一次隐藏态，再挂侧栏监听与
          window mousemove —— 挂载失败（stub 环境）时两个判定保持关闭。 */
       balanceSidebarOpen = false
@@ -6402,14 +4721,14 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       if (bootAnimated) {
         // Raised before the first paint, so the pill never flashes the settled
         // row on its way into the pose.
-        el.setAttribute('data-endfield-balance-boot', '')
+        el.setAttribute('data-ak-balance-boot', '')
         balanceBootAt = Date.now()
       } else {
         balanceBootAt = 0
       }
       // Wallet mode is the seed: an absent model service or a DeepSeek session
       // must never leave the channel group blanking the money read.
-      el.setAttribute('data-endfield-credit-mode', 'wallet')
+      el.setAttribute('data-ak-credit-mode', 'wallet')
       creditPaintIdle()
       balanceFetch()
       creditsStart()
@@ -6434,7 +4753,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
     const balancePositionChanged = () => {
       if (balanceEl === null) return false
       const want = readBalanceCapsulePosition()
-      return balanceEl.getAttribute('data-endfield-balance-position') !== (want === 'center' ? null : want)
+      return balanceEl.getAttribute('data-ak-balance-position') !== (want === 'center' ? null : want)
     }
 
     const syncBalanceCapsule = () => {
@@ -6534,8 +4853,8 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          which fits the mechanism: the blur does not composite in this window (Chromium
          cannot blur a transparent window, which is why the same component ships a
          separate opaque `data-menu-backing` element for macOS only), so the 45% fill
-         lands on top of the contour sheet a couple of RGB steps away from the page
-         colour — a panel that is technically painted and visually absent.
+         lands a couple of RGB steps away from the page colour — a panel that is
+         technically painted and visually absent.
 
          The fix is one token, not a selector: the theme already owns an opaque
          popover colour (--dsw-alias-bg-overlay, the app's own "Overlay and popover
@@ -6593,7 +4912,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
     })
 
     disposeStyles = insertCss(`
-      /* endfield-build/2026-10-06-darker-dim — read this to tell which build's sheet is mounted.
+      /* ak-build/2026-10-06-darker-dim — read this to tell which build's sheet is mounted.
          Kept literal (no template interpolation): check.js requires the stylesheet literal to be
          interpolation-free. test/theme-sheet-refresh.test.js pins it equal to SHEET_MARKER. */
       /* ================= typography: SCOPED to the theme's own elements =====
@@ -6638,7 +4957,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          instead of a literal, so the whole theme repaints from ONE declaration
          block. Two palettes ship:
 
-           谷地黄 (default)  signal yellow  #fff500 — the Endfield site accent
+           谷地黄 (default)  signal yellow  #fff500 — the site accent this palette started from
            武陵青            teal-cyan      #14d0d0
 
          WHY THIS BLOCK IS ON body AND NOT :root. The app applies its theme
@@ -6718,7 +5037,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          versus 1.56:1 here), and a cyan that pale reads white-ish rather than
          teal. This is the brightest step that still looks like 武陵青 in both
          schemes. */
-      body.theme-endfield-wuling {
+      body.theme-ak-wuling {
         --edge-accent: #14d0d0;
         /* Same colour, channel-list form, for the ~30 rgba() washes. Derived from
            the hex above and kept beside it so the two cannot drift. */
@@ -6801,19 +5120,19 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          ancestor or a descendant of one of them — unless it attaches INSIDE the
          boot plate or the watermark, which it does not: those layers are
          pointer-events:none, aria-hidden chrome.
-           [data-endfield-loader]  the boot plate      (also carries the feature
+           [data-ak-loader]  the boot plate      (also carries the feature
                                                        settings the layout measures:
                                                        tabular figures + the
                                                        altered single-storey
                                                        glyph)
-           [data-endfield-watermark] the ENDFIELD wordmark
-           .endfield-settings      the 「终末地主题设置」 panel root
+           [data-ak-watermark] the ARKNIGHTS wordmark
+           .ak-settings      the 「明日方舟阵营主题」 panel root
          Deliberately NOT on body: the app renders its UI root font from
          var(--dsw-font-family) on body, and a body font-family here would
          re-break every installed widget exactly as the old :root override did. */
-      [data-endfield-loader],
-      [data-endfield-watermark],
-      .endfield-settings {
+      [data-ak-loader],
+      [data-ak-watermark],
+      .ak-settings {
         font-family: var(--edge-font);
         font-feature-settings: "tnum" 1, "ss01" 1;
         font-variant-ligatures: no-common-ligatures;
@@ -6834,7 +5153,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       /* Suffix-only match: the :has(>) guard pins this to exactly the element the
          JS mounted the watermark into (only the conversation column or the app
          frame ever hosts it), so the broad '_root' suffix cannot over-match. */
-      [class$='_root']:has(> [data-endfield-watermark]) {
+      [class$='_root']:has(> [data-ak-watermark]) {
         isolation: isolate;
         position: relative;
       }
@@ -6843,14 +5162,14 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          above: without isolation, the mark's z-index:-1 escapes to the root
          stacking context and paints below the frame's own opaque background —
          i.e. it never shows, which is exactly what the old body-level fallback
-         did. The frame is already position:relative (see the contour notes), so
+         did. The frame is already position:relative, so
          isolation alone is enough here. The :has() guard keeps the frame's
          stacking behaviour stock whenever the mark is not mounted in it. */
-      [class*='_frame']:has(> [data-endfield-watermark]) {
+      [class*='_frame']:has(> [data-ak-watermark]) {
         isolation: isolate;
       }
       /* The mark sits behind text, so it must never intercept selection or clicks. */
-      [data-endfield-watermark] {
+      [data-ak-watermark] {
         pointer-events: none !important;
       }
       /* ---------- watermark strength, per colour scheme ----------
@@ -6884,189 +5203,31 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       }
       /* Translation-proof glyphs: the wordmark is drawn from the CSS 'content'
          property, not a DOM text node, so page translators (which walk text nodes)
-         have nothing to rewrite — the brand name cannot be turned into "终末地" or
-         similar. The element's own text stays empty; ::before carries the letters. */
-      [data-endfield-watermark]::before {
-        content: 'ENDFIELD';
+         have nothing to rewrite. The element's own text stays empty; ::before
+         carries the letters. */
+      [data-ak-watermark]::before {
+        content: 'ARKNIGHTS';
         display: block;
         white-space: nowrap;
       }
-      /* ================= contour background sheet =================
-         The layer is a child of the app frame. Every rule here is gated on the
-         frame actually CONTAINING the layer, so with the feature off none of it
-         matches and the app keeps its stock backgrounds exactly.
-
-         The wrapper is inset:0 / z-index:0 inside a frame that is position:relative
-         and creates no stacking context, so it paints above the frame's own
-         background and below every positioned descendant. */
-      [data-endfield-contour] {
-        position: absolute;
-        inset: 0;
-        z-index: 0;
-        pointer-events: none;
-        overflow: hidden;
-      }
-      [data-endfield-contour] canvas {
-        position: absolute;
-        top: 0;
-        left: 0;
-        pointer-events: none;
-      }
-      /* Why these three transparency rules exist. Measured from the app's own
-         stylesheets: the frame, the conversation column and the details column each
-         paint an OPAQUE var(--dsw-alias-bg-base). Any of them left opaque hides the
-         sheet completely on a real page, which is exactly why the existing
-         watermark has to mount INSIDE the conversation column instead.
-         Clearing them is safe and colour-neutral: the frame itself still supplies
-         bg-base underneath, so the composited result is unchanged except that the
-         contour is now visible through it. */
-      [class*='_frame']:has(> [data-endfield-contour]) {
-        background: transparent !important;
-      }
-      /* WHY _centerCol / _rightbarCol and not a bare [class$='_root']: the current
-         build renders hundreds of '*_root' classes and many of them carry an
-         opaque background (trajectory bar, sidebar root, right-panel content, …).
-         Only the conversation column (inside the centre column) and the right
-         column may be cleared, so the columns scope the match. Both column
-         suffixes are unique to the layout frame
-         (@deepseek-ai/dsh-client-ui-layout/AppFrame.module.css).
-
-         0.1.x -> 0.2 MIGRATION. The right column used to be _detailsCol with the
-         opaque surface on an inner '*_root'; on 0.2 it is _rightbarCol and the
-         background sits ON THE COLUMN ITSELF, while the inner panel
-         (OUqwTW_panel in @deepseek-ai/dsh-client-ui-sidebar-right) has no
-         background at all. So the old
-             [class$='_detailsCol'] [class$='_root']
-         selector matched nothing twice over: the column suffix is gone AND the
-         element that needs clearing is now the column, not a descendant. Left
-         as-is, the right panel painted an opaque bg-base straight over the
-         contour sheet whenever it was open. */
-      [class*='_frame']:has(> [data-endfield-contour]) [class$='_centerCol'] [class$='_root'],
-      [class*='_frame']:has(> [data-endfield-contour]) [class$='_rightbarCol'] {
-        background: transparent !important;
-      }
-      /* The sidebar reads --dsw-specific-sidebar-fill, which this theme sets to the
-         SAME value as --dsw-alias-bg-base, so clearing it shifts no colour and
-         simply lets the sheet run behind the sidebar as one continuous field. */
-      [class*='_frame']:has(> [data-endfield-contour]) [class$='_sidebarCol'] {
-        background: transparent !important;
-      }
-      /* Composer seat (issue #36). The app veils the region behind the input so
-         messages scrolling up out of the conversation fade away instead of being
-         cut off by the composer's top edge:
-             .*_root[data-phase=active] .*_composerSeat
-             .*_embeddedBody[data-content-phase=active] .*_composerSeat {
-               background: linear-gradient(180deg,
-                 color-mix(in srgb, var(--dsw-alias-bg-base) 0%, transparent) 0px,
-                 var(--dsw-alias-bg-base) 36px) }
-         CSS extends a gradient's last stop to the end of the box, so everything
-         below 36px is solid bg-base: an opaque band lying across the sheet. The
-         theme answered that by re-running the same ramp at 82% alpha, which dulls
-         the contour to roughly a fifth of its edge contrast (the report measures
-         33 -> 4-6). A near-opaque layer over the sheet washes the lines out no
-         matter how it is shaped, because the sheet is BELOW both the content and
-         the veil.
-
-         So the seat is cleared outright, like the frame, the columns and the
-         sidebar above: one continuous sheet, no belt behind the input. The input
-         card itself (.RlGAzG_card) keeps its own opaque --dsw-specific-input-major
-         surface, so the composer still reads as a surface — what changes is that
-         messages now meet the card's edge squarely instead of dissolving into it.
-         That is the whole trade-off, and this one declaration is the lever: to buy
-         the soft fade back, put a gradient here and accept the lines being dulled
-         in the seat. Sheet continuity is the theme's stated priority throughout
-         this section; this is the same call made once more.
-
-         PHASE GATING. The app paints the veil in the active phase only, and the
-         hero (new-session) phase paints none at all — the hero composer is a
-         centred card that covers nothing. The previous rule applied in every
-         phase, so the hero page carried a veil the app never draws. Matching the
-         app's own two phases means the theme only ever overrides a background the
-         app actually set. */
-      [class*='_frame']:has(> [data-endfield-contour]) :is([data-phase='active'], [data-content-phase='active']) [class$='_composerSeat'] {
-        background: transparent !important;
-      }
-      /* Session-list bottom fade (issue #36). @deepseek-ai/dsh-client-ui-workspace
-         paints a 24px span at the bottom of the sidebar tree:
-             .*_fade { background: linear-gradient(to bottom, transparent,
-                       var(--dsw-specific-sidebar-fill)); height: 24px;
-                       position: absolute; bottom: 0 }
-         and this theme sets --dsw-specific-sidebar-fill to exactly the colour of
-         --dsw-alias-bg-base (see the sidebar rule above), so that span is an opaque
-         end-stop across the full sidebar width. With the contour on it cuts a belt
-         out of the sheet under the last session rows — the second band reported.
-
-         Matched by the '_fade' SUFFIX, never the '_fade' substring: the workspace
-         bundle also ships _fadeTop / _fadeBottom and a _fade-in keyframe elsewhere,
-         and only the suffix anchor keeps them out of reach.
-
-         TRADE-OFF, stated rather than hidden: clearing this background drops the
-         app's fade-out of the last session rows, so when the list overflows the
-         final row meets the account row with no gradient. The continuous sheet is
-         this theme's stated priority for the sidebar (see the sidebarCol rule
-         above); preferring list-overflow legibility instead means reverting this
-         one rule and accepting the belt. */
-      [class*='_frame']:has(> [data-endfield-contour]) [class$='_sidebarCol'] [class$='_fade'] {
-        background: transparent !important;
-      }
-      /* Windows title bar (issue #36). Two opaque layers stack over the top 40px on
-         Windows and BOTH have to go, or the sheet is still invisible there:
-           1. page side — [data-windows-titlebar] .*_frame:before paints
-              var(--dsw-specific-sidebar-fill) across the title-bar strip (the
-              frame's own background, which uses the same colour, is already
-              cleared by the rule above);
-           2. native side — Electron's title-bar overlay, which the desktop shell
-              colours from a hidden probe element it appends to <body>: the probe
-              carries background-color: var(--dsw-specific-sidebar-fill) inline,
-              and the shell pushes its COMPUTED background through
-              setTitleBarOverlay(). That overlay is drawn by the OS above the web
-              content, so no page-level rule can uncover the sheet through it.
-         Page side first: */
-      [class*='_frame']:has(> [data-endfield-contour])::before {
-        background: transparent !important;
-      }
-      /* Native side. The probe's declaration is inline and carries no !important,
-         and an author !important declaration outranks a normal inline one, so
-         overriding ONLY its background-color reports a fully transparent colour to
-         setTitleBarOverlay() and the OS overlay stops covering the sheet.
-
-         WHY 'color' IS LEFT ALONE: the same probe reports the overlay's symbol
-         colour, so a transparent symbol colour would erase the window buttons.
-         Only the background is overridden here, which keeps their contrast.
-
-         WHY html:has() AND NOT the frame anchor used elsewhere: the probe is a
-         child of <body>, outside the app frame, so no frame-anchored gate can
-         reach it. The gate keys off the contour layer this theme mounts, so with
-         the feature off nothing matches and the probe is left exactly as written.
-
-         WHAT IS NOT PROVEN HERE: the probe is matched through its inline style TEXT
-         (style*='--dsw-specific-sidebar-fill'), and that match is locked against
-         the preload source by test/titlebar-probe.test.js — a tripwire for the next
-         shell rewrite, not a render on a real Windows window. If the pattern ever
-         stops matching, the fallback is to report the opaque bg-base colour instead
-         (uniform strip, contour not visible through it), never a half-transparent
-         strip. */
-      html:has([data-endfield-contour]) body > span[style*='--dsw-specific-sidebar-fill'] {
-        background-color: transparent !important;
-      }
       /* Optional bounded frost. No full-window blur, nested filters or animation. */
-      body[data-endfield-glass] {
+      body[data-ak-glass] {
         --edge-glass-fill: 248 247 240;
         --edge-glass-alpha: .8;
         --edge-glass-blur: 14px;
         --edge-glass-edge: rgb(255 255 255 / .65);
         --edge-glass-sheen: rgb(255 255 255 / .35);
       }
-      body[data-endfield-glass][data-ds-dark-theme] {
+      body[data-ak-glass][data-ds-dark-theme] {
         --edge-glass-fill: 31 36 34;
         --edge-glass-alpha: .76;
         --edge-glass-edge: rgb(255 255 255 / .18);
         --edge-glass-sheen: rgb(255 255 255 / .07);
       }
-      body[data-endfield-glass='subtle'] { --edge-glass-alpha: .68; --edge-glass-blur: 8px; }
-      body[data-endfield-glass='strong'] { --edge-glass-alpha: .9; --edge-glass-blur: 22px; }
-      body[data-endfield-glass='subtle'][data-ds-dark-theme] { --edge-glass-alpha: .64; }
-      body[data-endfield-glass='strong'][data-ds-dark-theme] { --edge-glass-alpha: .88; }
+      body[data-ak-glass='subtle'] { --edge-glass-alpha: .68; --edge-glass-blur: 8px; }
+      body[data-ak-glass='strong'] { --edge-glass-alpha: .9; --edge-glass-blur: 22px; }
+      body[data-ak-glass='subtle'][data-ds-dark-theme] { --edge-glass-alpha: .64; }
+      body[data-ak-glass='strong'][data-ds-dark-theme] { --edge-glass-alpha: .88; }
       /* WHY [data-sidebar-right-open]: the docked right panel div (SidebarPanel)
          is position:absolute; top:0;bottom:0;right:0 and stays in the DOM even
          when collapsed — only its inner [data-dockkit-host=dock] child is slid
@@ -7081,30 +5242,30 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          ResizeObserver re-measure in a loop (visible layout jitter). The card
          keeps the same opaque glass fill without the filter; the docked panel
          hosts no fixed tooltip so it can keep the real frost. See glass.md. */
-      body[data-endfield-glass]
+      body[data-ak-glass]
         :is([data-composer-card], [data-sidebar-right-panel='push'][data-sidebar-right-open]) {
         background-color: rgb(var(--edge-glass-fill) / var(--edge-glass-alpha)) !important;
         background-image: linear-gradient(145deg, var(--edge-glass-sheen), transparent 58%),
           radial-gradient(ellipse at 0% 0%, color-mix(in srgb, var(--edge-accent) 10%, transparent), transparent 75%) !important;
         --dsw-elevation-stroke-color: var(--edge-glass-edge);
       }
-      body[data-endfield-glass] [data-sidebar-right-panel='push'][data-sidebar-right-open] {
+      body[data-ak-glass] [data-sidebar-right-panel='push'][data-sidebar-right-open] {
         -webkit-backdrop-filter: blur(var(--edge-glass-blur)) saturate(1.05);
         backdrop-filter: blur(var(--edge-glass-blur)) saturate(1.05);
       }
-      body[data-endfield-glass] [data-slot='sidebar'] > div {
+      body[data-ak-glass] [data-slot='sidebar'] > div {
         background-image: linear-gradient(145deg, var(--edge-glass-sheen), transparent 58%),
           radial-gradient(ellipse at 0% 0%, color-mix(in srgb, var(--edge-accent) 8%, transparent), transparent 75%);
         box-shadow: inset -1px 0 0 var(--edge-glass-edge);
       }
       @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-        body[data-endfield-glass]
+        body[data-ak-glass]
           :is([data-composer-card], [data-sidebar-right-panel='push'][data-sidebar-right-open]) {
           background-color: rgb(var(--edge-glass-fill) / .96) !important;
         }
       }
       @media (prefers-reduced-transparency: reduce) {
-        body[data-endfield-glass]
+        body[data-ak-glass]
           :is([data-composer-card], [data-sidebar-right-panel='push'][data-sidebar-right-open]) {
           background-color: rgb(var(--edge-glass-fill)) !important;
           -webkit-backdrop-filter: none; backdrop-filter: none;
@@ -7117,29 +5278,29 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         background: var(--edge-signal, var(--edge-accent));
       }
       /* Square corners (default): zero EVERY classed element, then restore circles/pills below.
-         body.theme-endfield-round disables all of this and restores app-native rounding. */
-      body:not(.theme-endfield-round) button,
-      body:not(.theme-endfield-round) input,
-      body:not(.theme-endfield-round) textarea,
-      body:not(.theme-endfield-round) select,
-      body:not(.theme-endfield-round) [role='button'],
-      body:not(.theme-endfield-round) [role='dialog'],
-      body:not(.theme-endfield-round) [role='menu'],
-      body:not(.theme-endfield-round) [role='tooltip'],
-      body:not(.theme-endfield-round) [role='tab'] {
+         body.theme-ak-round disables all of this and restores app-native rounding. */
+      body:not(.theme-ak-round) button,
+      body:not(.theme-ak-round) input,
+      body:not(.theme-ak-round) textarea,
+      body:not(.theme-ak-round) select,
+      body:not(.theme-ak-round) [role='button'],
+      body:not(.theme-ak-round) [role='dialog'],
+      body:not(.theme-ak-round) [role='menu'],
+      body:not(.theme-ak-round) [role='tooltip'],
+      body:not(.theme-ak-round) [role='tab'] {
         border-radius: 0 !important;
       }
-      body:not(.theme-endfield-round) [class] {
+      body:not(.theme-ak-round) [class] {
         border-radius: 0 !important;
       }
-      body:not(.theme-endfield-round) [class*='avatar'],
-      body:not(.theme-endfield-round) [class*='Avatar'],
-      body:not(.theme-endfield-round) [class*='spinner'],
-      body:not(.theme-endfield-round) [class*='Spinner'],
-      body:not(.theme-endfield-round) [class*='dot'],
-      body:not(.theme-endfield-round) [class*='Dot'],
-      body:not(.theme-endfield-round) [class*='actionButton' i],
-      body:not(.theme-endfield-round) [class$='_iconButton'] {
+      body:not(.theme-ak-round) [class*='avatar'],
+      body:not(.theme-ak-round) [class*='Avatar'],
+      body:not(.theme-ak-round) [class*='spinner'],
+      body:not(.theme-ak-round) [class*='Spinner'],
+      body:not(.theme-ak-round) [class*='dot'],
+      body:not(.theme-ak-round) [class*='Dot'],
+      body:not(.theme-ak-round) [class*='actionButton' i],
+      body:not(.theme-ak-round) [class$='_iconButton'] {
         border-radius: 50% !important;
         /* The host roots corner-shape at superellipse(1.5) (Chrome 139+ draws
            corners as squircles). 50% of a square is only a CIRCLE when the
@@ -7152,8 +5313,8 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       [role='button'] {
         transition: none !important;
       }
-      body:not(.theme-endfield-round) [class*='scrollbar'],
-      body:not(.theme-endfield-round) [class*='Scrollbar'] {
+      body:not(.theme-ak-round) [class*='scrollbar'],
+      body:not(.theme-ak-round) [class*='Scrollbar'] {
         border-radius: 0 !important;
       }
       * {
@@ -7300,8 +5461,8 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          killing all 33 pinned hashes. Matching survives on the SEMANTIC suffix
          ('_sessionRow' etc.), scoped to the sidebar column — '_slot'/'_row' style
          suffixes are too generic to match bare, but the sidebar column suffix is
-         unique to the layout frame (same hook findAppFrame() and the contour sheet
-         already rely on). Compound states match on substrings, NOT [class$=]: a
+         unique to the layout frame (the same hook findAppFrame()
+         already relies on). Compound states match on substrings, NOT [class$=]: a
          suffix match needs the WHOLE class attribute to end with the string, so
          'x_sessionRow x_selected' would silently miss the second condition.
          '_unselected' is safe against '_selected' here — the leading underscore
@@ -7409,7 +5570,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       [data-cordis-decline]:hover:not(:disabled) {
         background: #d6281d !important;
       }
-      /* ---------- 审批弹窗：全屏白条 + 上下遮罩（Endfield 寻访确认框） ----------
+      /* ---------- 审批弹窗：全屏白条 + 上下遮罩（抽卡确认框式） ----------
          The shipped panel is a rounded warn-bordered card parked inside the
          composer column (max-width: --dsh-chat-content-width). The reference
          dialog is a different shape entirely: a PAPER BAND that runs from the
@@ -7478,7 +5639,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       }
       /* Two stadium actions straddling the band's lower half, cancel-left /
          confirm-right like the reference. The blanket square pass
-         (body:not(.theme-endfield-round) [class], 0,2,1 !important) and the
+         (body:not(.theme-ak-round) [class], 0,2,1 !important) and the
          plain button rule both try to flatten these, so every radius here
          rides (0,2,2) with !important — and the stadium holds in BOTH corner
          modes, exactly like the balance pill. corner-shape: round is what
@@ -7538,7 +5699,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          the shared ui-primitives Modal (a portal on <body>: role=presentation
          root > mask + role=dialog card) wrapped by RiskConfirmation, whose
          ONLY semantic mark is the _confirmation class it adds to the dialog.
-         Reference shape (Endfield's own confirm dialog): the paper band runs
+         Reference shape (the source game's confirm dialog): the paper band runs
          edge to edge HORIZONTALLY only — vertically it is one content-high
          strip centred in the viewport, the existing full-viewport mask —
          already there, already behind the card — shows above and below it,
@@ -7572,7 +5733,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         /* The reference band is the bright paper in BOTH palettes — in the dark
            scheme the app's paper token is #101110, so var(--edge-paper) painted
            a dark strip and the band stopped reading as 白条. Pinned literal
-           #f5f5f0 (the theme's Endfield white) instead. The fill covers all but
+           #f5f5f0 (the theme's paper white) instead. The fill covers all but
            the bottom 18px of the box — half of the 36px capsule — so the caps
            straddle the band's bottom edge: upper half on paper, lower half over
            the dim mask that already sits behind the card. */
@@ -7712,7 +5873,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       }
       /* Reference dressing for both capsule pairs (approval band + this box):
          a thin light keyline inset ~3px inside the silhouette, the trailing
-         icon sitting in its own disc, and a soft drop shadow — the Endfield
+         icon sitting in its own disc, and a soft drop shadow — the reference
          dialog's capsules all carry these three. The keyline and the disc are
          rounded shapes, so they pin corner-shape: round against the host's
          superellipse(1.5) default just like the capsule itself. */
@@ -7800,7 +5961,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         background: var(--edge-accent) !important;
         border-color: var(--edge-accent) !important;
       }
-      body:not(.theme-endfield-round) [class$='_newSession'] {
+      body:not(.theme-ak-round) [class$='_newSession'] {
         border-radius: 0 !important;
       }
       [class$='_newSession']:hover,
@@ -7833,8 +5994,8 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         color: #000 !important;
         background: var(--edge-accent) !important;
       }
-      body:not(.theme-endfield-round) [data-cordis-switch],
-      body:not(.theme-endfield-round) [class*='actionButton' i] {
+      body:not(.theme-ak-round) [data-cordis-switch],
+      body:not(.theme-ak-round) [class*='actionButton' i] {
         border-radius: 999px !important;
         /* Same squircle trap as the approval stadium above: 999px only reads
            as a pill when the corner SHAPE is round. */
@@ -7882,7 +6043,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         background: var(--edge-accent) !important;
         padding: 0 12px !important;
       }
-      body:not(.theme-endfield-round) [class$='_centerCol'] [class$='_header'] [class$='_headerActions'] [class*='_label']:has(> svg) {
+      body:not(.theme-ak-round) [class$='_centerCol'] [class$='_header'] [class$='_headerActions'] [class*='_label']:has(> svg) {
         border-radius: 0 !important;
       }
       [class$='_centerCol'] [class$='_header'] [class$='_headerActions'] [class*='_label']:has(> svg) svg,
@@ -8332,7 +6493,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          only while the boot animation plays and is removed afterwards, so none of
          these rules match during normal use. Measurements come from the reference
          frame (1340x731) expressed as ratios so they scale with the viewport. */
-      [data-endfield-loader] {
+      [data-ak-loader] {
         position: fixed;
         inset: 0;
         z-index: 2147483000;
@@ -8354,11 +6515,11 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       }
       /* Kept as a state hook (and a fallback for a renderer that never runs the JS
          fade) — the inline opacity written by finish() is what actually animates. */
-      [data-endfield-loader][data-endfield-loader-exit] {
+      [data-ak-loader][data-ak-loader-exit] {
         opacity: 0;
       }
       /* Faint industrial grid, matching the reference backdrop texture. */
-      [data-endfield-loader-tex] {
+      [data-ak-loader-tex] {
         position: absolute;
         inset: 0;
         opacity: 0.55;
@@ -8368,7 +6529,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       }
       /* 8px rail: dim track full height, signal-yellow fill from the top down. */
       /* 10px rail, measured from the reference (10/1184 of the width). */
-      [data-endfield-loader-track] {
+      [data-ak-loader-track] {
         position: absolute;
         left: 0;
         top: 0;
@@ -8376,7 +6537,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         width: 10px;
         background: rgba(var(--edge-accent-rgb), 0.10);
       }
-      [data-endfield-loader-fill] {
+      [data-ak-loader-fill] {
         position: absolute;
         left: 0;
         top: 0;
@@ -8391,13 +6552,13 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          readout hang off the bottom of the screen as the fill approaches 100%.
          Deliberately no CSS transition on the top offset: it is already updated every
          frame, and a transition would make the readout visibly lag the bar. */
-      [data-endfield-loader-meter] {
+      [data-ak-loader-meter] {
         position: absolute;
         left: 26px;
         top: 0;
         will-change: top;
       }
-      [data-endfield-loader][data-endfield-loader-complete] [data-endfield-loader-meter] {
+      [data-ak-loader][data-ak-loader-complete] [data-ak-loader-meter] {
         position: fixed !important;
         left: 26px !important;
         top: auto !important;
@@ -8413,7 +6574,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          width stayed at 10px well past its duration — which would leave a thin stub
          instead of a sweep. These rules therefore only describe the resting state and
          must not declare a width/opacity transition that would fight the JS. */
-      [data-endfield-loader-wipe] {
+      [data-ak-loader-wipe] {
         position: absolute;
         left: 0;
         top: 0;
@@ -8422,13 +6583,13 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         background: var(--edge-accent);
         opacity: 0;
       }
-      [data-endfield-loader-tick] {
+      [data-ak-loader-tick] {
         display: block;
         width: 4px;
         height: 15px;
         background: var(--edge-accent);
       }
-      [data-endfield-loader-pct] {
+      [data-ak-loader-pct] {
         display: block;
         margin-top: 7px;
         color: var(--edge-accent);
@@ -8438,7 +6599,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         letter-spacing: -0.01em;
         font-variant-numeric: tabular-nums;
       }
-      [data-endfield-loader-status] {
+      [data-ak-loader-status] {
         display: block;
         margin-top: 12px;
         color: #666;
@@ -8487,14 +6648,14 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          Every row is a ratio of --edge-word, so this one value rescales the whole
          block without disturbing the measured proportions above. The small rows
          additionally carry a px floor — see the max() calls below. */
-      [data-endfield-loader] {
+      [data-ak-loader] {
         --edge-word: clamp(26px, min(5.2vh, 4.8vw), 64px);
         /* Distance from the plate's right edge to the block's right edge. The %
            term keeps it proportional on a wide display; the px term stops it
            collapsing on a narrow one. */
         --edge-gap: max(64px, 12%);
       }
-      [data-endfield-loader-brand] {
+      [data-ak-loader-brand] {
         position: absolute;
         right: var(--edge-gap);
         top: 50%;
@@ -8506,11 +6667,11 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       /* Anchor to --edge-word like every other row. Without this the em below
          resolves against the inherited root font-size (16px), which rendered the
          kicker at 2.25x its reference size and bloated the whole block. */
-      [data-endfield-loader-kicker] {
+      [data-ak-loader-kicker] {
         display: block;
         font-size: var(--edge-word);
       }
-      [data-endfield-loader-kicker]::before {
+      [data-ak-loader-kicker]::before {
         content: 'DEEPSEEK HARNESS';
         display: block;
         margin-bottom: 0.5em;
@@ -8526,7 +6687,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       }
       /* Both rows: the negative margin cancels Arial's left side bearing so the
          INK edge lands on the rhythm line, not the glyph box edge. */
-      [data-endfield-loader-word] {
+      [data-ak-loader-word] {
         display: block;
         margin-left: -0.055em;
         color: #f5f5f0;
@@ -8540,16 +6701,16 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         letter-spacing: 0.01em;
         white-space: nowrap;
       }
-      [data-endfield-loader-word1]::before { content: 'END'; }
-      [data-endfield-loader-word2]::before { content: 'FIELD'; }
+      [data-ak-loader-word1]::before { content: 'ARK'; }
+      [data-ak-loader-word2]::before { content: 'NIGHTS'; }
       /* ---- detail cluster: chevron outdented into the left margin ---- */
-      [data-endfield-loader-detail] {
+      [data-ak-loader-detail] {
         display: block;
         position: relative;
         margin-top: 1.9em;
         font-size: var(--edge-word);
       }
-      [data-endfield-loader-chev] {
+      [data-ak-loader-chev] {
         position: absolute;
         left: -0.26em;
         top: 0.02em;
@@ -8557,8 +6718,8 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         height: 0.24em;
       }
       /* Two stacked chevrons drawn from borders — no glyph, no font dependency. */
-      [data-endfield-loader-chev]::before,
-      [data-endfield-loader-chev]::after {
+      [data-ak-loader-chev]::before,
+      [data-ak-loader-chev]::after {
         content: '';
         position: absolute;
         left: 0;
@@ -8568,9 +6729,9 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         border-bottom: 0.028em solid var(--edge-accent);
         transform: rotate(-45deg);
       }
-      [data-endfield-loader-chev]::before { top: 0; }
-      [data-endfield-loader-chev]::after { top: 0.09em; }
-      [data-endfield-loader-sub]::before {
+      [data-ak-loader-chev]::before { top: 0; }
+      [data-ak-loader-chev]::after { top: 0.09em; }
+      [data-ak-loader-sub]::before {
         content: 'EDGE INTELLIGENCE THEME';
         display: block;
         color: #8a8d88;
@@ -8581,7 +6742,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         letter-spacing: 0.12em;
         white-space: nowrap;
       }
-      [data-endfield-loader-seq]::before {
+      [data-ak-loader-seq]::before {
         content: 'TERRA RESEARCH COMMISSION / BOOT SEQUENCE';
         display: block;
         margin-top: 0.4em;
@@ -8591,18 +6752,18 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         letter-spacing: 0.10em;
         white-space: nowrap;
       }
-      [data-endfield-loader-squares] {
+      [data-ak-loader-squares] {
         display: grid;
         grid-template-columns: repeat(6, 0.115em);
         gap: 0.04em;
         margin-top: 0.30em;
       }
-      [data-endfield-loader-squares] i {
+      [data-ak-loader-squares] i {
         display: block;
         height: 0.05em;
         background: #2e302d;
       }
-      [data-endfield-loader-squares] i[data-on] {
+      [data-ak-loader-squares] i[data-on] {
         background: var(--edge-accent);
       }
       /* Tagline closes the block on the same rhythm line.
@@ -8613,7 +6774,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          299px on the same probe), so it is used with Arial as the fallback: on a
          host without it the run simply sets wider in Arial and still fits, because
          the size below is a ratio of the wordmark rather than a fixed px. */
-      [data-endfield-loader-tag]::before {
+      [data-ak-loader-tag]::before {
         content: 'OVER THE FRONTIER / INTO THE FRONT';
         display: block;
         margin-top: 1.05em;
@@ -8624,7 +6785,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         letter-spacing: 0.06em;
         white-space: nowrap;
       }
-      [data-endfield-loader-tag] {
+      [data-ak-loader-tag] {
         display: block;
         font-size: var(--edge-word);
       }
@@ -8633,10 +6794,10 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          already scales itself off the smaller viewport axis, so the wordmark needs
          no per-breakpoint override. */
       @media (max-width: 1100px) {
-        [data-endfield-loader] { --edge-gap: max(48px, 9%); }
+        [data-ak-loader] { --edge-gap: max(48px, 9%); }
       }
       @media (max-width: 760px) {
-        [data-endfield-loader] { --edge-gap: max(28px, 5%); }
+        [data-ak-loader] { --edge-gap: max(28px, 5%); }
       }
       /* Reduced motion is handled in finish(), which skips the sweep/fade entirely
          and removes the plate outright; nothing here needs to disable a transition,
@@ -8649,7 +6810,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          the panel keeps taking its ink and surfaces from app tokens, which is
          what keeps it readable on both schemes and with the theme switched off
          (see test/settings-off.test.js). */
-      .endfield-settings {
+      .ak-settings {
         font-family: var(--edge-font);
       }
       /* Settings page group headers (rendered by the settings.section slot).
@@ -8658,10 +6819,10 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          dark mode the bright ones (--edge-status-dark: #fff500 / #14d0d0) — the
          same measured pairs the turn-status shimmer uses. The palette class
          flips both variables, so the header follows the palette for free. */
-      .endfield-settings-group-title {
+      .ak-settings-group-title {
         color: var(--edge-status-light);
       }
-      body[data-ds-dark-theme] .endfield-settings-group-title {
+      body[data-ds-dark-theme] .ak-settings-group-title {
         color: var(--edge-status-dark);
       }
       /* ================= 雷霆大字 (娱乐模式) =================
@@ -8705,7 +6866,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          'pointer-events: auto' to catch the click itself would turn it into a
          full-screen click-eater for 3 seconds — verified by injecting exactly that
          and watching test/thunder-dismiss.test.js fail on hit-testing. */
-      [data-endfield-thunder] {
+      [data-ak-thunder] {
         position: fixed;
         inset: 0;
         z-index: 2147482000;
@@ -8714,9 +6875,9 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         justify-content: center;
         pointer-events: none;
         background: rgba(16, 17, 16, 0.55);
-        animation: endfield-thunder-plate 3000ms linear 1 both;
+        animation: ak-thunder-plate 3000ms linear 1 both;
       }
-      [data-endfield-thunder-word] {
+      [data-ak-thunder-word] {
         /* 大字: heavy, oversized, and scaled off the viewport so it stays a
            screen-filling statement at any window size rather than a fixed 48px that
            looks large on a phone and small on a 4K panel. Same clamp discipline as
@@ -8737,19 +6898,19 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
           0 0 2px rgba(16, 17, 16, 0.55),
           0 4px 18px rgba(16, 17, 16, 0.65),
           0 0 46px rgba(var(--edge-accent-rgb), 0.45);
-        animation: endfield-thunder-word 3000ms cubic-bezier(0.16, 1, 0.3, 1) 1 both;
+        animation: ak-thunder-word 3000ms cubic-bezier(0.16, 1, 0.3, 1) 1 both;
       }
       /* The slam: overshoot in, hold, then fade. Keyframe percentages are the 3s
          hold expressed as one timeline, so a single animation covers entry, hold and
          exit and nothing has to be re-timed in JS. */
-      @keyframes endfield-thunder-word {
+      @keyframes ak-thunder-word {
         0%   { opacity: 0; transform: scale(2.4); }
         7%   { opacity: 1; transform: scale(0.94); }
         12%  { transform: scale(1); }
         80%  { opacity: 1; transform: scale(1); }
         100% { opacity: 0; transform: scale(1.06); }
       }
-      @keyframes endfield-thunder-plate {
+      @keyframes ak-thunder-plate {
         0%   { opacity: 0; }
         5%   { opacity: 1; }
         80%  { opacity: 1; }
@@ -8765,8 +6926,8 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          'opacity: 1' is load-bearing, not redundant: the animated rules start at
          'opacity: 0' and rely on the keyframes to bring the word in, so cancelling
          only 'animation' would leave a permanently invisible plate. */
-      [data-endfield-thunder][data-endfield-thunder-still],
-      [data-endfield-thunder][data-endfield-thunder-still] [data-endfield-thunder-word] {
+      [data-ak-thunder][data-ak-thunder-still],
+      [data-ak-thunder][data-ak-thunder-still] [data-ak-thunder-word] {
         animation: none;
         opacity: 1;
         transform: none;
@@ -8775,8 +6936,8 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          but this keeps the guarantee in CSS even if a future edit reaches the DOM
          without going through showThunder(). */
       @media (prefers-reduced-motion: reduce) {
-        [data-endfield-thunder],
-        [data-endfield-thunder] [data-endfield-thunder-word] {
+        [data-ak-thunder],
+        [data-ak-thunder] [data-ak-thunder-word] {
           animation: none;
           opacity: 1;
           transform: none;
@@ -8804,10 +6965,10 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          clockwise from 12 o'clock for the elapsed share of the window, and an
          accent clock face whose needle points at ~1 o'clock. The ring is a
          conic-gradient masked down to a 4px band, so a tick writes ONE custom
-         property (--endfield-balance-sweep) and never touches a node. */
+         property (--ak-balance-sweep) and never touches a node. */
       /* ---------- 顶部余额胶囊 stadium ----------
          The pill's silhouette is DRAWN, not rounded: two radial-gradient discs
-         (one per end, radius = half the height, held in --endfield-balance-cap)
+         (one per end, radius = half the height, held in --ak-balance-cap)
          plus a linear-gradient band spanning between their centres. Why: the
          999px border-radius route proved unreliable on a real user's renderer
          twice over — first the 14px -> 999px write-back was lost, then a
@@ -8822,13 +6983,13 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
           curve as height — cap(t) = height(t)/2 every frame, so the drawn
           stadium matches the morphing box at every instant. The 0.5px feather
           on each disc edge is anti-aliasing against the hard rectangle seam. */
-      @property --endfield-balance-cap {
+      @property --ak-balance-cap {
         syntax: '<length>';
         inherits: false;
         initial-value: 16px;
       }
-      [data-endfield-balance] {
-        --endfield-balance-cap: 16px;
+      [data-ak-balance] {
+        --ak-balance-cap: 16px;
         position: fixed;
         top: 6px;
         left: 50%;
@@ -8869,13 +7030,13 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
            repeat the fill colour at alpha 0 — plain 'transparent' would fringe
            grey through the 0.5px feather. */
         background:
-          radial-gradient(circle at var(--endfield-balance-cap) 50%,
-            #312f30 calc(var(--endfield-balance-cap) - 0.5px),
-            rgba(49, 47, 48, 0) var(--endfield-balance-cap)),
-          radial-gradient(circle at calc(100% - var(--endfield-balance-cap)) 50%,
-            #312f30 calc(var(--endfield-balance-cap) - 0.5px),
-            rgba(49, 47, 48, 0) var(--endfield-balance-cap)),
-          linear-gradient(#312f30, #312f30) var(--endfield-balance-cap) 0 / calc(100% - 2 * var(--endfield-balance-cap)) 100% no-repeat;
+          radial-gradient(circle at var(--ak-balance-cap) 50%,
+            #312f30 calc(var(--ak-balance-cap) - 0.5px),
+            rgba(49, 47, 48, 0) var(--ak-balance-cap)),
+          radial-gradient(circle at calc(100% - var(--ak-balance-cap)) 50%,
+            #312f30 calc(var(--ak-balance-cap) - 0.5px),
+            rgba(49, 47, 48, 0) var(--ak-balance-cap)),
+          linear-gradient(#312f30, #312f30) var(--ak-balance-cap) 0 / calc(100% - 2 * var(--ak-balance-cap)) 100% no-repeat;
         color: #f1f1ec;
         font-family: var(--edge-font);
         font-size: 13px;
@@ -8886,7 +7047,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         user-select: none;
         white-space: nowrap;
         /* Boot pose -> balance row. The box moves (height, width floor,
-           padding), the drawn caps move with it (--endfield-balance-cap is a
+           padding), the drawn caps move with it (--ak-balance-cap is a
            registered <length>, so it interpolates on the SAME 420ms curve as
            height — cap(t) = height(t)/2 every frame), and the two contents
            cross-fade in place, so the collapse reads as ONE object changing
@@ -8897,18 +7058,18 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
           height 420ms cubic-bezier(0.22, 0.72, 0.2, 1),
           min-width 420ms cubic-bezier(0.22, 0.72, 0.2, 1),
           padding 420ms cubic-bezier(0.22, 0.72, 0.2, 1),
-          --endfield-balance-cap 420ms cubic-bezier(0.22, 0.72, 0.2, 1),
+          --ak-balance-cap 420ms cubic-bezier(0.22, 0.72, 0.2, 1),
           opacity 180ms ease,
           transform 240ms cubic-bezier(0.22, 0.72, 0.2, 1);
       }
       /* Boot pose: the brand panel from the reference — 448x72 — held while the
          first account answer is still in flight. JS drops the attribute once the
          balance lands (or the cap expires) and the pill animates down into its
-          row. The pose grows the drawn caps with the box (--endfield-balance-cap
+          row. The pose grows the drawn caps with the box (--ak-balance-cap
           16px -> 36px on the same 420ms curve as height), so the silhouette is
           a stadium at every instant without ever asking border-radius for it. */
-      [data-endfield-balance][data-endfield-balance-boot] {
-        --endfield-balance-cap: 36px;
+      [data-ak-balance][data-ak-balance-boot] {
+        --ak-balance-cap: 36px;
         height: 72px;
         min-width: min(448px, calc(100vw - 16px));
         padding: 0 22px;
@@ -8928,13 +7089,13 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          is most of the way out before the numbers (170ms) are a third of the way
          in, and both are done well inside the 420ms the box takes to shrink, so
          the whole collapse ends as one gesture. */
-      [data-endfield-balance] > :not([data-endfield-balance-brand]) {
+      [data-ak-balance] > :not([data-ak-balance-brand]) {
         transition: opacity 170ms linear 90ms;
       }
-      [data-endfield-balance][data-endfield-balance-boot] > :not([data-endfield-balance-brand]) {
+      [data-ak-balance][data-ak-balance-boot] > :not([data-ak-balance-brand]) {
         opacity: 0;
       }
-      [data-endfield-balance-brand] {
+      [data-ak-balance-brand] {
         position: absolute;
         left: 0;
         right: 0;
@@ -8953,12 +7114,12 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         transition: opacity 220ms linear;
         pointer-events: none;
       }
-      [data-endfield-balance][data-endfield-balance-boot] [data-endfield-balance-brand] {
+      [data-ak-balance][data-ak-balance-boot] [data-ak-balance-brand] {
         opacity: 1;
       }
       /* Same concentric-square mark as the capsule icon, but on a disc — the
          brand pose shows the round lockup, the collapsed row the square one. */
-      [data-endfield-balance-brand-mark] {
+      [data-ak-balance-brand-mark] {
         position: relative;
         flex: none;
         width: 24px;
@@ -8966,21 +7127,21 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         border-radius: 999px;
         background: #f1f1ec;
       }
-      [data-endfield-balance-brand-mark]::before {
+      [data-ak-balance-brand-mark]::before {
         content: '';
         position: absolute;
         inset: 5px;
         border-radius: 2px;
         background: #312f30;
       }
-      [data-endfield-balance-brand-mark]::after {
+      [data-ak-balance-brand-mark]::after {
         content: '';
         position: absolute;
         inset: 9px;
         border-radius: 1px;
         background: #f1f1ec;
       }
-      [data-endfield-balance-brand-copy] {
+      [data-ak-balance-brand-copy] {
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -8989,14 +7150,14 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       /* Tracked-out uppercase is how this theme draws a technical label (the
          loader kicker does the same), so the brand line stays in --edge-font
          rather than importing a second family for one row. */
-      [data-endfield-balance-brand-kicker] {
+      [data-ak-balance-brand-kicker] {
         font-size: 9px;
         font-weight: 500;
         letter-spacing: 0.02em;
         color: #8d8c88;
         white-space: nowrap;
       }
-      [data-endfield-balance-brand-title] {
+      [data-ak-balance-brand-title] {
         font-size: 22px;
         font-weight: 700;
         letter-spacing: 0.01em;
@@ -9006,7 +7167,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       /* Three concentric squares, measured off the reference at 16x: a 14px
          white rounded square, a 6px dark core punched into it, and a 3px white
          pip at the centre — all pseudo-elements, no glyph and no image. */
-      [data-endfield-balance] [data-endfield-balance-icon] {
+      [data-ak-balance] [data-ak-balance-icon] {
         position: relative;
         flex: none;
         width: 10px;
@@ -9016,7 +7177,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         corner-shape: round !important;
         background: #f1f1ec;
       }
-      [data-endfield-balance] [data-endfield-balance-icon]::before {
+      [data-ak-balance] [data-ak-balance-icon]::before {
         content: '';
         position: absolute;
         inset: 2px;
@@ -9024,7 +7185,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         corner-shape: round !important;
         background: #312f30;
       }
-      [data-endfield-balance] [data-endfield-balance-icon]::after {
+      [data-ak-balance] [data-ak-balance-icon]::after {
         content: '';
         position: absolute;
         inset: 3.5px;
@@ -9034,13 +7195,13 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       }
       /* ¥ + integer + fraction are one unbroken run: the reference has no gap
          between the sign and the digits, so the group owns the baseline. */
-      [data-endfield-balance] [data-endfield-balance-money] {
+      [data-ak-balance] [data-ak-balance-money] {
         display: inline-flex;
         align-items: baseline;
         flex: none;
       }
-      [data-endfield-balance] [data-endfield-balance-currency],
-      [data-endfield-balance] [data-endfield-balance-int] {
+      [data-ak-balance] [data-ak-balance-currency],
+      [data-ak-balance] [data-ak-balance-int] {
         font-size: 14px;
         font-weight: 700;
         color: #f1f1ec;
@@ -9049,7 +7210,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         font-variant-numeric: tabular-nums;
         font-feature-settings: 'tnum' 1, 'ss01' 1;
       }
-      [data-endfield-balance] [data-endfield-balance-frac] {
+      [data-ak-balance] [data-ak-balance-frac] {
         font-size: 9px;
         font-weight: 600;
         color: #a2a1a2;
@@ -9058,19 +7219,19 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       /* ---------- 渠道额度 group (dsh-codearts-auth) ----------
          The wallet and the channel read occupy the same visual slot, so they
          are two exclusive states of one pill, switched by the
-         data-endfield-credit-mode attribute: 'wallet' (default — DeepSeek
+         data-ak-credit-mode attribute: 'wallet' (default — DeepSeek
          numbers) hides the channel group, 'credits' hides the wallet group.
          Attribute-driven, not class-driven, so no per-poll class churn and
          the markup owns both halves up front. The pricing window and the
          elapsed-pct read are wallet-only for the same reason the money group
          is: peak/off-peak is a DeepSeek API concept, and in credits mode the
          right-hand slot shows the channel's consumption share instead. */
-      [data-endfield-balance] [data-endfield-credit-money] {
+      [data-ak-balance] [data-ak-credit-money] {
         display: none;
         align-items: baseline;
         flex: none;
       }
-      [data-endfield-balance] [data-endfield-credit-pct] {
+      [data-ak-balance] [data-ak-credit-pct] {
         display: none;
         margin-left: auto;
         font-size: 13px;
@@ -9078,18 +7239,18 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         color: #f1f1ec;
         font-variant-numeric: tabular-nums;
       }
-      [data-endfield-balance][data-endfield-credit-mode='credits'] [data-endfield-balance-money],
-      [data-endfield-balance][data-endfield-credit-mode='credits'] [data-endfield-balance-window],
-      [data-endfield-balance][data-endfield-credit-mode='credits'] [data-endfield-balance-pct] {
+      [data-ak-balance][data-ak-credit-mode='credits'] [data-ak-balance-money],
+      [data-ak-balance][data-ak-credit-mode='credits'] [data-ak-balance-window],
+      [data-ak-balance][data-ak-credit-mode='credits'] [data-ak-balance-pct] {
         display: none;
       }
-      [data-endfield-balance][data-endfield-credit-mode='credits'] [data-endfield-credit-money] {
+      [data-ak-balance][data-ak-credit-mode='credits'] [data-ak-credit-money] {
         display: inline-flex;
       }
-      [data-endfield-balance][data-endfield-credit-mode='credits'] [data-endfield-credit-pct] {
+      [data-ak-balance][data-ak-credit-mode='credits'] [data-ak-credit-pct] {
         display: inline;
       }
-      [data-endfield-balance] [data-endfield-credit-channel] {
+      [data-ak-balance] [data-ak-credit-channel] {
         margin-right: 5px;
         font-size: 9px;
         font-weight: 600;
@@ -9097,40 +7258,40 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         color: #8d8c88;
         white-space: nowrap;
       }
-      [data-endfield-balance] [data-endfield-credit-int] {
+      [data-ak-balance] [data-ak-credit-int] {
         font-size: 14px;
         font-weight: 700;
         color: #f1f1ec;
         font-variant-numeric: tabular-nums;
         font-feature-settings: 'tnum' 1, 'ss01' 1;
       }
-      [data-endfield-balance] [data-endfield-credit-unit] {
+      [data-ak-balance] [data-ak-credit-unit] {
         margin-left: 3px;
         font-size: 9px;
         font-weight: 600;
         color: #a2a1a2;
       }
       /* 低谷时段剩余hh:mm:ss — one grey caption, not three tokens. */
-      [data-endfield-balance] [data-endfield-balance-window] {
+      [data-ak-balance] [data-ak-balance-window] {
         font-size: 9px;
         font-weight: 500;
         color: #a2a1a2;
       }
-      [data-endfield-balance] [data-endfield-balance-phase] {
+      [data-ak-balance] [data-ak-balance-phase] {
         color: inherit;
       }
       /* Off-peak is the cheap window; a peak label is the one thing the user
          should be able to catch out of the corner of an eye, so it turns
          accent. */
-      [data-endfield-balance] [data-endfield-balance-phase][data-endfield-balance-phase-peak='1'] {
+      [data-ak-balance] [data-ak-balance-phase][data-ak-balance-phase-peak='1'] {
         color: var(--edge-accent);
       }
-      [data-endfield-balance] [data-endfield-balance-remain] {
+      [data-ak-balance] [data-ak-balance-remain] {
         font-variant-numeric: tabular-nums;
       }
       /* The elapsed read: money-sized and white, held at the right end by the
          auto margin that swallows the pill's free space. */
-      [data-endfield-balance] [data-endfield-balance-pct] {
+      [data-ak-balance] [data-ak-balance-pct] {
         margin-left: auto;
         font-size: 13px;
         font-weight: 700;
@@ -9139,7 +7300,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       }
       /* Measured gap from the reference: the elapsed read stops 14px short of the
          dial, which the pill's own gap alone does not cover. */
-      [data-endfield-balance] [data-endfield-balance-badge] {
+      [data-ak-balance] [data-ak-balance-badge] {
         position: relative;
         flex: none;
         display: inline-flex;
@@ -9154,20 +7315,20 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       }
       /* Progress ring: the accent segment covers the elapsed share starting at
          12 o'clock; the mask keeps only the outer 4px band. */
-      [data-endfield-balance] [data-endfield-balance-ring] {
+      [data-ak-balance] [data-ak-balance-ring] {
         position: absolute;
         inset: 1.5px;
         border-radius: 999px;
         corner-shape: round !important;
         background: conic-gradient(
           from 0deg,
-          var(--edge-accent) 0deg var(--endfield-balance-sweep, 0deg),
-          transparent var(--endfield-balance-sweep, 0deg) 360deg
+          var(--edge-accent) 0deg var(--ak-balance-sweep, 0deg),
+          transparent var(--ak-balance-sweep, 0deg) 360deg
         );
         -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
         mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
       }
-      [data-endfield-balance] [data-endfield-balance-clock] {
+      [data-ak-balance] [data-ak-balance-clock] {
         position: relative;
         width: 12px;
         height: 12px;
@@ -9177,7 +7338,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       }
       /* The needle: hangs from the face's centre up to ~1 o'clock, in the
          disc's own dark so it reads as a hole cut in the accent. */
-      [data-endfield-balance] [data-endfield-balance-clock]::after {
+      [data-ak-balance] [data-ak-balance-clock]::after {
         content: '';
         position: absolute;
         left: 50%;
@@ -9206,10 +7367,10 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          that rule carries the -boot attribute and outranks this one, so the
          opening panel still morphs. */
       @media (max-width: 480px) {
-        [data-endfield-balance] {
+        [data-ak-balance] {
           min-width: 0;
         }
-        [data-endfield-balance] [data-endfield-balance-remain-run] {
+        [data-ak-balance] [data-ak-balance-remain-run] {
           display: none;
         }
       }
@@ -9219,36 +7380,36 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
          just under the pill's natural 300px + 16px slack, so the reference
          layout is untouched at every width it actually fits in. */
       @media (max-width: 316px) {
-        [data-endfield-balance] [data-endfield-balance-window] {
+        [data-ak-balance] [data-ak-balance-window] {
           display: none;
         }
       }
       /* ---------- 防遮挡：停靠位变体与自动隐藏 ----------
-         停靠位由胶囊上的 data-endfield-balance-position 属性选择（center 是
+         停靠位由胶囊上的 data-ak-balance-position 属性选择（center 是
          基规则本身，不需要属性）：靠左贴着左栏外缘留 8px，靠右对称。位置
          变体只动定位三件套，轮廓（渐变端盘 + stadium）与内部排版不动，所以
          任何停靠位下胶囊都保持同一形状。 */
-      [data-endfield-balance][data-endfield-balance-position='left'] {
+      [data-ak-balance][data-ak-balance-position='left'] {
         top: 6px;
         left: 8px;
         transform: none;
       }
-      [data-endfield-balance][data-endfield-balance-position='right'] {
+      [data-ak-balance][data-ak-balance-position='right'] {
         top: 6px;
         left: auto;
         right: 8px;
         transform: none;
       }
       /* 自动隐藏（侧边栏展开 / 指针靠近）写成单属性渐隐：JS 只切换
-         data-endfield-balance-shade，视觉在 CSS 里完成。透明之外再向上收
+         data-ak-balance-shade，视觉在 CSS 里完成。透明之外再向上收
          6px 并关掉 hit-test 的余地（pointer-events 本来就是 none），过渡走
          基规则已声明的 opacity/transform 通道，遮挡消失后原路淡回。boot
          姿态期间被遮挡时同样收起——开场动画是装饰，遮挡是事实。 */
-      [data-endfield-balance][data-endfield-balance-shade] {
+      [data-ak-balance][data-ak-balance-shade] {
         opacity: 0;
         transform: translateX(-50%) translateY(-6px);
       }
-      [data-endfield-balance][data-endfield-balance-shade][data-endfield-balance-position] {
+      [data-ak-balance][data-ak-balance-shade][data-ak-balance-position] {
         transform: translateY(-6px);
       }
 
@@ -9743,14 +7904,14 @@ body.theme-arknights-advanced:not([data-ds-dark-theme]) {
  *
  * 每一套阵营一张 SVG 遮罩：遮罩只给形状，颜色统一来自 --edge-accent，所以
  * 换阵营 / 明暗无需另画图。画在 frame 的固定伪元素上，低于菜单与弹窗的
- * z-index，不抢点击；等高线开启时整层让位（:not(:has(...))）。
+ * z-index，不抢点击。
  * ========================================================================== */
 
 body.theme-arknights-advanced [class*='_frame'] {
   position: relative;
 }
 
-body.theme-arknights-advanced [class*='_frame']:not(:has(> [data-endfield-contour]))::before {
+body.theme-arknights-advanced [class*='_frame']::before {
   content: '';
   position: fixed;
   inset: 0;
@@ -9771,14 +7932,14 @@ body.theme-arknights-advanced [class*='_frame']:not(:has(> [data-endfield-contou
 }
 
 /* 拉特兰：浅蓝图纸 + 同心圆 + 电光蓝斜切碎片 + 坐标刻度 */
-body.theme-arknights-advanced.theme-arknights-laterano [class*='_frame']:not(:has(> [data-endfield-contour]))::before {
+body.theme-arknights-advanced.theme-arknights-laterano [class*='_frame']::before {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1800' height='1100'%3E%3Cdefs%3E%3Cpattern id='g' width='36' height='36' patternUnits='userSpaceOnUse'%3E%3Cpath d='M36 0H0V36' fill='none' stroke='%23fff' stroke-width='.4' stroke-opacity='.2'/%3E%3C/pattern%3E%3Cpattern id='m' width='180' height='180' patternUnits='userSpaceOnUse'%3E%3Cpath d='M180 0H0V180' fill='none' stroke='%23fff' stroke-width='.6' stroke-opacity='.24'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='1800' height='1100' fill='url(%23g)'/%3E%3Crect width='1800' height='1100' fill='url(%23m)'/%3E%3Cg fill='none' stroke='%23fff'%3E%3Cg stroke-opacity='.36'%3E%3Ccircle cx='330' cy='300' r='90'/%3E%3Ccircle cx='330' cy='300' r='150'/%3E%3Ccircle cx='330' cy='300' r='230'/%3E%3Ccircle cx='330' cy='300' r='300' stroke-opacity='.12'/%3E%3Cpath d='M330 -40V640M-60 300H720' stroke-opacity='.14'/%3E%3C/g%3E%3Cg stroke-opacity='.5'%3E%3Cpath d='M330 50V68M330 532V550M80 300H98M562 300H580'/%3E%3Cpath d='M180 150 L210 180M480 150 L450 180M180 450 L210 420M480 450 L450 420' stroke-opacity='.35'/%3E%3C/g%3E%3Cg stroke-opacity='.3'%3E%3Cpath d='M-120 900 L620 -40M180 1140 L920 100'/%3E%3Cpath d='M220 980 A 90 90 0 0 1 400 980'/%3E%3Cpath d='M240 980 A 130 130 0 0 1 420 980'/%3E%3C/g%3E%3C/g%3E%3Cg fill='%23fff' stroke='none'%3E%3Cpolygon points='1440,0 1800,0 1800,560 1620,360' fill-opacity='.09'/%3E%3Cpolygon points='1800,620 1800,1100 1380,1100 1660,760' fill-opacity='.07'/%3E%3Cpolygon points='1210,0 1420,0 1800,700 1700,700' fill-opacity='.04'/%3E%3Ccircle cx='330' cy='70' r='2.4'/%3E%3Ccircle cx='580' cy='300' r='2'/%3E%3Ccircle cx='330' cy='550' r='1.8'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.28'%3E%3Cpath d='M1540 70H1720M1540 60V80M1720 60V80'/%3E%3Cpath d='M1500 900H1690M1500 890V910M1690 890V910'/%3E%3C/g%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1800' height='1100'%3E%3Cdefs%3E%3Cpattern id='g' width='36' height='36' patternUnits='userSpaceOnUse'%3E%3Cpath d='M36 0H0V36' fill='none' stroke='%23fff' stroke-width='.4' stroke-opacity='.2'/%3E%3C/pattern%3E%3Cpattern id='m' width='180' height='180' patternUnits='userSpaceOnUse'%3E%3Cpath d='M180 0H0V180' fill='none' stroke='%23fff' stroke-width='.6' stroke-opacity='.24'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='1800' height='1100' fill='url(%23g)'/%3E%3Crect width='1800' height='1100' fill='url(%23m)'/%3E%3Cg fill='none' stroke='%23fff'%3E%3Cg stroke-opacity='.36'%3E%3Ccircle cx='330' cy='300' r='90'/%3E%3Ccircle cx='330' cy='300' r='150'/%3E%3Ccircle cx='330' cy='300' r='230'/%3E%3Ccircle cx='330' cy='300' r='300' stroke-opacity='.12'/%3E%3Cpath d='M330 -40V640M-60 300H720' stroke-opacity='.14'/%3E%3C/g%3E%3Cg stroke-opacity='.5'%3E%3Cpath d='M330 50V68M330 532V550M80 300H98M562 300H580'/%3E%3Cpath d='M180 150 L210 180M480 150 L450 180M180 450 L210 420M480 450 L450 420' stroke-opacity='.35'/%3E%3C/g%3E%3Cg stroke-opacity='.3'%3E%3Cpath d='M-120 900 L620 -40M180 1140 L920 100'/%3E%3Cpath d='M220 980 A 90 90 0 0 1 400 980'/%3E%3Cpath d='M240 980 A 130 130 0 0 1 420 980'/%3E%3C/g%3E%3C/g%3E%3Cg fill='%23fff' stroke='none'%3E%3Cpolygon points='1440,0 1800,0 1800,560 1620,360' fill-opacity='.09'/%3E%3Cpolygon points='1800,620 1800,1100 1380,1100 1660,760' fill-opacity='.07'/%3E%3Cpolygon points='1210,0 1420,0 1800,700 1700,700' fill-opacity='.04'/%3E%3Ccircle cx='330' cy='70' r='2.4'/%3E%3Ccircle cx='580' cy='300' r='2'/%3E%3Ccircle cx='330' cy='550' r='1.8'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.28'%3E%3Cpath d='M1540 70H1720M1540 60V80M1720 60V80'/%3E%3Cpath d='M1500 900H1690M1500 890V910M1690 890V910'/%3E%3C/g%3E%3C/svg%3E");
   opacity: 0.42;
 }
 
 /* 莱茵生命：单色 ∞ 结构 + 贯穿全页的 X 对角线 + 十字准星 + 极细分度 */
-body.theme-arknights-advanced.theme-arknights-rhine [class*='_frame']:not(:has(> [data-endfield-contour]))::before {
+body.theme-arknights-advanced.theme-arknights-rhine [class*='_frame']::before {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1800' height='1100'%3E%3Cdefs%3E%3Cpattern id='g' width='72' height='72' patternUnits='userSpaceOnUse'%3E%3Cpath d='M72 0H0V72' fill='none' stroke='%23fff' stroke-width='.5' stroke-opacity='.2'/%3E%3C/pattern%3E%3Cpattern id='m' width='360' height='360' patternUnits='userSpaceOnUse'%3E%3Cpath d='M360 0H0V360' fill='none' stroke='%23fff' stroke-width='.7' stroke-opacity='.24'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='1800' height='1100' fill='url(%23g)'/%3E%3Crect width='1800' height='1100' fill='url(%23m)'/%3E%3Cg fill='none' stroke='%23fff'%3E%3Cpath d='M0 0 L1800 1100M1800 0 L0 1100' stroke-opacity='.28'/%3E%3Cg stroke-opacity='.34'%3E%3Cellipse cx='1130' cy='420' rx='300' ry='165' transform='rotate(24 1130 420)'/%3E%3Cellipse cx='1130' cy='420' rx='300' ry='165' transform='rotate(-24 1130 420)'/%3E%3C/g%3E%3Cg stroke-opacity='.4'%3E%3Cpath d='M1130 300V330M1130 510V540M1010 420H1040M1220 420H1250'/%3E%3Ccircle cx='1130' cy='420' r='18' stroke-opacity='.3'/%3E%3Cpath d='M330 760H380M355 735V785'/%3E%3Ccircle cx='355' cy='760' r='44' stroke-opacity='.18'/%3E%3C/g%3E%3Cg stroke-opacity='.22'%3E%3Cpath d='M1380 160H1460M1600 840H1660M120 180H210M680 930H740'/%3E%3C/g%3E%3C/g%3E%3Cg fill='%23fff' stroke='none'%3E%3Crect x='1510' y='220' width='128' height='48' fill-opacity='.16'/%3E%3Crect x='1654' y='238' width='12' height='12' fill-opacity='.4'/%3E%3Ccircle cx='1130' cy='420' r='2.6'/%3E%3Ccircle cx='355' cy='760' r='2.2'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.18'%3E%3Cpath d='M40 40H90M40 40V90M1760 1060H1710M1760 1060V1010'/%3E%3C/g%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1800' height='1100'%3E%3Cdefs%3E%3Cpattern id='g' width='72' height='72' patternUnits='userSpaceOnUse'%3E%3Cpath d='M72 0H0V72' fill='none' stroke='%23fff' stroke-width='.5' stroke-opacity='.2'/%3E%3C/pattern%3E%3Cpattern id='m' width='360' height='360' patternUnits='userSpaceOnUse'%3E%3Cpath d='M360 0H0V360' fill='none' stroke='%23fff' stroke-width='.7' stroke-opacity='.24'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='1800' height='1100' fill='url(%23g)'/%3E%3Crect width='1800' height='1100' fill='url(%23m)'/%3E%3Cg fill='none' stroke='%23fff'%3E%3Cpath d='M0 0 L1800 1100M1800 0 L0 1100' stroke-opacity='.28'/%3E%3Cg stroke-opacity='.34'%3E%3Cellipse cx='1130' cy='420' rx='300' ry='165' transform='rotate(24 1130 420)'/%3E%3Cellipse cx='1130' cy='420' rx='300' ry='165' transform='rotate(-24 1130 420)'/%3E%3C/g%3E%3Cg stroke-opacity='.4'%3E%3Cpath d='M1130 300V330M1130 510V540M1010 420H1040M1220 420H1250'/%3E%3Ccircle cx='1130' cy='420' r='18' stroke-opacity='.3'/%3E%3Cpath d='M330 760H380M355 735V785'/%3E%3Ccircle cx='355' cy='760' r='44' stroke-opacity='.18'/%3E%3C/g%3E%3Cg stroke-opacity='.22'%3E%3Cpath d='M1380 160H1460M1600 840H1660M120 180H210M680 930H740'/%3E%3C/g%3E%3C/g%3E%3Cg fill='%23fff' stroke='none'%3E%3Crect x='1510' y='220' width='128' height='48' fill-opacity='.16'/%3E%3Crect x='1654' y='238' width='12' height='12' fill-opacity='.4'/%3E%3Ccircle cx='1130' cy='420' r='2.6'/%3E%3Ccircle cx='355' cy='760' r='2.2'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.18'%3E%3Cpath d='M40 40H90M40 40V90M1760 1060H1710M1760 1060V1010'/%3E%3C/g%3E%3C/svg%3E");
   opacity: 0.34;
@@ -9790,7 +7951,7 @@ body.theme-arknights-advanced:not([data-ds-dark-theme]) [class*='_frame']::befor
 }
 
 /* ---- 静态气氛：光晕、点阵、纸张颗粒 ------------------------------------ */
-body.theme-arknights-advanced [class*='_frame']:not(:has(> [data-endfield-contour]))::after {
+body.theme-arknights-advanced [class*='_frame']::after {
   content: '';
   position: fixed;
   inset: 0;
@@ -9807,7 +7968,7 @@ body.theme-arknights-advanced [class*='_frame']:not(:has(> [data-endfield-contou
   opacity: 0.9;
 }
 
-body.theme-arknights-advanced.theme-arknights-laterano [class*='_frame']:not(:has(> [data-endfield-contour]))::after {
+body.theme-arknights-advanced.theme-arknights-laterano [class*='_frame']::after {
   background-image:
     radial-gradient(circle at 86% 20%, rgba(var(--edge-accent-rgb), 0.12), transparent 40%),
     linear-gradient(128deg, transparent 46%, rgba(var(--edge-accent-rgb), 0.055) 46.15%, transparent 46.6%),
@@ -9825,7 +7986,7 @@ body.theme-arknights-advanced.theme-arknights-rhine[data-ds-dark-theme] {
   --ak-dot: rgba(232, 134, 42, 0.34);
 }
 
-body.theme-arknights-advanced.theme-arknights-rhine [class*='_frame']:not(:has(> [data-endfield-contour]))::after {
+body.theme-arknights-advanced.theme-arknights-rhine [class*='_frame']::after {
   background-image:
     radial-gradient(circle at 78% 24%, rgba(var(--edge-accent-rgb), 0.05), transparent 36%),
     radial-gradient(circle, var(--ak-dot) 1px, transparent 1.4px),
@@ -10886,7 +9047,17 @@ body.theme-arknights-advanced [data-ak-tui='menu-footer'] button:hover {
  * 9. 悬浮阵营条
  * ========================================================================== */
 
+/* 挂在 <body> 末尾的常驻浮层，所以自己定位：右上角、表头条（40px）下方一行，
+   和顶部的额度胶囊（top:6px，可居左/中/右停靠）错开，两者不会互相压字。
+   z-index 与额度胶囊同级（900）：高于页面内容，低于应用自己的弹窗。 */
 .ak-bar {
+  position: fixed;
+  top: 46px;
+  right: 16px;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   border-radius: 0;
   border: 1px solid var(--edge-line-2);
   border-left: 2px solid var(--edge-accent);
@@ -10898,7 +9069,69 @@ body.theme-arknights-advanced [data-ak-tui='menu-footer'] button:hover {
 }
 
 .ak-bar__current {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 12px;
   letter-spacing: 0.12em;
+  color: var(--edge-ink);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+/* 三选一默认收起，只留当前态那一行：常驻浮层不该长期占住右上角。 */
+.ak-bar__list {
+  display: none;
+  flex-direction: column;
+  border-top: 1px solid var(--edge-line);
+}
+
+.ak-bar[data-open='true'] .ak-bar__list {
+  display: flex;
+}
+
+.ak-bar__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-align: left;
+  color: var(--edge-ink-2);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.ak-bar__current:hover,
+.ak-bar__item:hover {
+  color: var(--edge-ink);
+  background: var(--ak-wash);
+}
+
+/* 当前阵营：整行反白。徽标走 currentColor，所以形状跟着一起反白，
+   不依赖颜色也能认出是哪一套（badge 文字同时在）。 */
+.ak-bar__item[aria-pressed='true'] {
+  color: var(--edge-paper);
+  background: var(--edge-accent);
+}
+
+.ak-bar__label {
+  margin-left: 2px;
+}
+
+.ak-bar__caret {
+  margin-left: auto;
+  padding-left: 6px;
+  font-size: 10px;
+  opacity: 0.55;
 }
 
 .ak-bar__badge {
@@ -10906,14 +9139,46 @@ body.theme-arknights-advanced [data-ak-tui='menu-footer'] button:hover {
   font-family: 'Cascadia Mono', 'JetBrains Mono', Consolas, ui-monospace, monospace;
 }
 
-.ak-bar__item {
-  letter-spacing: 0.08em;
+/* ---- 阵营徽标 ----------------------------------------------------------
+   三张内联 SVG 只出形状，颜色走 currentColor，所以选中项反白时徽标跟着一起
+   反白，明暗两套配色也不用各画一份。形状挂在元素自己的 data-ak-crest 上，
+   而不是 body 的阵营 class 上——设置页的三张卡片要同时摆出三枚，主题关掉时
+   它们也还在。图案是按各阵营的界面语言重画的几何记号（罗德岛：罗盘环 + 源石
+   菱形；拉特兰：光环 + 立柱十字 + 两侧光翼；莱茵生命：交叉双轨 + 准星点），
+   不是任何官方标识的描摹。 */
+.ak-crest {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  background-color: currentColor;
+  -webkit-mask-image: var(--ak-crest);
+  mask-image: var(--ak-crest);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
 }
 
-.ak-bar__swatch {
-  border-radius: 0;
-  width: 7px;
-  height: 7px;
+[data-ak-crest='rhodes'] {
+  --ak-crest: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='%23fff' stroke-width='1.6'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 6.5 16 12 12 17.5 8 12Z'/%3E%3Cpath d='M1.5 12h3M19.5 12h3'/%3E%3C/g%3E%3Cpath fill='%23fff' d='M12 9.6 13.7 12 12 14.4 10.3 12Z'/%3E%3C/svg%3E");
+}
+
+[data-ak-crest='laterano'] {
+  --ak-crest: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='%23fff' stroke-width='1.6'%3E%3Ccircle cx='12' cy='8.4' r='4.6'/%3E%3Cpath d='M12 13v8.5M7.5 17.5h9'/%3E%3Cpath d='M2.6 4.4 6 7.2M21.4 4.4 18 7.2'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+[data-ak-crest='rhine'] {
+  --ak-crest: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='%23fff' stroke-width='1.6'%3E%3Cellipse cx='12' cy='12' rx='9.2' ry='4.4' transform='rotate(28 12 12)'/%3E%3Cellipse cx='12' cy='12' rx='9.2' ry='4.4' transform='rotate(-28 12 12)'/%3E%3C/g%3E%3Ccircle cx='12' cy='12' r='1.9' fill='%23fff'/%3E%3C/svg%3E");
+}
+
+/* 下拉里的三枚与设置页阵营行的三枚同为 13px：两处都是 11px 字号的按钮，
+   15px 会把文字挤下去。 */
+.ak-bar__item .ak-crest,
+.ak-settings .ak-crest {
+  width: 13px;
+  height: 13px;
 }
 
 /* ============================================================================
@@ -10923,73 +9188,73 @@ body.theme-arknights-advanced [data-ak-tui='menu-footer'] button:hover {
  * 换品牌只覆盖 content，不改 DOM。
  * ========================================================================== */
 
-body.theme-arknights-themed [data-endfield-watermark]::before {
+body.theme-arknights-themed [data-ak-watermark]::before {
   content: 'RHODES ISLAND';
 }
 
 /* 终端层已经有图纸几何与幽灵扇区号，巨型字标再保持原强度会和它们互相压字。
    这里只压低水印自身的可见度，不动它的位置与尺寸，关掉终端层即恢复。 */
-body.theme-arknights-advanced [data-endfield-watermark] {
+body.theme-arknights-advanced [data-ak-watermark] {
   opacity: 0.36;
   font-family: var(--ak-display);
 }
 
-body.theme-arknights-advanced:not([data-ds-dark-theme]) [data-endfield-watermark] {
+body.theme-arknights-advanced:not([data-ds-dark-theme]) [data-ak-watermark] {
   opacity: 0.42;
 }
 
-body.theme-arknights-themed.theme-arknights-laterano [data-endfield-watermark]::before {
+body.theme-arknights-themed.theme-arknights-laterano [data-ak-watermark]::before {
   content: 'LATERANO';
 }
 
-body.theme-arknights-themed.theme-arknights-rhine [data-endfield-watermark]::before {
+body.theme-arknights-themed.theme-arknights-rhine [data-ak-watermark]::before {
   content: 'RHINE LAB';
 }
 
-body.theme-arknights-themed [data-endfield-loader-word1]::before { content: 'RHODES'; }
-body.theme-arknights-themed [data-endfield-loader-word2]::before { content: 'ISLAND'; }
-body.theme-arknights-themed.theme-arknights-laterano [data-endfield-loader-word1]::before { content: 'LATER'; }
-body.theme-arknights-themed.theme-arknights-laterano [data-endfield-loader-word2]::before { content: 'ANO'; }
-body.theme-arknights-themed.theme-arknights-rhine [data-endfield-loader-word1]::before { content: 'RHINE'; }
-body.theme-arknights-themed.theme-arknights-rhine [data-endfield-loader-word2]::before { content: 'LAB'; }
+body.theme-arknights-themed [data-ak-loader-word1]::before { content: 'RHODES'; }
+body.theme-arknights-themed [data-ak-loader-word2]::before { content: 'ISLAND'; }
+body.theme-arknights-themed.theme-arknights-laterano [data-ak-loader-word1]::before { content: 'LATER'; }
+body.theme-arknights-themed.theme-arknights-laterano [data-ak-loader-word2]::before { content: 'ANO'; }
+body.theme-arknights-themed.theme-arknights-rhine [data-ak-loader-word1]::before { content: 'RHINE'; }
+body.theme-arknights-themed.theme-arknights-rhine [data-ak-loader-word2]::before { content: 'LAB'; }
 
-body.theme-arknights-themed [data-endfield-loader-kicker]::before {
+body.theme-arknights-themed [data-ak-loader-kicker]::before {
   content: 'RHODES ISLAND COMMAND THEME';
 }
 
-body.theme-arknights-themed.theme-arknights-laterano [data-endfield-loader-kicker]::before {
+body.theme-arknights-themed.theme-arknights-laterano [data-ak-loader-kicker]::before {
   content: 'LATERANO HOLY CITY THEME';
 }
 
-body.theme-arknights-themed.theme-arknights-rhine [data-endfield-loader-kicker]::before {
+body.theme-arknights-themed.theme-arknights-rhine [data-ak-loader-kicker]::before {
   content: 'RHINE LAB RESEARCH THEME';
 }
 
-body.theme-arknights-themed [data-endfield-loader-tag]::before {
+body.theme-arknights-themed [data-ak-loader-tag]::before {
   content: 'RHODES ISLAND / BOOT SEQUENCE';
 }
 
-body.theme-arknights-themed.theme-arknights-laterano [data-endfield-loader-tag]::before {
+body.theme-arknights-themed.theme-arknights-laterano [data-ak-loader-tag]::before {
   content: 'LATERANO / BOOT SEQUENCE';
 }
 
-body.theme-arknights-themed.theme-arknights-rhine [data-endfield-loader-tag]::before {
+body.theme-arknights-themed.theme-arknights-rhine [data-ak-loader-tag]::before {
   content: 'RHINE LAB / BOOT SEQUENCE';
 }
 
-body.theme-arknights-themed [data-endfield-loader-sub]::before {
+body.theme-arknights-themed [data-ak-loader-sub]::before {
   content: 'RESIST AND ENDURE / RHODES ISLAND';
 }
 
-body.theme-arknights-themed.theme-arknights-laterano [data-endfield-loader-sub]::before {
+body.theme-arknights-themed.theme-arknights-laterano [data-ak-loader-sub]::before {
   content: 'SUB UMBRA ALARUM / LATERANO';
 }
 
-body.theme-arknights-themed.theme-arknights-rhine [data-endfield-loader-sub]::before {
+body.theme-arknights-themed.theme-arknights-rhine [data-ak-loader-sub]::before {
   content: 'KNOWLEDGE IS THE ONLY FRONTIER / RHINE LAB';
 }
 
-body.theme-arknights-themed [data-endfield-thunder-word] {
+body.theme-arknights-themed [data-ak-thunder-word] {
   font-family: var(--edge-font-display);
   letter-spacing: var(--edge-tracking-display);
 }
@@ -11061,7 +9326,7 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
     `)
       syncRadiusMode()
       syncGlass()
-      syncPaletteClass()
+      syncFactionClass()
       syncLayoutClass()
       syncFactionBar()
       /* 终端铭牌与作战位置标记：DOM 还没渲染时是一次空操作，随后的
@@ -11087,7 +9352,7 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
         }
         document.body.classList.remove(THEMED_CLASS)
         document.body.classList.remove(LAYOUT_ADVANCED_CLASS)
-        document.body.removeAttribute?.('data-endfield-glass')
+        document.body.removeAttribute?.('data-ak-glass')
       }
       destroyFactionBar()
       /* 终端层注入的铭牌、扇区编号与菜单抬头都不带主题样式表的兜底：
@@ -11096,10 +9361,6 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
       // The plate is styled by the theme stylesheet just torn down — an orphaned
       // plate would sit there as an unstyled black-less div, so drop it too.
       destroyLoader()
-      // Same reasoning for the contour sheet: its positioning and the background
-      // transparency rules it depends on both live in that stylesheet, so leaving
-      // it mounted would drop two raw canvases into the app's layout flow.
-      contourTeardown()
       /* The output-scroll animator holds a transform on the transcript column. The
          theme does not style that column, so an orphaned offset would survive as a
          permanently shifted transcript — the one thing here that must be released
@@ -11114,7 +9375,7 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
       /* The watermark must go with the stylesheet too, and it cannot wait for
          syncWatermarkVisibility(): with the sheet torn down its
          `opacity: var(--edge-wm-alpha)` computes invalid and falls back to 1,
-         so an orphaned mark sits on the page as a fully opaque 9.5vw ENDFIELD.
+         so an orphaned mark sits on the page as a fully opaque 9.5vw ARKNIGHTS.
          This path also runs when the switch is turned off from ANOTHER window
          (reconcileFromPrefs -> unmount), where nothing else removes the node —
          the local toggle path only looked covered because toggleTheme happened
@@ -11135,10 +9396,6 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
     if (isEnabled()) {
       mount()
       syncWatermarkVisibility()
-      // The contour sheet needs the stylesheet mount() just inserted, and the app
-      // frame to exist; syncContour is a no-op until both are true and the
-      // watermark's MutationObserver retries it as the app renders.
-      syncContour()
       // Output-scroll animation: a no-op until the app renders a conversation
       // scrollport. The same observer retries it as the app mounts one, so opening
       // a session later needs no reload.
@@ -11163,15 +9420,15 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
        (<profile>/cordis.patch.yml on 0.1.7, <dshHome>/settings.yaml before it),
        or the host reverts a value). It mirrors the initial mount block above so a
        runtime change re-paints exactly the live surfaces it can: the master switch mounts/unmounts
-       the token + stylesheet layers, then radius/palette/watermark/contour/
+       the token + stylesheet layers, then radius/palette/watermark/
        thunder re-derive from the new value. The boot loader is deliberately not
        replayed here: it is a once-per-page-load plate, so a mid-session section
        change must not slam a startup animation over a running app. The one thing
        that DOES start it outside apply() is the first authoritative settle
        (onPrefsSettled) — that is the same page-load moment, not a later edit — plus
        the plate's own toggle and 预览 button. Every layer entry point is idempotent
-       (mount() and unmount() guard on `mounted`, syncContour is a no-op until the
-       frame and stylesheet exist), so repeated echoes are cheap and safe. */
+       (mount() and unmount() guard on `mounted`, syncScrollAnim is a no-op until the
+       app renders a conversation scrollport), so repeated echoes are cheap and safe. */
     reconcileFromPrefs = () => {
       const enabledNext = isEnabled()
       const enabledNow = mounted
@@ -11181,12 +9438,11 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
         // These sync helpers read the store on each call, so no snapshot passing.
         syncRadiusMode()
         syncGlass()
-        syncPaletteClass()
+        syncFactionClass()
         syncLayoutClass()
         syncFactionBar()
         syncTerminalUI()
         syncWatermarkVisibility()
-        syncContour()
         syncScrollAnim()
         syncThunder()
         // Same reason: it re-reads both switches and starts or stops the poll.
@@ -11224,9 +9480,9 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
 
        Naming: keys are grouped by row (`theme*`, `palette*`, `thunder*`) so a row's
        copy stays discoverable next to its switch. */
-    const ENDFIELD_NS = 'settings.theme-arknights'
+    const ARK_NS = 'settings.theme-arknights'
     const LOCALE_ZH = {
-      nav: '终末地主题设置',
+      nav: '明日方舟阵营主题',
       /* The separator between a row label and its value. It is a DICTIONARY KEY, not
          a literal: Chinese uses the full-width '：' with no trailing space, English
          the ASCII ': '. Hardcoding the full-width form (as the first version did) put
@@ -11262,38 +9518,8 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
       radiusSquare: '直角',
       radiusToRound: '切换圆角',
       radiusToSquare: '切换直角',
-      contourRow: '等高线背景',
-      contourOn: '开启背景',
-      contourOff: '关闭背景',
-      contourHintOn: '当前配色的地形等高线铺满界面底层（置于所有内容之下）；窄窗口自动降低线密度',
-      contourHintOff: '默认关闭；开启后在界面底层绘制等高线地形纹理',
-      contourTrailRow: '鼠标轨迹',
-      contourTrailOn: '开启轨迹',
-      contourTrailOff: '关闭轨迹',
-      contourTrailHint: '鼠标移动时局部扰动等高线并逐渐恢复；仅动态模式生效，静态或减少动态效果时暂停',
-      contourAnimRow: '动态等高线',
-      contourAnimOn: '开启动态',
-      contourAnimOff: '切为静态',
-      contourAnimHintOn: '等高线缓慢流动变形（可选 24 / 60 / 120 FPS，关闭后为静态图案）',
-      contourAnimHintOff: '静态等高线，不做任何逐帧计算',
-      contourAnimHintReduced: '系统已开启「减少动态效果」，当前保持静态',
       glassRow: '磨砂玻璃', glassHint: '停靠面板使用局部模糊；输入框使用同色底但不模糊，避免气泡抖动',
       glassOff: '关闭', glassSubtle: '轻度', glassStandard: '标准', glassStrong: '浓厚',
-      contourRendererRow: '等高线绘制', contourRendererCanvas: 'Canvas', contourRendererWorker: 'Worker / WebGL',
-      contourRendererHint: '实验性后台绘制；不支持时自动回退，适合对照滚动性能',
-      contourFpsRow: '动态帧率',
-      contourFpsHint: '选择等高线动画的刷新档位',
-      contourFpsUnit: 'FPS',
-      contourSpeedRow: '动态速度',
-      contourSpeedHint: '选择等高线变形速度，不影响刷新率',
-      contourSpeedSlow: '慢速',
-      contourSpeedNormal: '标准',
-      contourSpeedFast: '快速',
-      contourScrollPauseRow: '滚动窗口动画暂停',
-      contourScrollPauseOn: '开启暂停',
-      contourScrollPauseOff: '关闭暂停',
-      contourScrollPauseHintOn: '滚动上下文窗口时暂停等高线动画，停止滚动后约 10ms 恢复',
-      contourScrollPauseHintOff: '警告：关闭后可能出现滚动卡顿',
       /* 输出滚动动画. The hint has to name the MECHANISM, because the observable
          effect ("smoother scrolling") is easy to mistake for scroll-behavior:smooth
          — which is the one thing this feature must not be, since it would break the
@@ -11310,7 +9536,6 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
       scrollAnimLevelSnappy: '轻快',
       scrollAnimLevelHint: '越柔和越顺滑，但最新一行离底部越远；越轻快越跟手',
       scrollAnimNeedOn: '请先开启输出滚动动画',
-      contourAnimNeedLayer: '请先开启等高线背景',
       watermarkRow: '背景水印',
       watermarkOn: '开启水印',
       watermarkOff: '关闭水印',
@@ -11323,7 +9548,7 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
       loaderRow: '启动加载动画',
       loaderOn: '开启动画',
       loaderOff: '关闭动画',
-      loaderHintOn: '刷新页面时播放 ENDFIELD 启动加载屏（左侧进度轨 + 百分比，跟随当前配色）',
+      loaderHintOn: '刷新页面时播放启动加载屏（左侧进度轨 + 百分比，跟随当前配色）',
       loaderHintOff: '默认关闭；开启后每次刷新页面播放一次',
       loaderNeed: '请先开启启动加载动画',
       preview: '预览',
@@ -11376,7 +9601,7 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
       audioBootRow: '启动加载动画音',
       audioBootOn: '开启',
       audioBootOff: '关闭',
-      audioBootHint: '播放 ENDFIELD 加载板时响一次；只认真正的页面加载，点「预览」重播不会响',
+      audioBootHint: '播放启动加载屏时响一次；只认真正的页面加载，点「预览」重播不会响',
       audioStartRow: '任务开始音',
       audioStartOn: '开启',
       audioStartOff: '关闭',
@@ -11424,7 +9649,7 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
       audioRefresh: '刷新状态',
     }
     const LOCALE_EN = {
-      nav: 'Endfield Theme',
+      nav: 'Arknights Theme',
       sep: ': ',
       /* Capitalised: these are VALUES in a "Label: Value" readout, not sentence
          fragments, and the screenshot showed lowercase reading like a typo there. */
@@ -11454,38 +9679,8 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
       radiusSquare: 'Square',
       radiusToRound: 'Use rounded',
       radiusToSquare: 'Use square',
-      contourRow: 'Contour background',
-      contourOn: 'Turn on',
-      contourOff: 'Turn off',
-      contourHintOn: 'Topographic contour lines fill the lowest layer, beneath all content; narrow windows use a sparser line density',
-      contourHintOff: 'Off by default; draws a contour terrain texture behind the interface',
-      contourTrailRow: 'Mouse trail',
-      contourTrailOn: 'Enable trail',
-      contourTrailOff: 'Disable trail',
-      contourTrailHint: 'Locally deforms contours near the mouse, then fades; pauses in static or reduced-motion mode',
-      contourAnimRow: 'Animated contours',
-      contourAnimOn: 'Animate',
-      contourAnimOff: 'Make static',
-      contourAnimHintOn: 'The field drifts at 24, 60 or 120 FPS (static pattern when off)',
-      contourAnimHintOff: 'Static contours, with no per-frame work at all',
-      contourAnimHintReduced: 'Your system asks for reduced motion, so it stays static',
       glassRow: 'Frosted glass', glassHint: 'Local blur on the docked panel; the composer keeps an opaque tint without blur so tooltips stay stable',
       glassOff: 'Off', glassSubtle: 'Subtle', glassStandard: 'Standard', glassStrong: 'Strong',
-      contourRendererRow: 'Contour renderer', contourRendererCanvas: 'Canvas', contourRendererWorker: 'Worker / WebGL',
-      contourRendererHint: 'Experimental background rendering with automatic fallback; compare scrolling on your device',
-      contourFpsRow: 'Animation frame rate',
-      contourFpsHint: 'Choose the contour animation refresh rate',
-      contourFpsUnit: 'FPS',
-      contourSpeedRow: 'Animation speed',
-      contourSpeedHint: 'Choose contour motion speed without changing refresh rate',
-      contourSpeedSlow: 'Slow',
-      contourSpeedNormal: 'Normal',
-      contourSpeedFast: 'Fast',
-      contourScrollPauseRow: 'Pause animation while scrolling',
-      contourScrollPauseOn: 'Pause on scroll',
-      contourScrollPauseOff: 'Keep animating',
-      contourScrollPauseHintOn: 'Pauses contour animation while scrolling and resumes about 10ms after it stops',
-      contourScrollPauseHintOff: 'Warning: scrolling may stutter when this is off',
       scrollAnimRow: 'Output scroll animation',
       scrollAnimOn: 'Turn on',
       scrollAnimOff: 'Turn off',
@@ -11498,7 +9693,6 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
       scrollAnimLevelSnappy: 'Snappy',
       scrollAnimLevelHint: 'Softer is smoother but keeps the newest line further from the bottom; snappier follows closer',
       scrollAnimNeedOn: 'Turn on the output scroll animation first',
-      contourAnimNeedLayer: 'Turn on the contour background first',
       watermarkRow: 'Background wordmark',
       watermarkOn: 'Turn on',
       watermarkOff: 'Turn off',
@@ -11511,7 +9705,7 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
       loaderRow: 'Boot animation',
       loaderOn: 'Turn on',
       loaderOff: 'Turn off',
-      loaderHintOn: 'Plays the ENDFIELD boot screen on reload (progress rail + percentage, following the palette)',
+      loaderHintOn: 'Plays the boot screen on reload (progress rail + percentage, following the palette)',
       loaderHintOff: 'Off by default; plays once on every page reload when enabled',
       loaderNeed: 'Turn on the boot animation first',
       preview: 'Preview',
@@ -11560,7 +9754,7 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
       audioBootRow: 'Boot animation sound',
       audioBootOn: 'Turn on',
       audioBootOff: 'Turn off',
-      audioBootHint: 'Rings once when the ENDFIELD boot plate plays; a real page load only — the Preview button replays it silently',
+      audioBootHint: 'Rings once when the boot plate plays; a real page load only — the Preview button replays it silently',
       audioStartRow: 'Task-start sound',
       audioStartOn: 'Turn on',
       audioStartOff: 'Turn off',
@@ -11621,8 +9815,8 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
       /* Registered through ctx.effect so the dictionaries retire with the run;
          re-applying the bundle would otherwise throw on the duplicate (ns, locale)
          the service rejects by design. */
-      ctx.effect(() => locale.register(ENDFIELD_NS, { zh: LOCALE_ZH, en: LOCALE_EN }))
-      const bound = locale.bind(ENDFIELD_NS)
+      ctx.effect(() => locale.register(ARK_NS, { zh: LOCALE_ZH, en: LOCALE_EN }))
+      const bound = locale.bind(ARK_NS)
       if (typeof bound === 'function') {
         t = bound
         localeReady = true
@@ -11652,7 +9846,7 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
            "settings page crashes", so the key is spread in only when present. */
         Object.assign(
           { name: 'settings.section', id: 'theme-arknights', order: 35, label: () => t('nav') },
-          localeReady ? { locale: ENDFIELD_NS } : {}
+          localeReady ? { locale: ARK_NS } : {}
         ),
         () => {
           const R = (typeof React !== 'undefined') ? React : ((typeof require === 'function') ? require('react') : null)
@@ -11661,13 +9855,6 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
           const [wmOn, setWmOn] = R.useState(isWatermarkOn())
           const [wmPersist, setWmPersist] = R.useState(isWatermarkPersistOn())
           const [loaderOn, setLoaderOn] = R.useState(isLoaderOn())
-          const [contourOn, setContourOn] = R.useState(isContourOn())
-          const [contourAnim, setContourAnim] = R.useState(isContourAnimOn())
-          const [contourTrailOn, setContourTrailOn] = R.useState(isContourTrailOn())
-          const [contourRenderer, setContourRenderer] = R.useState(readContourRenderer())
-          const [contourFps, setContourFps] = R.useState(readContourFps())
-          const [contourSpeed, setContourSpeed] = R.useState(readContourSpeed())
-          const [contourScrollPause, setContourScrollPause] = R.useState(isContourScrollPauseOn())
           const [scrollAnim, setScrollAnim] = R.useState(isScrollAnimOn())
           const [scrollAnimLevel, setScrollAnimLevel] = R.useState(readScrollAnimLevel())
           const [thunderOn, setThunderOn] = R.useState(isThunderOn())
@@ -11736,13 +9923,6 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
               setWmOn(isWatermarkOn())
               setWmPersist(isWatermarkPersistOn())
               setLoaderOn(isLoaderOn())
-              setContourOn(isContourOn())
-              setContourAnim(isContourAnimOn())
-              setContourTrailOn(isContourTrailOn())
-              setContourRenderer(readContourRenderer())
-              setContourFps(readContourFps())
-              setContourSpeed(readContourSpeed())
-              setContourScrollPause(isContourScrollPauseOn())
               setScrollAnim(isScrollAnimOn())
               setScrollAnimLevel(readScrollAnimLevel())
               setThunderOn(isThunderOn())
@@ -11833,12 +10013,6 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
             setGlass(value)
             syncGlass()
           }
-          const setContourRendererValue = (value) => {
-            if (value !== 'canvas' && value !== 'worker-webgl') return
-            prefsSet(CONTOUR_RENDERER_KEY, value)
-            setContourRenderer(value)
-            syncContour()
-          }
           /* ---------- toggles ----------
              EVERY handler below derives its `next` value from the STORE
              (prefsGet / the is* / read* readers), never from the React state
@@ -11862,7 +10036,7 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
             const next = !isEnabled()
             prefsSet(ENABLED_KEY, next ? '1' : '0')
             setEnabled(next)
-            if (next) { mount(); syncWatermarkVisibility(); syncContour() }
+            if (next) { mount(); syncWatermarkVisibility() }
             else { unmount(); syncWatermarkVisibility() }
             /* The announcement watcher is gated on the master switch too, so it has
                to be reconciled here. unmount() already stops it, but turning the
@@ -11870,21 +10044,13 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
                until the next page load. */
             syncThunder()
           }
-          const toggleContour = () => {
-            const next = !isContourOn()
-            prefsSet(CONTOUR_KEY, next ? '1' : '0')
-            setContourOn(next)
-            syncContour()
-          }
-          /* 阵营切换。视觉部分全部由 syncFactionClass() 的 class 翻转承担；唯一
-             需要显式处理的是等高线画布（canvas 描边读不到 CSS 变量）。重绘直接
-             调用而不是留给 MutationObserver，这样等高线与界面在同一帧变化。
+          /* 阵营切换。视觉部分全部由 syncFactionClass() 的 class 翻转承担：
+             氛围层与令牌都读 CSS 变量，所以不需要任何显式重绘。
              走 setFaction() 而不是自己写 prefsSet：那个函数是三个入口（设置页 /
              悬浮阵营条 / 快捷键）共用的唯一路径，它还会刷新悬浮条的徽标。 */
           const chooseFaction = (id) => {
             setFaction(id)
             setFactionState(readFaction())
-            if (contourWrap !== null) contourRefresh(false)
           }
           /* 界面版本切换。universal 与 advanced 共用同一套令牌与配色，只有是否
              重排布局的区别，所以这里也是一个 class 的加减。 */
@@ -11896,48 +10062,6 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
             /* 终端层只属于进阶版：切到通用版要立刻收回注入节点，切回进阶版
                则重新扫描。 */
             syncTerminalUI()
-            if (contourWrap !== null) contourRefresh(false)
-          }
-          const toggleContourTrail = () => {
-            const next = !isContourTrailOn()
-            prefsSet(CONTOUR_TRAIL_KEY, next ? '1' : '0')
-            setContourTrailOn(next)
-            syncContour()
-          }
-          const toggleContourAnim = () => {
-            const next = !isContourAnimOn()
-            prefsSet(CONTOUR_ANIM_KEY, next ? '1' : '0')
-            setContourAnim(next)
-            if (!next) {
-              contourScrollPaused = false
-              if (contourScrollTimer !== null && typeof clearTimeout === 'function') clearTimeout(contourScrollTimer)
-              contourScrollTimer = null
-            }
-            syncContour()
-          }
-          const setContourFpsValue = (value) => {
-            const next = Number(value)
-            if (!CONTOUR_FPS_OPTIONS.includes(next)) return
-            prefsSet(CONTOUR_FPS_KEY, String(next))
-            setContourFps(next)
-          }
-          const setContourSpeedValue = (value) => {
-            const next = Number(value)
-            if (!CONTOUR_SPEED_OPTIONS.includes(next)) return
-            prefsSet(CONTOUR_SPEED_KEY, String(next))
-            setContourSpeed(next)
-          }
-          const toggleContourScrollPause = () => {
-            const next = !isContourScrollPauseOn()
-            prefsSet(CONTOUR_SCROLL_PAUSE_KEY, next ? '1' : '0')
-            setContourScrollPause(next)
-            if (!next) {
-              contourScrollPaused = false
-              if (contourScrollTimer !== null && typeof clearTimeout === 'function') clearTimeout(contourScrollTimer)
-              contourScrollTimer = null
-              contourSwitchSig = ''
-              contourApplySwitches()
-            }
           }
           /* 输出滚动动画. syncScrollAnim() reads the pref store, so the write above is
              what it acts on: turning it off must RELEASE the offset immediately (a
@@ -12188,9 +10312,9 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
             return rows.join('　·　')
           }
           const pageStyle = { maxWidth: '640px', padding: '4px 0 16px' }
-          /* The ten switches are grouped into four concerns so the page can be
+          /* The switches are grouped into four concerns so the page can be
              scanned instead of read as a flat list: 主题 (master switch +
-             appearance), 背景 (contour sheet + watermark), 动画 (boot loader),
+             appearance), 背景 (watermark), 动画 (boot loader),
              娱乐 (雷霆大字 announcements + their entry animation).
              Each group is an editorial numbered header; rows keep their stable
              React keys. The last row of each group drops its divider so the next
@@ -12212,7 +10336,7 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
             }
             return R.createElement('div', {
               key: 'group-title-' + no,
-              className: 'endfield-settings-group-title',
+              className: 'ak-settings-group-title',
               style: {
                 display: 'flex', alignItems: 'center', gap: '8px',
                 marginTop: first ? '0' : '26px', paddingBottom: '8px',
@@ -12223,7 +10347,7 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
           /** "<row label>: <on|off>" — one spelling for every status row. */
           const stateOf = (on) => t(on ? 'on' : 'off')
           const row = (key, last, children) => R.createElement('div', { key, style: last ? { ...rowStyle, borderBottom: 'none' } : rowStyle }, children)
-          return R.createElement('div', { className: 'endfield-settings', style: pageStyle }, [
+          return R.createElement('div', { className: 'ak-settings', style: pageStyle }, [
             /* --- 01 主题：总开关在最前，随后是配色与圆角 --- */
             R.createElement('div', { key: 'group-theme' }, [
               groupTitle('01', 'groupTheme', true),
@@ -12236,17 +10360,13 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
                   t('factionRow') + t('sep') + t('faction_name_' + faction),
                   R.createElement('span', { style: hintStyle }, t('factionHint'))
                 ),
-                /* 三个阵营各一枚徽标按钮：底色是该阵营**自己**的强调色，所以选之前
-                   就能看到结果，而不只是读到一个名字。颜色按明暗直接写两档（没有走
-                   CSS 变量，因为这里要显示的是「另一个」阵营的颜色，不是当前生效的
-                   那一套）。 */
+                /* 三个阵营各一枚徽标按钮：形状是各自的几何记号（.ak-crest 走
+                   currentColor），选中那一枚连形状一起反白。这里不铺阵营色——
+                   颜色只有样式表一份真相，选中后的整页配色就是它，JS 里再抄一份
+                   色值迟早和它对不上。 */
                 R.createElement('span', { style: { display: 'flex', gap: '6px', flex: '0 0 auto', alignItems: 'center' } },
                   FACTION_META.map((meta) => {
                     const active = faction === meta.id
-                    const dark = typeof document !== 'undefined'
-                      && document.body !== null
-                      && document.body.hasAttribute('data-ds-dark-theme')
-                    const chip = dark ? meta.accent.dark : meta.accent.light
                     return R.createElement('button', {
                       key: meta.id,
                       type: 'button',
@@ -12271,13 +10391,10 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
                       },
                     }, [
                       R.createElement('span', {
-                        key: 'sw',
+                        key: 'cr',
                         'aria-hidden': 'true',
-                        style: {
-                          width: '9px', height: '9px', flex: '0 0 auto',
-                          borderRadius: mode === 'round' ? '999px' : '0',
-                          background: chip,
-                        },
+                        className: 'ak-crest',
+                        'data-ak-crest': meta.id,
                       }),
                       R.createElement('span', { key: 'tx' }, meta.badge),
                     ])
@@ -12313,107 +10430,9 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
                 R.createElement('button', { type: 'button', onClick: toggleMode, style: btnStyleFor(mode === 'round') }, t(mode === 'round' ? 'radiusToSquare' : 'radiusToRound'))
               ]),
             ]),
-            /* --- 02 背景：等高线 + 水印，各自的主开关在前、附属开关在后 --- */
+            /* --- 02 背景：水印，主开关在前、附属开关在后 --- */
             R.createElement('div', { key: 'group-bg' }, [
               groupTitle('02', 'groupBg', false),
-              row('contour', false, [
-                R.createElement('span', { style: labelStyle },
-                  t('contourRow') + t('sep') + stateOf(contourOn),
-                  R.createElement('span', { style: hintStyle },
-                    // The sheet follows the palette, so the hint must not name one colour.
-                    t(contourOn ? 'contourHintOn' : 'contourHintOff')
-                  )
-                ),
-                R.createElement('button', { type: 'button', onClick: toggleContour, style: btnStyleFor(contourOn) }, t(contourOn ? 'contourOff' : 'contourOn'))
-              ]),
-              row('contour-anim', false, [
-                R.createElement('span', { style: labelStyle },
-                  t('contourAnimRow') + t('sep') + stateOf(contourAnim),
-                  R.createElement('span', { style: hintStyle },
-                    // Say so when the OS preference is overriding the switch, rather
-                    // than letting it look like the toggle is broken.
-                    (contourAnim && prefersReducedMotion())
-                      ? t('contourAnimHintReduced')
-                      : t(contourAnim ? 'contourAnimHintOn' : 'contourAnimHintOff')
-                  )
-                ),
-                R.createElement('button', {
-                  type: 'button',
-                  onClick: toggleContourAnim,
-                  style: btnStyleFor(contourAnim, !contourOn),
-                  // Only meaningful while the layer itself is on.
-                  disabled: !contourOn,
-                  title: contourOn ? '' : t('contourAnimNeedLayer'),
-                }, t(contourAnim ? 'contourAnimOff' : 'contourAnimOn'))
-              ]),
-              row('contour-trail', false, [
-                R.createElement('span', { style: labelStyle },
-                  t('contourTrailRow') + t('sep') + stateOf(contourTrailOn),
-                  R.createElement('span', { style: hintStyle }, t('contourTrailHint'))
-                ),
-                R.createElement('button', {
-                  type: 'button', onClick: toggleContourTrail,
-                  style: btnStyleFor(contourTrailOn, !contourOn), disabled: !contourOn,
-                  title: contourOn ? '' : t('contourAnimNeedLayer'),
-                }, t(contourTrailOn ? 'contourTrailOff' : 'contourTrailOn'))
-              ]),
-              row('contour-renderer', false, [
-                R.createElement('span', { style: labelStyle }, t('contourRendererRow'),
-                  R.createElement('span', { style: hintStyle }, t('contourRendererHint'))),
-                R.createElement('select', { 'aria-label': t('contourRendererRow'), value: contourRenderer,
-                  onChange: (event) => setContourRendererValue(event.target.value),
-                  style: { color: 'var(--dsw-alias-label-primary)', background: 'var(--dsw-alias-bg-layer-1)',
-                    border: '1px solid var(--dsw-alias-border-l2)', padding: '6px 10px' } },
-                  R.createElement('option', { value: 'canvas' }, t('contourRendererCanvas')),
-                  R.createElement('option', { value: 'worker-webgl' }, t('contourRendererWorker')))
-              ]),
-              row('contour-fps', false, [
-                R.createElement('span', { style: labelStyle },
-                  t('contourFpsRow') + t('sep') + contourFps + t('contourFpsUnit'),
-                  R.createElement('span', { style: hintStyle }, t('contourFpsHint'))
-                ),
-                R.createElement('span', { style: { display: 'flex', gap: '4px', flex: '0 0 auto' } },
-                  ...CONTOUR_FPS_OPTIONS.map((fps) => R.createElement('button', {
-                    key: 'fps-' + fps,
-                    type: 'button',
-                    onClick: () => setContourFpsValue(fps),
-                    style: btnStyleFor(contourFps === fps, !contourOn),
-                    disabled: !contourOn,
-                    title: contourOn ? '' : t('contourAnimNeedLayer'),
-                  }, String(fps)))
-                )
-              ]),
-              row('contour-speed', false, [
-                R.createElement('span', { style: labelStyle },
-                  t('contourSpeedRow') + t('sep') + t(contourSpeed === 1 ? 'contourSpeedSlow' : contourSpeed === 4 ? 'contourSpeedFast' : 'contourSpeedNormal'),
-                  R.createElement('span', { style: hintStyle }, t('contourSpeedHint'))
-                ),
-                R.createElement('span', { style: { display: 'flex', gap: '4px', flex: '0 0 auto' } },
-                  ...CONTOUR_SPEED_OPTIONS.map((speed) => R.createElement('button', {
-                    key: 'speed-' + speed,
-                    type: 'button',
-                    onClick: () => setContourSpeedValue(speed),
-                    style: btnStyleFor(contourSpeed === speed, !contourOn),
-                    disabled: !contourOn,
-                    title: contourOn ? '' : t('contourAnimNeedLayer'),
-                  }, t(speed === 1 ? 'contourSpeedSlow' : speed === 4 ? 'contourSpeedFast' : 'contourSpeedNormal')))
-                )
-              ]),
-              row('contour-scroll-pause', true, [
-                R.createElement('span', { style: labelStyle },
-                  t('contourScrollPauseRow') + t('sep') + stateOf(contourScrollPause),
-                  R.createElement('span', { style: hintStyle },
-                    t(contourScrollPause ? 'contourScrollPauseHintOn' : 'contourScrollPauseHintOff')
-                  )
-                ),
-                R.createElement('button', {
-                  type: 'button',
-                  onClick: toggleContourScrollPause,
-                  style: btnStyleFor(contourScrollPause, !contourOn),
-                  disabled: !contourOn,
-                  title: contourOn ? '' : t('contourAnimNeedLayer'),
-                }, t(contourScrollPause ? 'contourScrollPauseOff' : 'contourScrollPauseOn'))
-              ]),
               row('watermark', false, [
                 R.createElement('span', { style: labelStyle }, t('watermarkRow') + t('sep') + stateOf(wmOn)),
                 R.createElement('button', { type: 'button', onClick: toggleWm, style: btnStyleFor(wmOn) }, t(wmOn ? 'watermarkOff' : 'watermarkOn'))
@@ -12821,26 +10840,12 @@ body.theme-arknights-themed [data-endfield-thunder-word] {
          or already ran ({ once }), so both branches are safe. */
       if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
         document.removeEventListener('DOMContentLoaded', watermarkObserverLate)
-        document.removeEventListener('DOMContentLoaded', contourSchemeObserverLate)
       }
       if (watermarkRaf !== null && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(watermarkRaf)
       if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') window.removeEventListener('resize', onWatermarkResize)
       if (watermarkEl && watermarkEl.parentNode) watermarkEl.parentNode.removeChild(watermarkEl)
-      if (contourScrollTimer !== null && typeof clearTimeout === 'function') clearTimeout(contourScrollTimer)
-      contourScrollTimer = null
-      contourScrollPaused = false
-      // Both scroll listeners went on in capture mode, so both have to come off the
-      // same way — dropping only 'scroll' leaks a scrollend listener per plugin run.
-      if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
-        window.removeEventListener('scroll', onContourScrollEvent, true)
-        window.removeEventListener('scrollend', onContourScrollEndEvent, true)
-      }
       // The plate owns a rAF handle and a fixed DOM node; both must go with the run.
       destroyLoader()
-      // The contour layer owns a rAF handle, a ResizeObserver, a MutationObserver
-      // and two canvases — every one of them has to go with the run.
-      contourTeardown()
-      if (contourSchemeObserver) contourSchemeObserver.disconnect()
       /* The announcement feature owns two store subscriptions, a retry timeout and
          a hide timeout, all of which outlive the DOM node — unmount() covers the
          switched-off path, but a fiber unload while the theme is ON must release

@@ -115,13 +115,6 @@ const FIELD_DEFAULTS = {
   factionBar: '1',          // 悬浮阵营条（右上角快速切换）—— default on
   glass: 'off',             // optional local frost; original material by default
   radius: 'square',         // 主题圆角 —— 直角
-  contour: '0',             // 等高线背景 —— default off
-  contourAnim: '1',         // 动态等高线 —— default on
-  contourFps: '24',         // 动态帧率 —— 24 FPS
-  contourSpeed: '2',        // 动态速度 —— 标准 2x
-  contourRenderer: 'canvas', // opt-in Worker/WebGL; original backend by default
-  contourTrail: '0',        // optional mouse deformation, default off
-  contourScrollPause: '1',  // 滚动暂停 —— default on
   // 输出滚动动画 —— default ON. It leaves the app's own scroll bookkeeping
   // untouched (the scrollTop read-back stays exact, so stream following survives)
   // and only compensates the transcript column visually, so an install that

@@ -1,13 +1,14 @@
 /**
  * dsh-theme-arknights — Edge Intelligence Theme (browser client bundle)
- * 还原自《明日方舟：终末地》（Arknights: Endfield）官网的「工业编辑风」。
- * 参考：https://endfield.hypergryph.com
+ * 《明日方舟》三阵营终端风主题：罗德岛 / 拉特兰 / 莱茵生命。
+ * 底色的工业编辑风最早还原自《明日方舟：终末地》官网
+ * （https://endfield.hypergryph.com）；视觉层、阵营系统与终端层已在本项目重写。
  *
  * Client 半部：
- *   1) theme.overrideTokens —— 覆盖主题令牌（亮/暗双色），映射终末地官网色板；
+ *   1) theme.overrideTokens —— 覆盖主题令牌（亮/暗双色），跟随当前阵营的调色板；
  *   2) insertCss —— 注入字体栈、强调色、直角化、去蓝、hover 反色等全局样式。
  *      （动态插件环境走 styles.insert；安装为独立 bundle 时直接注入 <style> 到 head。）
- *   3) 设置页「终末地主题设置」—— 设置项按四组分类（主题 / 背景 / 动画 / 娱乐），
+ *   3) 设置页「明日方舟阵营主题」—— 设置项按五组分类（主题 / 背景 / 动画 / 娱乐 / 音频），
  *      默认值 / 语义标记通过 DSH 的设置命名空间随 profile 落盘。DSH 0.1.7-rc.1 起
  *      走 client `ctx.configForms`（host index.js 导出的 volatile `Config`，命名空间
  *      = profile entry id `theme-arknights`）；旧版 DSH 回落到 `ctx.settingsScope`
@@ -47,7 +48,7 @@ window.__ModuleLoader__.load({
    through and re-install. The marker also rides in the sheet as a comment, so
    which build is mounted can be read straight out of devtools. Bump it whenever
    the stylesheet changes. */
-const SHEET_MARKER = 'endfield-build/2026-10-25-terminal-deployment'
+const SHEET_MARKER = 'ak-build/2026-10-25-terminal-deployment'
 
 function insertCss(css) {
   // Dynamic Cordis runner provides the `styles` global; standalone bundle does not.

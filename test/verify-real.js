@@ -138,13 +138,11 @@ async function main() {
         themed: body.classList.contains('theme-arknights-themed'),
         advanced: body.classList.contains('theme-arknights-advanced'),
         /* 那些**默认关闭**的可选功能的运行时痕迹。它们只有被用户打开时才存在，
-           所以这里报数即可，不做断言——但等高线尤其重要：它的描边改成了读
-           --edge-accent 的实时值，一旦读不到就画不出任何东西。 */
-        contourCanvas: document.querySelectorAll('[data-endfield-contour] canvas').length,
-        loaderPlate: document.querySelectorAll('[data-endfield-loader]').length,
-        thunderPlate: document.querySelectorAll('[data-endfield-thunder]').length,
-        balanceCapsule: document.querySelectorAll('[data-endfield-balance]').length,
-        watermark: document.querySelectorAll('[data-endfield-watermark]').length,
+           所以这里报数即可，不做断言。 */
+        loaderPlate: document.querySelectorAll('[data-ak-loader]').length,
+        thunderPlate: document.querySelectorAll('[data-ak-thunder]').length,
+        balanceCapsule: document.querySelectorAll('[data-ak-balance]').length,
+        watermark: document.querySelectorAll('[data-ak-watermark]').length,
       };
     })()
   `)
@@ -161,7 +159,7 @@ async function main() {
   console.log('  body 背景    : ' + report.bodyBg)
   console.log('  令牌层值     : ' + report.tokenAttr)
   console.log('  themed/advanced: ' + report.themed + ' / ' + report.advanced)
-  console.log('  可选功能节点: contour=' + report.contourCanvas + ' loader=' + report.loaderPlate
+  console.log('  可选功能节点: loader=' + report.loaderPlate
     + ' thunder=' + report.thunderPlate + ' capsule=' + report.balanceCapsule + ' watermark=' + report.watermark)
 
   if (consoleErrors.length > 0) {

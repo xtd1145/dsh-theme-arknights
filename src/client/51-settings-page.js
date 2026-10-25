@@ -22,7 +22,7 @@
            "settings page crashes", so the key is spread in only when present. */
         Object.assign(
           { name: 'settings.section', id: 'theme-arknights', order: 35, label: () => t('nav') },
-          localeReady ? { locale: ENDFIELD_NS } : {}
+          localeReady ? { locale: ARK_NS } : {}
         ),
         () => {
           const R = (typeof React !== 'undefined') ? React : ((typeof require === 'function') ? require('react') : null)
@@ -31,13 +31,6 @@
           const [wmOn, setWmOn] = R.useState(isWatermarkOn())
           const [wmPersist, setWmPersist] = R.useState(isWatermarkPersistOn())
           const [loaderOn, setLoaderOn] = R.useState(isLoaderOn())
-          const [contourOn, setContourOn] = R.useState(isContourOn())
-          const [contourAnim, setContourAnim] = R.useState(isContourAnimOn())
-          const [contourTrailOn, setContourTrailOn] = R.useState(isContourTrailOn())
-          const [contourRenderer, setContourRenderer] = R.useState(readContourRenderer())
-          const [contourFps, setContourFps] = R.useState(readContourFps())
-          const [contourSpeed, setContourSpeed] = R.useState(readContourSpeed())
-          const [contourScrollPause, setContourScrollPause] = R.useState(isContourScrollPauseOn())
           const [scrollAnim, setScrollAnim] = R.useState(isScrollAnimOn())
           const [scrollAnimLevel, setScrollAnimLevel] = R.useState(readScrollAnimLevel())
           const [thunderOn, setThunderOn] = R.useState(isThunderOn())
@@ -106,13 +99,6 @@
               setWmOn(isWatermarkOn())
               setWmPersist(isWatermarkPersistOn())
               setLoaderOn(isLoaderOn())
-              setContourOn(isContourOn())
-              setContourAnim(isContourAnimOn())
-              setContourTrailOn(isContourTrailOn())
-              setContourRenderer(readContourRenderer())
-              setContourFps(readContourFps())
-              setContourSpeed(readContourSpeed())
-              setContourScrollPause(isContourScrollPauseOn())
               setScrollAnim(isScrollAnimOn())
               setScrollAnimLevel(readScrollAnimLevel())
               setThunderOn(isThunderOn())
@@ -203,12 +189,6 @@
             setGlass(value)
             syncGlass()
           }
-          const setContourRendererValue = (value) => {
-            if (value !== 'canvas' && value !== 'worker-webgl') return
-            prefsSet(CONTOUR_RENDERER_KEY, value)
-            setContourRenderer(value)
-            syncContour()
-          }
           /* ---------- toggles ----------
              EVERY handler below derives its `next` value from the STORE
              (prefsGet / the is* / read* readers), never from the React state
@@ -232,7 +212,7 @@
             const next = !isEnabled()
             prefsSet(ENABLED_KEY, next ? '1' : '0')
             setEnabled(next)
-            if (next) { mount(); syncWatermarkVisibility(); syncContour() }
+            if (next) { mount(); syncWatermarkVisibility() }
             else { unmount(); syncWatermarkVisibility() }
             /* The announcement watcher is gated on the master switch too, so it has
                to be reconciled here. unmount() already stops it, but turning the
@@ -240,21 +220,13 @@
                until the next page load. */
             syncThunder()
           }
-          const toggleContour = () => {
-            const next = !isContourOn()
-            prefsSet(CONTOUR_KEY, next ? '1' : '0')
-            setContourOn(next)
-            syncContour()
-          }
-          /* 阵营切换。视觉部分全部由 syncFactionClass() 的 class 翻转承担；唯一
-             需要显式处理的是等高线画布（canvas 描边读不到 CSS 变量）。重绘直接
-             调用而不是留给 MutationObserver，这样等高线与界面在同一帧变化。
+          /* 阵营切换。视觉部分全部由 syncFactionClass() 的 class 翻转承担：
+             氛围层与令牌都读 CSS 变量，所以不需要任何显式重绘。
              走 setFaction() 而不是自己写 prefsSet：那个函数是三个入口（设置页 /
              悬浮阵营条 / 快捷键）共用的唯一路径，它还会刷新悬浮条的徽标。 */
           const chooseFaction = (id) => {
             setFaction(id)
             setFactionState(readFaction())
-            if (contourWrap !== null) contourRefresh(false)
           }
           /* 界面版本切换。universal 与 advanced 共用同一套令牌与配色，只有是否
              重排布局的区别，所以这里也是一个 class 的加减。 */
@@ -266,48 +238,6 @@
             /* 终端层只属于进阶版：切到通用版要立刻收回注入节点，切回进阶版
                则重新扫描。 */
             syncTerminalUI()
-            if (contourWrap !== null) contourRefresh(false)
-          }
-          const toggleContourTrail = () => {
-            const next = !isContourTrailOn()
-            prefsSet(CONTOUR_TRAIL_KEY, next ? '1' : '0')
-            setContourTrailOn(next)
-            syncContour()
-          }
-          const toggleContourAnim = () => {
-            const next = !isContourAnimOn()
-            prefsSet(CONTOUR_ANIM_KEY, next ? '1' : '0')
-            setContourAnim(next)
-            if (!next) {
-              contourScrollPaused = false
-              if (contourScrollTimer !== null && typeof clearTimeout === 'function') clearTimeout(contourScrollTimer)
-              contourScrollTimer = null
-            }
-            syncContour()
-          }
-          const setContourFpsValue = (value) => {
-            const next = Number(value)
-            if (!CONTOUR_FPS_OPTIONS.includes(next)) return
-            prefsSet(CONTOUR_FPS_KEY, String(next))
-            setContourFps(next)
-          }
-          const setContourSpeedValue = (value) => {
-            const next = Number(value)
-            if (!CONTOUR_SPEED_OPTIONS.includes(next)) return
-            prefsSet(CONTOUR_SPEED_KEY, String(next))
-            setContourSpeed(next)
-          }
-          const toggleContourScrollPause = () => {
-            const next = !isContourScrollPauseOn()
-            prefsSet(CONTOUR_SCROLL_PAUSE_KEY, next ? '1' : '0')
-            setContourScrollPause(next)
-            if (!next) {
-              contourScrollPaused = false
-              if (contourScrollTimer !== null && typeof clearTimeout === 'function') clearTimeout(contourScrollTimer)
-              contourScrollTimer = null
-              contourSwitchSig = ''
-              contourApplySwitches()
-            }
           }
           /* 输出滚动动画. syncScrollAnim() reads the pref store, so the write above is
              what it acts on: turning it off must RELEASE the offset immediately (a
@@ -558,9 +488,9 @@
             return rows.join('　·　')
           }
           const pageStyle = { maxWidth: '640px', padding: '4px 0 16px' }
-          /* The ten switches are grouped into four concerns so the page can be
+          /* The switches are grouped into four concerns so the page can be
              scanned instead of read as a flat list: 主题 (master switch +
-             appearance), 背景 (contour sheet + watermark), 动画 (boot loader),
+             appearance), 背景 (watermark), 动画 (boot loader),
              娱乐 (雷霆大字 announcements + their entry animation).
              Each group is an editorial numbered header; rows keep their stable
              React keys. The last row of each group drops its divider so the next
@@ -582,7 +512,7 @@
             }
             return R.createElement('div', {
               key: 'group-title-' + no,
-              className: 'endfield-settings-group-title',
+              className: 'ak-settings-group-title',
               style: {
                 display: 'flex', alignItems: 'center', gap: '8px',
                 marginTop: first ? '0' : '26px', paddingBottom: '8px',
@@ -593,7 +523,7 @@
           /** "<row label>: <on|off>" — one spelling for every status row. */
           const stateOf = (on) => t(on ? 'on' : 'off')
           const row = (key, last, children) => R.createElement('div', { key, style: last ? { ...rowStyle, borderBottom: 'none' } : rowStyle }, children)
-          return R.createElement('div', { className: 'endfield-settings', style: pageStyle }, [
+          return R.createElement('div', { className: 'ak-settings', style: pageStyle }, [
             /* --- 01 主题：总开关在最前，随后是配色与圆角 --- */
             R.createElement('div', { key: 'group-theme' }, [
               groupTitle('01', 'groupTheme', true),
@@ -606,17 +536,13 @@
                   t('factionRow') + t('sep') + t('faction_name_' + faction),
                   R.createElement('span', { style: hintStyle }, t('factionHint'))
                 ),
-                /* 三个阵营各一枚徽标按钮：底色是该阵营**自己**的强调色，所以选之前
-                   就能看到结果，而不只是读到一个名字。颜色按明暗直接写两档（没有走
-                   CSS 变量，因为这里要显示的是「另一个」阵营的颜色，不是当前生效的
-                   那一套）。 */
+                /* 三个阵营各一枚徽标按钮：形状是各自的几何记号（.ak-crest 走
+                   currentColor），选中那一枚连形状一起反白。这里不铺阵营色——
+                   颜色只有样式表一份真相，选中后的整页配色就是它，JS 里再抄一份
+                   色值迟早和它对不上。 */
                 R.createElement('span', { style: { display: 'flex', gap: '6px', flex: '0 0 auto', alignItems: 'center' } },
                   FACTION_META.map((meta) => {
                     const active = faction === meta.id
-                    const dark = typeof document !== 'undefined'
-                      && document.body !== null
-                      && document.body.hasAttribute('data-ds-dark-theme')
-                    const chip = dark ? meta.accent.dark : meta.accent.light
                     return R.createElement('button', {
                       key: meta.id,
                       type: 'button',
@@ -641,13 +567,10 @@
                       },
                     }, [
                       R.createElement('span', {
-                        key: 'sw',
+                        key: 'cr',
                         'aria-hidden': 'true',
-                        style: {
-                          width: '9px', height: '9px', flex: '0 0 auto',
-                          borderRadius: mode === 'round' ? '999px' : '0',
-                          background: chip,
-                        },
+                        className: 'ak-crest',
+                        'data-ak-crest': meta.id,
                       }),
                       R.createElement('span', { key: 'tx' }, meta.badge),
                     ])
@@ -683,107 +606,9 @@
                 R.createElement('button', { type: 'button', onClick: toggleMode, style: btnStyleFor(mode === 'round') }, t(mode === 'round' ? 'radiusToSquare' : 'radiusToRound'))
               ]),
             ]),
-            /* --- 02 背景：等高线 + 水印，各自的主开关在前、附属开关在后 --- */
+            /* --- 02 背景：水印，主开关在前、附属开关在后 --- */
             R.createElement('div', { key: 'group-bg' }, [
               groupTitle('02', 'groupBg', false),
-              row('contour', false, [
-                R.createElement('span', { style: labelStyle },
-                  t('contourRow') + t('sep') + stateOf(contourOn),
-                  R.createElement('span', { style: hintStyle },
-                    // The sheet follows the palette, so the hint must not name one colour.
-                    t(contourOn ? 'contourHintOn' : 'contourHintOff')
-                  )
-                ),
-                R.createElement('button', { type: 'button', onClick: toggleContour, style: btnStyleFor(contourOn) }, t(contourOn ? 'contourOff' : 'contourOn'))
-              ]),
-              row('contour-anim', false, [
-                R.createElement('span', { style: labelStyle },
-                  t('contourAnimRow') + t('sep') + stateOf(contourAnim),
-                  R.createElement('span', { style: hintStyle },
-                    // Say so when the OS preference is overriding the switch, rather
-                    // than letting it look like the toggle is broken.
-                    (contourAnim && prefersReducedMotion())
-                      ? t('contourAnimHintReduced')
-                      : t(contourAnim ? 'contourAnimHintOn' : 'contourAnimHintOff')
-                  )
-                ),
-                R.createElement('button', {
-                  type: 'button',
-                  onClick: toggleContourAnim,
-                  style: btnStyleFor(contourAnim, !contourOn),
-                  // Only meaningful while the layer itself is on.
-                  disabled: !contourOn,
-                  title: contourOn ? '' : t('contourAnimNeedLayer'),
-                }, t(contourAnim ? 'contourAnimOff' : 'contourAnimOn'))
-              ]),
-              row('contour-trail', false, [
-                R.createElement('span', { style: labelStyle },
-                  t('contourTrailRow') + t('sep') + stateOf(contourTrailOn),
-                  R.createElement('span', { style: hintStyle }, t('contourTrailHint'))
-                ),
-                R.createElement('button', {
-                  type: 'button', onClick: toggleContourTrail,
-                  style: btnStyleFor(contourTrailOn, !contourOn), disabled: !contourOn,
-                  title: contourOn ? '' : t('contourAnimNeedLayer'),
-                }, t(contourTrailOn ? 'contourTrailOff' : 'contourTrailOn'))
-              ]),
-              row('contour-renderer', false, [
-                R.createElement('span', { style: labelStyle }, t('contourRendererRow'),
-                  R.createElement('span', { style: hintStyle }, t('contourRendererHint'))),
-                R.createElement('select', { 'aria-label': t('contourRendererRow'), value: contourRenderer,
-                  onChange: (event) => setContourRendererValue(event.target.value),
-                  style: { color: 'var(--dsw-alias-label-primary)', background: 'var(--dsw-alias-bg-layer-1)',
-                    border: '1px solid var(--dsw-alias-border-l2)', padding: '6px 10px' } },
-                  R.createElement('option', { value: 'canvas' }, t('contourRendererCanvas')),
-                  R.createElement('option', { value: 'worker-webgl' }, t('contourRendererWorker')))
-              ]),
-              row('contour-fps', false, [
-                R.createElement('span', { style: labelStyle },
-                  t('contourFpsRow') + t('sep') + contourFps + t('contourFpsUnit'),
-                  R.createElement('span', { style: hintStyle }, t('contourFpsHint'))
-                ),
-                R.createElement('span', { style: { display: 'flex', gap: '4px', flex: '0 0 auto' } },
-                  ...CONTOUR_FPS_OPTIONS.map((fps) => R.createElement('button', {
-                    key: 'fps-' + fps,
-                    type: 'button',
-                    onClick: () => setContourFpsValue(fps),
-                    style: btnStyleFor(contourFps === fps, !contourOn),
-                    disabled: !contourOn,
-                    title: contourOn ? '' : t('contourAnimNeedLayer'),
-                  }, String(fps)))
-                )
-              ]),
-              row('contour-speed', false, [
-                R.createElement('span', { style: labelStyle },
-                  t('contourSpeedRow') + t('sep') + t(contourSpeed === 1 ? 'contourSpeedSlow' : contourSpeed === 4 ? 'contourSpeedFast' : 'contourSpeedNormal'),
-                  R.createElement('span', { style: hintStyle }, t('contourSpeedHint'))
-                ),
-                R.createElement('span', { style: { display: 'flex', gap: '4px', flex: '0 0 auto' } },
-                  ...CONTOUR_SPEED_OPTIONS.map((speed) => R.createElement('button', {
-                    key: 'speed-' + speed,
-                    type: 'button',
-                    onClick: () => setContourSpeedValue(speed),
-                    style: btnStyleFor(contourSpeed === speed, !contourOn),
-                    disabled: !contourOn,
-                    title: contourOn ? '' : t('contourAnimNeedLayer'),
-                  }, t(speed === 1 ? 'contourSpeedSlow' : speed === 4 ? 'contourSpeedFast' : 'contourSpeedNormal')))
-                )
-              ]),
-              row('contour-scroll-pause', true, [
-                R.createElement('span', { style: labelStyle },
-                  t('contourScrollPauseRow') + t('sep') + stateOf(contourScrollPause),
-                  R.createElement('span', { style: hintStyle },
-                    t(contourScrollPause ? 'contourScrollPauseHintOn' : 'contourScrollPauseHintOff')
-                  )
-                ),
-                R.createElement('button', {
-                  type: 'button',
-                  onClick: toggleContourScrollPause,
-                  style: btnStyleFor(contourScrollPause, !contourOn),
-                  disabled: !contourOn,
-                  title: contourOn ? '' : t('contourAnimNeedLayer'),
-                }, t(contourScrollPause ? 'contourScrollPauseOff' : 'contourScrollPauseOn'))
-              ]),
               row('watermark', false, [
                 R.createElement('span', { style: labelStyle }, t('watermarkRow') + t('sep') + stateOf(wmOn)),
                 R.createElement('button', { type: 'button', onClick: toggleWm, style: btnStyleFor(wmOn) }, t(wmOn ? 'watermarkOff' : 'watermarkOn'))
@@ -1191,26 +1016,12 @@
          or already ran ({ once }), so both branches are safe. */
       if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
         document.removeEventListener('DOMContentLoaded', watermarkObserverLate)
-        document.removeEventListener('DOMContentLoaded', contourSchemeObserverLate)
       }
       if (watermarkRaf !== null && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(watermarkRaf)
       if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') window.removeEventListener('resize', onWatermarkResize)
       if (watermarkEl && watermarkEl.parentNode) watermarkEl.parentNode.removeChild(watermarkEl)
-      if (contourScrollTimer !== null && typeof clearTimeout === 'function') clearTimeout(contourScrollTimer)
-      contourScrollTimer = null
-      contourScrollPaused = false
-      // Both scroll listeners went on in capture mode, so both have to come off the
-      // same way — dropping only 'scroll' leaks a scrollend listener per plugin run.
-      if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
-        window.removeEventListener('scroll', onContourScrollEvent, true)
-        window.removeEventListener('scrollend', onContourScrollEndEvent, true)
-      }
       // The plate owns a rAF handle and a fixed DOM node; both must go with the run.
       destroyLoader()
-      // The contour layer owns a rAF handle, a ResizeObserver, a MutationObserver
-      // and two canvases — every one of them has to go with the run.
-      contourTeardown()
-      if (contourSchemeObserver) contourSchemeObserver.disconnect()
       /* The announcement feature owns two store subscriptions, a retry timeout and
          a hide timeout, all of which outlive the DOM node — unmount() covers the
          switched-off path, but a fiber unload while the theme is ON must release

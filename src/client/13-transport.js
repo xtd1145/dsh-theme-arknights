@@ -142,9 +142,9 @@
     const prefsGetValue = () => {
       const base = prefsFieldValue || PREFS_FIELD_DEFAULTS
       if (prefsLocalEdited.size === 0) return base
-      /* Hot path: the contour loop and the watermark observer read prefs many
-         times per frame. Rebuilding this overlay per read allocated a fresh
-         ~24-key object every time; caching it against the base-section
+      /* Hot path: the watermark observer and the output-scroll animator read
+         prefs many times per frame. Rebuilding this overlay per read allocated a
+         fresh object with every field each time; caching it against the base-section
          REFERENCE keeps those reads allocation-free. prefsSet invalidates on
          every edit (the only place prefsLocalEdited grows), and a new section
          from the host arrives as a different `base` reference, so a stale pair

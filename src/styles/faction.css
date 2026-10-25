@@ -462,14 +462,14 @@ body.theme-arknights-advanced:not([data-ds-dark-theme]) {
  *
  * 每一套阵营一张 SVG 遮罩：遮罩只给形状，颜色统一来自 --edge-accent，所以
  * 换阵营 / 明暗无需另画图。画在 frame 的固定伪元素上，低于菜单与弹窗的
- * z-index，不抢点击；等高线开启时整层让位（:not(:has(...))）。
+ * z-index，不抢点击。
  * ========================================================================== */
 
 body.theme-arknights-advanced [class*='_frame'] {
   position: relative;
 }
 
-body.theme-arknights-advanced [class*='_frame']:not(:has(> [data-endfield-contour]))::before {
+body.theme-arknights-advanced [class*='_frame']::before {
   content: '';
   position: fixed;
   inset: 0;
@@ -490,14 +490,14 @@ body.theme-arknights-advanced [class*='_frame']:not(:has(> [data-endfield-contou
 }
 
 /* 拉特兰：浅蓝图纸 + 同心圆 + 电光蓝斜切碎片 + 坐标刻度 */
-body.theme-arknights-advanced.theme-arknights-laterano [class*='_frame']:not(:has(> [data-endfield-contour]))::before {
+body.theme-arknights-advanced.theme-arknights-laterano [class*='_frame']::before {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1800' height='1100'%3E%3Cdefs%3E%3Cpattern id='g' width='36' height='36' patternUnits='userSpaceOnUse'%3E%3Cpath d='M36 0H0V36' fill='none' stroke='%23fff' stroke-width='.4' stroke-opacity='.2'/%3E%3C/pattern%3E%3Cpattern id='m' width='180' height='180' patternUnits='userSpaceOnUse'%3E%3Cpath d='M180 0H0V180' fill='none' stroke='%23fff' stroke-width='.6' stroke-opacity='.24'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='1800' height='1100' fill='url(%23g)'/%3E%3Crect width='1800' height='1100' fill='url(%23m)'/%3E%3Cg fill='none' stroke='%23fff'%3E%3Cg stroke-opacity='.36'%3E%3Ccircle cx='330' cy='300' r='90'/%3E%3Ccircle cx='330' cy='300' r='150'/%3E%3Ccircle cx='330' cy='300' r='230'/%3E%3Ccircle cx='330' cy='300' r='300' stroke-opacity='.12'/%3E%3Cpath d='M330 -40V640M-60 300H720' stroke-opacity='.14'/%3E%3C/g%3E%3Cg stroke-opacity='.5'%3E%3Cpath d='M330 50V68M330 532V550M80 300H98M562 300H580'/%3E%3Cpath d='M180 150 L210 180M480 150 L450 180M180 450 L210 420M480 450 L450 420' stroke-opacity='.35'/%3E%3C/g%3E%3Cg stroke-opacity='.3'%3E%3Cpath d='M-120 900 L620 -40M180 1140 L920 100'/%3E%3Cpath d='M220 980 A 90 90 0 0 1 400 980'/%3E%3Cpath d='M240 980 A 130 130 0 0 1 420 980'/%3E%3C/g%3E%3C/g%3E%3Cg fill='%23fff' stroke='none'%3E%3Cpolygon points='1440,0 1800,0 1800,560 1620,360' fill-opacity='.09'/%3E%3Cpolygon points='1800,620 1800,1100 1380,1100 1660,760' fill-opacity='.07'/%3E%3Cpolygon points='1210,0 1420,0 1800,700 1700,700' fill-opacity='.04'/%3E%3Ccircle cx='330' cy='70' r='2.4'/%3E%3Ccircle cx='580' cy='300' r='2'/%3E%3Ccircle cx='330' cy='550' r='1.8'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.28'%3E%3Cpath d='M1540 70H1720M1540 60V80M1720 60V80'/%3E%3Cpath d='M1500 900H1690M1500 890V910M1690 890V910'/%3E%3C/g%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1800' height='1100'%3E%3Cdefs%3E%3Cpattern id='g' width='36' height='36' patternUnits='userSpaceOnUse'%3E%3Cpath d='M36 0H0V36' fill='none' stroke='%23fff' stroke-width='.4' stroke-opacity='.2'/%3E%3C/pattern%3E%3Cpattern id='m' width='180' height='180' patternUnits='userSpaceOnUse'%3E%3Cpath d='M180 0H0V180' fill='none' stroke='%23fff' stroke-width='.6' stroke-opacity='.24'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='1800' height='1100' fill='url(%23g)'/%3E%3Crect width='1800' height='1100' fill='url(%23m)'/%3E%3Cg fill='none' stroke='%23fff'%3E%3Cg stroke-opacity='.36'%3E%3Ccircle cx='330' cy='300' r='90'/%3E%3Ccircle cx='330' cy='300' r='150'/%3E%3Ccircle cx='330' cy='300' r='230'/%3E%3Ccircle cx='330' cy='300' r='300' stroke-opacity='.12'/%3E%3Cpath d='M330 -40V640M-60 300H720' stroke-opacity='.14'/%3E%3C/g%3E%3Cg stroke-opacity='.5'%3E%3Cpath d='M330 50V68M330 532V550M80 300H98M562 300H580'/%3E%3Cpath d='M180 150 L210 180M480 150 L450 180M180 450 L210 420M480 450 L450 420' stroke-opacity='.35'/%3E%3C/g%3E%3Cg stroke-opacity='.3'%3E%3Cpath d='M-120 900 L620 -40M180 1140 L920 100'/%3E%3Cpath d='M220 980 A 90 90 0 0 1 400 980'/%3E%3Cpath d='M240 980 A 130 130 0 0 1 420 980'/%3E%3C/g%3E%3C/g%3E%3Cg fill='%23fff' stroke='none'%3E%3Cpolygon points='1440,0 1800,0 1800,560 1620,360' fill-opacity='.09'/%3E%3Cpolygon points='1800,620 1800,1100 1380,1100 1660,760' fill-opacity='.07'/%3E%3Cpolygon points='1210,0 1420,0 1800,700 1700,700' fill-opacity='.04'/%3E%3Ccircle cx='330' cy='70' r='2.4'/%3E%3Ccircle cx='580' cy='300' r='2'/%3E%3Ccircle cx='330' cy='550' r='1.8'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.28'%3E%3Cpath d='M1540 70H1720M1540 60V80M1720 60V80'/%3E%3Cpath d='M1500 900H1690M1500 890V910M1690 890V910'/%3E%3C/g%3E%3C/svg%3E");
   opacity: 0.42;
 }
 
 /* 莱茵生命：单色 ∞ 结构 + 贯穿全页的 X 对角线 + 十字准星 + 极细分度 */
-body.theme-arknights-advanced.theme-arknights-rhine [class*='_frame']:not(:has(> [data-endfield-contour]))::before {
+body.theme-arknights-advanced.theme-arknights-rhine [class*='_frame']::before {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1800' height='1100'%3E%3Cdefs%3E%3Cpattern id='g' width='72' height='72' patternUnits='userSpaceOnUse'%3E%3Cpath d='M72 0H0V72' fill='none' stroke='%23fff' stroke-width='.5' stroke-opacity='.2'/%3E%3C/pattern%3E%3Cpattern id='m' width='360' height='360' patternUnits='userSpaceOnUse'%3E%3Cpath d='M360 0H0V360' fill='none' stroke='%23fff' stroke-width='.7' stroke-opacity='.24'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='1800' height='1100' fill='url(%23g)'/%3E%3Crect width='1800' height='1100' fill='url(%23m)'/%3E%3Cg fill='none' stroke='%23fff'%3E%3Cpath d='M0 0 L1800 1100M1800 0 L0 1100' stroke-opacity='.28'/%3E%3Cg stroke-opacity='.34'%3E%3Cellipse cx='1130' cy='420' rx='300' ry='165' transform='rotate(24 1130 420)'/%3E%3Cellipse cx='1130' cy='420' rx='300' ry='165' transform='rotate(-24 1130 420)'/%3E%3C/g%3E%3Cg stroke-opacity='.4'%3E%3Cpath d='M1130 300V330M1130 510V540M1010 420H1040M1220 420H1250'/%3E%3Ccircle cx='1130' cy='420' r='18' stroke-opacity='.3'/%3E%3Cpath d='M330 760H380M355 735V785'/%3E%3Ccircle cx='355' cy='760' r='44' stroke-opacity='.18'/%3E%3C/g%3E%3Cg stroke-opacity='.22'%3E%3Cpath d='M1380 160H1460M1600 840H1660M120 180H210M680 930H740'/%3E%3C/g%3E%3C/g%3E%3Cg fill='%23fff' stroke='none'%3E%3Crect x='1510' y='220' width='128' height='48' fill-opacity='.16'/%3E%3Crect x='1654' y='238' width='12' height='12' fill-opacity='.4'/%3E%3Ccircle cx='1130' cy='420' r='2.6'/%3E%3Ccircle cx='355' cy='760' r='2.2'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.18'%3E%3Cpath d='M40 40H90M40 40V90M1760 1060H1710M1760 1060V1010'/%3E%3C/g%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1800' height='1100'%3E%3Cdefs%3E%3Cpattern id='g' width='72' height='72' patternUnits='userSpaceOnUse'%3E%3Cpath d='M72 0H0V72' fill='none' stroke='%23fff' stroke-width='.5' stroke-opacity='.2'/%3E%3C/pattern%3E%3Cpattern id='m' width='360' height='360' patternUnits='userSpaceOnUse'%3E%3Cpath d='M360 0H0V360' fill='none' stroke='%23fff' stroke-width='.7' stroke-opacity='.24'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='1800' height='1100' fill='url(%23g)'/%3E%3Crect width='1800' height='1100' fill='url(%23m)'/%3E%3Cg fill='none' stroke='%23fff'%3E%3Cpath d='M0 0 L1800 1100M1800 0 L0 1100' stroke-opacity='.28'/%3E%3Cg stroke-opacity='.34'%3E%3Cellipse cx='1130' cy='420' rx='300' ry='165' transform='rotate(24 1130 420)'/%3E%3Cellipse cx='1130' cy='420' rx='300' ry='165' transform='rotate(-24 1130 420)'/%3E%3C/g%3E%3Cg stroke-opacity='.4'%3E%3Cpath d='M1130 300V330M1130 510V540M1010 420H1040M1220 420H1250'/%3E%3Ccircle cx='1130' cy='420' r='18' stroke-opacity='.3'/%3E%3Cpath d='M330 760H380M355 735V785'/%3E%3Ccircle cx='355' cy='760' r='44' stroke-opacity='.18'/%3E%3C/g%3E%3Cg stroke-opacity='.22'%3E%3Cpath d='M1380 160H1460M1600 840H1660M120 180H210M680 930H740'/%3E%3C/g%3E%3C/g%3E%3Cg fill='%23fff' stroke='none'%3E%3Crect x='1510' y='220' width='128' height='48' fill-opacity='.16'/%3E%3Crect x='1654' y='238' width='12' height='12' fill-opacity='.4'/%3E%3Ccircle cx='1130' cy='420' r='2.6'/%3E%3Ccircle cx='355' cy='760' r='2.2'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.18'%3E%3Cpath d='M40 40H90M40 40V90M1760 1060H1710M1760 1060V1010'/%3E%3C/g%3E%3C/svg%3E");
   opacity: 0.34;
@@ -509,7 +509,7 @@ body.theme-arknights-advanced:not([data-ds-dark-theme]) [class*='_frame']::befor
 }
 
 /* ---- 静态气氛：光晕、点阵、纸张颗粒 ------------------------------------ */
-body.theme-arknights-advanced [class*='_frame']:not(:has(> [data-endfield-contour]))::after {
+body.theme-arknights-advanced [class*='_frame']::after {
   content: '';
   position: fixed;
   inset: 0;
@@ -526,7 +526,7 @@ body.theme-arknights-advanced [class*='_frame']:not(:has(> [data-endfield-contou
   opacity: 0.9;
 }
 
-body.theme-arknights-advanced.theme-arknights-laterano [class*='_frame']:not(:has(> [data-endfield-contour]))::after {
+body.theme-arknights-advanced.theme-arknights-laterano [class*='_frame']::after {
   background-image:
     radial-gradient(circle at 86% 20%, rgba(var(--edge-accent-rgb), 0.12), transparent 40%),
     linear-gradient(128deg, transparent 46%, rgba(var(--edge-accent-rgb), 0.055) 46.15%, transparent 46.6%),
@@ -544,7 +544,7 @@ body.theme-arknights-advanced.theme-arknights-rhine[data-ds-dark-theme] {
   --ak-dot: rgba(232, 134, 42, 0.34);
 }
 
-body.theme-arknights-advanced.theme-arknights-rhine [class*='_frame']:not(:has(> [data-endfield-contour]))::after {
+body.theme-arknights-advanced.theme-arknights-rhine [class*='_frame']::after {
   background-image:
     radial-gradient(circle at 78% 24%, rgba(var(--edge-accent-rgb), 0.05), transparent 36%),
     radial-gradient(circle, var(--ak-dot) 1px, transparent 1.4px),
@@ -1605,7 +1605,17 @@ body.theme-arknights-advanced [data-ak-tui='menu-footer'] button:hover {
  * 9. 悬浮阵营条
  * ========================================================================== */
 
+/* 挂在 <body> 末尾的常驻浮层，所以自己定位：右上角、表头条（40px）下方一行，
+   和顶部的额度胶囊（top:6px，可居左/中/右停靠）错开，两者不会互相压字。
+   z-index 与额度胶囊同级（900）：高于页面内容，低于应用自己的弹窗。 */
 .ak-bar {
+  position: fixed;
+  top: 46px;
+  right: 16px;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   border-radius: 0;
   border: 1px solid var(--edge-line-2);
   border-left: 2px solid var(--edge-accent);
@@ -1617,7 +1627,69 @@ body.theme-arknights-advanced [data-ak-tui='menu-footer'] button:hover {
 }
 
 .ak-bar__current {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 12px;
   letter-spacing: 0.12em;
+  color: var(--edge-ink);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+/* 三选一默认收起，只留当前态那一行：常驻浮层不该长期占住右上角。 */
+.ak-bar__list {
+  display: none;
+  flex-direction: column;
+  border-top: 1px solid var(--edge-line);
+}
+
+.ak-bar[data-open='true'] .ak-bar__list {
+  display: flex;
+}
+
+.ak-bar__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-align: left;
+  color: var(--edge-ink-2);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.ak-bar__current:hover,
+.ak-bar__item:hover {
+  color: var(--edge-ink);
+  background: var(--ak-wash);
+}
+
+/* 当前阵营：整行反白。徽标走 currentColor，所以形状跟着一起反白，
+   不依赖颜色也能认出是哪一套（badge 文字同时在）。 */
+.ak-bar__item[aria-pressed='true'] {
+  color: var(--edge-paper);
+  background: var(--edge-accent);
+}
+
+.ak-bar__label {
+  margin-left: 2px;
+}
+
+.ak-bar__caret {
+  margin-left: auto;
+  padding-left: 6px;
+  font-size: 10px;
+  opacity: 0.55;
 }
 
 .ak-bar__badge {
@@ -1625,14 +1697,46 @@ body.theme-arknights-advanced [data-ak-tui='menu-footer'] button:hover {
   font-family: 'Cascadia Mono', 'JetBrains Mono', Consolas, ui-monospace, monospace;
 }
 
-.ak-bar__item {
-  letter-spacing: 0.08em;
+/* ---- 阵营徽标 ----------------------------------------------------------
+   三张内联 SVG 只出形状，颜色走 currentColor，所以选中项反白时徽标跟着一起
+   反白，明暗两套配色也不用各画一份。形状挂在元素自己的 data-ak-crest 上，
+   而不是 body 的阵营 class 上——设置页的三张卡片要同时摆出三枚，主题关掉时
+   它们也还在。图案是按各阵营的界面语言重画的几何记号（罗德岛：罗盘环 + 源石
+   菱形；拉特兰：光环 + 立柱十字 + 两侧光翼；莱茵生命：交叉双轨 + 准星点），
+   不是任何官方标识的描摹。 */
+.ak-crest {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  background-color: currentColor;
+  -webkit-mask-image: var(--ak-crest);
+  mask-image: var(--ak-crest);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
 }
 
-.ak-bar__swatch {
-  border-radius: 0;
-  width: 7px;
-  height: 7px;
+[data-ak-crest='rhodes'] {
+  --ak-crest: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='%23fff' stroke-width='1.6'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 6.5 16 12 12 17.5 8 12Z'/%3E%3Cpath d='M1.5 12h3M19.5 12h3'/%3E%3C/g%3E%3Cpath fill='%23fff' d='M12 9.6 13.7 12 12 14.4 10.3 12Z'/%3E%3C/svg%3E");
+}
+
+[data-ak-crest='laterano'] {
+  --ak-crest: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='%23fff' stroke-width='1.6'%3E%3Ccircle cx='12' cy='8.4' r='4.6'/%3E%3Cpath d='M12 13v8.5M7.5 17.5h9'/%3E%3Cpath d='M2.6 4.4 6 7.2M21.4 4.4 18 7.2'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+[data-ak-crest='rhine'] {
+  --ak-crest: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='%23fff' stroke-width='1.6'%3E%3Cellipse cx='12' cy='12' rx='9.2' ry='4.4' transform='rotate(28 12 12)'/%3E%3Cellipse cx='12' cy='12' rx='9.2' ry='4.4' transform='rotate(-28 12 12)'/%3E%3C/g%3E%3Ccircle cx='12' cy='12' r='1.9' fill='%23fff'/%3E%3C/svg%3E");
+}
+
+/* 下拉里的三枚与设置页阵营行的三枚同为 13px：两处都是 11px 字号的按钮，
+   15px 会把文字挤下去。 */
+.ak-bar__item .ak-crest,
+.ak-settings .ak-crest {
+  width: 13px;
+  height: 13px;
 }
 
 /* ============================================================================
@@ -1642,73 +1746,73 @@ body.theme-arknights-advanced [data-ak-tui='menu-footer'] button:hover {
  * 换品牌只覆盖 content，不改 DOM。
  * ========================================================================== */
 
-body.theme-arknights-themed [data-endfield-watermark]::before {
+body.theme-arknights-themed [data-ak-watermark]::before {
   content: 'RHODES ISLAND';
 }
 
 /* 终端层已经有图纸几何与幽灵扇区号，巨型字标再保持原强度会和它们互相压字。
    这里只压低水印自身的可见度，不动它的位置与尺寸，关掉终端层即恢复。 */
-body.theme-arknights-advanced [data-endfield-watermark] {
+body.theme-arknights-advanced [data-ak-watermark] {
   opacity: 0.36;
   font-family: var(--ak-display);
 }
 
-body.theme-arknights-advanced:not([data-ds-dark-theme]) [data-endfield-watermark] {
+body.theme-arknights-advanced:not([data-ds-dark-theme]) [data-ak-watermark] {
   opacity: 0.42;
 }
 
-body.theme-arknights-themed.theme-arknights-laterano [data-endfield-watermark]::before {
+body.theme-arknights-themed.theme-arknights-laterano [data-ak-watermark]::before {
   content: 'LATERANO';
 }
 
-body.theme-arknights-themed.theme-arknights-rhine [data-endfield-watermark]::before {
+body.theme-arknights-themed.theme-arknights-rhine [data-ak-watermark]::before {
   content: 'RHINE LAB';
 }
 
-body.theme-arknights-themed [data-endfield-loader-word1]::before { content: 'RHODES'; }
-body.theme-arknights-themed [data-endfield-loader-word2]::before { content: 'ISLAND'; }
-body.theme-arknights-themed.theme-arknights-laterano [data-endfield-loader-word1]::before { content: 'LATER'; }
-body.theme-arknights-themed.theme-arknights-laterano [data-endfield-loader-word2]::before { content: 'ANO'; }
-body.theme-arknights-themed.theme-arknights-rhine [data-endfield-loader-word1]::before { content: 'RHINE'; }
-body.theme-arknights-themed.theme-arknights-rhine [data-endfield-loader-word2]::before { content: 'LAB'; }
+body.theme-arknights-themed [data-ak-loader-word1]::before { content: 'RHODES'; }
+body.theme-arknights-themed [data-ak-loader-word2]::before { content: 'ISLAND'; }
+body.theme-arknights-themed.theme-arknights-laterano [data-ak-loader-word1]::before { content: 'LATER'; }
+body.theme-arknights-themed.theme-arknights-laterano [data-ak-loader-word2]::before { content: 'ANO'; }
+body.theme-arknights-themed.theme-arknights-rhine [data-ak-loader-word1]::before { content: 'RHINE'; }
+body.theme-arknights-themed.theme-arknights-rhine [data-ak-loader-word2]::before { content: 'LAB'; }
 
-body.theme-arknights-themed [data-endfield-loader-kicker]::before {
+body.theme-arknights-themed [data-ak-loader-kicker]::before {
   content: 'RHODES ISLAND COMMAND THEME';
 }
 
-body.theme-arknights-themed.theme-arknights-laterano [data-endfield-loader-kicker]::before {
+body.theme-arknights-themed.theme-arknights-laterano [data-ak-loader-kicker]::before {
   content: 'LATERANO HOLY CITY THEME';
 }
 
-body.theme-arknights-themed.theme-arknights-rhine [data-endfield-loader-kicker]::before {
+body.theme-arknights-themed.theme-arknights-rhine [data-ak-loader-kicker]::before {
   content: 'RHINE LAB RESEARCH THEME';
 }
 
-body.theme-arknights-themed [data-endfield-loader-tag]::before {
+body.theme-arknights-themed [data-ak-loader-tag]::before {
   content: 'RHODES ISLAND / BOOT SEQUENCE';
 }
 
-body.theme-arknights-themed.theme-arknights-laterano [data-endfield-loader-tag]::before {
+body.theme-arknights-themed.theme-arknights-laterano [data-ak-loader-tag]::before {
   content: 'LATERANO / BOOT SEQUENCE';
 }
 
-body.theme-arknights-themed.theme-arknights-rhine [data-endfield-loader-tag]::before {
+body.theme-arknights-themed.theme-arknights-rhine [data-ak-loader-tag]::before {
   content: 'RHINE LAB / BOOT SEQUENCE';
 }
 
-body.theme-arknights-themed [data-endfield-loader-sub]::before {
+body.theme-arknights-themed [data-ak-loader-sub]::before {
   content: 'RESIST AND ENDURE / RHODES ISLAND';
 }
 
-body.theme-arknights-themed.theme-arknights-laterano [data-endfield-loader-sub]::before {
+body.theme-arknights-themed.theme-arknights-laterano [data-ak-loader-sub]::before {
   content: 'SUB UMBRA ALARUM / LATERANO';
 }
 
-body.theme-arknights-themed.theme-arknights-rhine [data-endfield-loader-sub]::before {
+body.theme-arknights-themed.theme-arknights-rhine [data-ak-loader-sub]::before {
   content: 'KNOWLEDGE IS THE ONLY FRONTIER / RHINE LAB';
 }
 
-body.theme-arknights-themed [data-endfield-thunder-word] {
+body.theme-arknights-themed [data-ak-thunder-word] {
   font-family: var(--edge-font-display);
   letter-spacing: var(--edge-tracking-display);
 }

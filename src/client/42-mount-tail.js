@@ -1,7 +1,7 @@
     `)
       syncRadiusMode()
       syncGlass()
-      syncPaletteClass()
+      syncFactionClass()
       syncLayoutClass()
       syncFactionBar()
       /* 终端铭牌与作战位置标记：DOM 还没渲染时是一次空操作，随后的

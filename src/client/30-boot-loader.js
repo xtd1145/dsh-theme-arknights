@@ -1,8 +1,8 @@
 
     /* ---------- boot loading screen (settings-toggleable, default OFF) ----------
-       Recreates the Endfield launcher boot screen: a full-viewport black plate with
+       Recreates the launcher boot screen this theme's plate is modelled on: a full-viewport black plate with
        an 8px signal-yellow progress rail down the left edge, a meter group (tick +
-       percentage + status line) that rides the fill end, and the centred ENDFIELD
+       percentage + status line) that rides the fill end, and the centred ARKNIGHTS
        wordmark. It plays once per page load, then fades out and removes itself.
 
        Default OFF as requested: a loading plate that covers the app is opt-in, and
@@ -48,7 +48,6 @@
       loaderEl = null
       loaderPlateH = 0
       loaderMeterH = 0
-      contourResumeAfterLoader()
     }
     /* One boot animation. The progress value is derived from elapsed WALL-CLOCK time,
        never accumulated per frame, so it cannot drift.
@@ -103,13 +102,12 @@
       }
       loaderDone = true
       playBootChime()
-      contourPauseForLoader()
 
       const el = document.createElement('div')
-      el.setAttribute('data-endfield-loader', '')
+      el.setAttribute('data-ak-loader', '')
       // Same translation-proofing as the watermark: every glyph the plate shows is
       // brand/UI chrome drawn from CSS `content` or set as textContent on elements
-      // marked notranslate, so "translate this page" cannot rewrite ENDFIELD.
+      // marked notranslate, so "translate this page" cannot rewrite ARKNIGHTS.
       el.setAttribute('translate', 'no')
       el.setAttribute('lang', 'en')
       el.setAttribute('aria-hidden', 'true')
@@ -128,37 +126,37 @@
          plate fades out. It is a separate layer so the sweep can cover the brand
          block and meter without disturbing their layout. */
       el.innerHTML =
-        '<div data-endfield-loader-tex></div>' +
-        '<div data-endfield-loader-track></div>' +
-        '<div data-endfield-loader-fill></div>' +
-        '<div data-endfield-loader-meter>' +
-        '<span data-endfield-loader-tick></span>' +
-        '<span data-endfield-loader-pct></span>' +
-        '<span data-endfield-loader-status></span>' +
+        '<div data-ak-loader-tex></div>' +
+        '<div data-ak-loader-track></div>' +
+        '<div data-ak-loader-fill></div>' +
+        '<div data-ak-loader-meter>' +
+        '<span data-ak-loader-tick></span>' +
+        '<span data-ak-loader-pct></span>' +
+        '<span data-ak-loader-status></span>' +
         '</div>' +
-        '<div data-endfield-loader-brand>' +
-        '<span data-endfield-loader-kicker></span>' +
-        '<span data-endfield-loader-word data-endfield-loader-word1></span>' +
-        '<span data-endfield-loader-word data-endfield-loader-word2></span>' +
-        '<span data-endfield-loader-detail>' +
-        '<span data-endfield-loader-chev></span>' +
-        '<span data-endfield-loader-sub></span>' +
-        '<span data-endfield-loader-seq></span>' +
-        '<span data-endfield-loader-squares>' +
+        '<div data-ak-loader-brand>' +
+        '<span data-ak-loader-kicker></span>' +
+        '<span data-ak-loader-word data-ak-loader-word1></span>' +
+        '<span data-ak-loader-word data-ak-loader-word2></span>' +
+        '<span data-ak-loader-detail>' +
+        '<span data-ak-loader-chev></span>' +
+        '<span data-ak-loader-sub></span>' +
+        '<span data-ak-loader-seq></span>' +
+        '<span data-ak-loader-squares>' +
         '<i data-on></i><i data-on></i><i data-on></i><i></i><i></i><i></i>' +
         '<i data-on></i><i data-on></i><i></i><i></i><i></i><i></i>' +
         '</span>' +
         '</span>' +
-        '<span data-endfield-loader-tag></span>' +
+        '<span data-ak-loader-tag></span>' +
         '</div>' +
-        '<div data-endfield-loader-wipe></div>'
+        '<div data-ak-loader-wipe></div>'
       document.body.appendChild(el)
       loaderEl = el
 
-      const fill = el.querySelector('[data-endfield-loader-fill]')
-      const meter = el.querySelector('[data-endfield-loader-meter]')
-      const pct = el.querySelector('[data-endfield-loader-pct]')
-      const status = el.querySelector('[data-endfield-loader-status]')
+      const fill = el.querySelector('[data-ak-loader-fill]')
+      const meter = el.querySelector('[data-ak-loader-meter]')
+      const pct = el.querySelector('[data-ak-loader-pct]')
+      const status = el.querySelector('[data-ak-loader-status]')
       const DURATION = 1750
       const start = (typeof performance !== 'undefined' && typeof performance.now === 'function')
         ? performance.now()
@@ -194,7 +192,7 @@
         clearLoaderTimers()
         if (!loaderEl) return
         const el = loaderEl
-        const wipeEl = el.querySelector('[data-endfield-loader-wipe]')
+        const wipeEl = el.querySelector('[data-ak-loader-wipe]')
         const hasRaf = typeof requestAnimationFrame === 'function'
         const hasTimeout = typeof window !== 'undefined' && typeof window.setTimeout === 'function'
         // Someone who asked for less motion gets the plate gone, not a flourish.
@@ -202,7 +200,7 @@
           && typeof window.matchMedia === 'function'
           && window.matchMedia('(prefers-reduced-motion: reduce)').matches
         if (reduceMotion || (!hasRaf && !hasTimeout)) { destroyLoader(); return }
-        el.setAttribute('data-endfield-loader-wiping', '')
+        el.setAttribute('data-ak-loader-wiping', '')
         // JS owns opacity from here, so the stylesheet transition must not fight it.
         el.style.transition = 'none'
         const t0 = now()
@@ -222,7 +220,7 @@
           // phase 2 — fade the whole plate, yellow included
           const fadeMs = elapsed - WIPE_MS
           if (fadeMs > 0) {
-            if (!exitMarked) { exitMarked = true; el.setAttribute('data-endfield-loader-exit', '') }
+            if (!exitMarked) { exitMarked = true; el.setAttribute('data-ak-loader-exit', '') }
             el.style.opacity = Math.max(0, 1 - fadeMs / EXIT_MS).toFixed(3)
           }
           if (elapsed >= WIPE_MS + EXIT_MS) { destroyLoader(); return }
@@ -285,7 +283,7 @@
           }
         }
         if (t >= 1) {
-          el.setAttribute('data-endfield-loader-complete', '')
+          el.setAttribute('data-ak-loader-complete', '')
           // Hold the completed frame for a beat so 100% is actually readable.
           if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
             if (loaderExitTimer === null) loaderExitTimer = window.setTimeout(finish, 220)

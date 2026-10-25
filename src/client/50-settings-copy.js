@@ -16,9 +16,9 @@
 
        Naming: keys are grouped by row (`theme*`, `palette*`, `thunder*`) so a row's
        copy stays discoverable next to its switch. */
-    const ENDFIELD_NS = 'settings.theme-arknights'
+    const ARK_NS = 'settings.theme-arknights'
     const LOCALE_ZH = {
-      nav: '终末地主题设置',
+      nav: '明日方舟阵营主题',
       /* The separator between a row label and its value. It is a DICTIONARY KEY, not
          a literal: Chinese uses the full-width '：' with no trailing space, English
          the ASCII ': '. Hardcoding the full-width form (as the first version did) put
@@ -54,38 +54,8 @@
       radiusSquare: '直角',
       radiusToRound: '切换圆角',
       radiusToSquare: '切换直角',
-      contourRow: '等高线背景',
-      contourOn: '开启背景',
-      contourOff: '关闭背景',
-      contourHintOn: '当前配色的地形等高线铺满界面底层（置于所有内容之下）；窄窗口自动降低线密度',
-      contourHintOff: '默认关闭；开启后在界面底层绘制等高线地形纹理',
-      contourTrailRow: '鼠标轨迹',
-      contourTrailOn: '开启轨迹',
-      contourTrailOff: '关闭轨迹',
-      contourTrailHint: '鼠标移动时局部扰动等高线并逐渐恢复；仅动态模式生效，静态或减少动态效果时暂停',
-      contourAnimRow: '动态等高线',
-      contourAnimOn: '开启动态',
-      contourAnimOff: '切为静态',
-      contourAnimHintOn: '等高线缓慢流动变形（可选 24 / 60 / 120 FPS，关闭后为静态图案）',
-      contourAnimHintOff: '静态等高线，不做任何逐帧计算',
-      contourAnimHintReduced: '系统已开启「减少动态效果」，当前保持静态',
       glassRow: '磨砂玻璃', glassHint: '停靠面板使用局部模糊；输入框使用同色底但不模糊，避免气泡抖动',
       glassOff: '关闭', glassSubtle: '轻度', glassStandard: '标准', glassStrong: '浓厚',
-      contourRendererRow: '等高线绘制', contourRendererCanvas: 'Canvas', contourRendererWorker: 'Worker / WebGL',
-      contourRendererHint: '实验性后台绘制；不支持时自动回退，适合对照滚动性能',
-      contourFpsRow: '动态帧率',
-      contourFpsHint: '选择等高线动画的刷新档位',
-      contourFpsUnit: 'FPS',
-      contourSpeedRow: '动态速度',
-      contourSpeedHint: '选择等高线变形速度，不影响刷新率',
-      contourSpeedSlow: '慢速',
-      contourSpeedNormal: '标准',
-      contourSpeedFast: '快速',
-      contourScrollPauseRow: '滚动窗口动画暂停',
-      contourScrollPauseOn: '开启暂停',
-      contourScrollPauseOff: '关闭暂停',
-      contourScrollPauseHintOn: '滚动上下文窗口时暂停等高线动画，停止滚动后约 10ms 恢复',
-      contourScrollPauseHintOff: '警告：关闭后可能出现滚动卡顿',
       /* 输出滚动动画. The hint has to name the MECHANISM, because the observable
          effect ("smoother scrolling") is easy to mistake for scroll-behavior:smooth
          — which is the one thing this feature must not be, since it would break the
@@ -102,7 +72,6 @@
       scrollAnimLevelSnappy: '轻快',
       scrollAnimLevelHint: '越柔和越顺滑，但最新一行离底部越远；越轻快越跟手',
       scrollAnimNeedOn: '请先开启输出滚动动画',
-      contourAnimNeedLayer: '请先开启等高线背景',
       watermarkRow: '背景水印',
       watermarkOn: '开启水印',
       watermarkOff: '关闭水印',
@@ -115,7 +84,7 @@
       loaderRow: '启动加载动画',
       loaderOn: '开启动画',
       loaderOff: '关闭动画',
-      loaderHintOn: '刷新页面时播放 ENDFIELD 启动加载屏（左侧进度轨 + 百分比，跟随当前配色）',
+      loaderHintOn: '刷新页面时播放启动加载屏（左侧进度轨 + 百分比，跟随当前配色）',
       loaderHintOff: '默认关闭；开启后每次刷新页面播放一次',
       loaderNeed: '请先开启启动加载动画',
       preview: '预览',
@@ -168,7 +137,7 @@
       audioBootRow: '启动加载动画音',
       audioBootOn: '开启',
       audioBootOff: '关闭',
-      audioBootHint: '播放 ENDFIELD 加载板时响一次；只认真正的页面加载，点「预览」重播不会响',
+      audioBootHint: '播放启动加载屏时响一次；只认真正的页面加载，点「预览」重播不会响',
       audioStartRow: '任务开始音',
       audioStartOn: '开启',
       audioStartOff: '关闭',
@@ -216,7 +185,7 @@
       audioRefresh: '刷新状态',
     }
     const LOCALE_EN = {
-      nav: 'Endfield Theme',
+      nav: 'Arknights Theme',
       sep: ': ',
       /* Capitalised: these are VALUES in a "Label: Value" readout, not sentence
          fragments, and the screenshot showed lowercase reading like a typo there. */
@@ -246,38 +215,8 @@
       radiusSquare: 'Square',
       radiusToRound: 'Use rounded',
       radiusToSquare: 'Use square',
-      contourRow: 'Contour background',
-      contourOn: 'Turn on',
-      contourOff: 'Turn off',
-      contourHintOn: 'Topographic contour lines fill the lowest layer, beneath all content; narrow windows use a sparser line density',
-      contourHintOff: 'Off by default; draws a contour terrain texture behind the interface',
-      contourTrailRow: 'Mouse trail',
-      contourTrailOn: 'Enable trail',
-      contourTrailOff: 'Disable trail',
-      contourTrailHint: 'Locally deforms contours near the mouse, then fades; pauses in static or reduced-motion mode',
-      contourAnimRow: 'Animated contours',
-      contourAnimOn: 'Animate',
-      contourAnimOff: 'Make static',
-      contourAnimHintOn: 'The field drifts at 24, 60 or 120 FPS (static pattern when off)',
-      contourAnimHintOff: 'Static contours, with no per-frame work at all',
-      contourAnimHintReduced: 'Your system asks for reduced motion, so it stays static',
       glassRow: 'Frosted glass', glassHint: 'Local blur on the docked panel; the composer keeps an opaque tint without blur so tooltips stay stable',
       glassOff: 'Off', glassSubtle: 'Subtle', glassStandard: 'Standard', glassStrong: 'Strong',
-      contourRendererRow: 'Contour renderer', contourRendererCanvas: 'Canvas', contourRendererWorker: 'Worker / WebGL',
-      contourRendererHint: 'Experimental background rendering with automatic fallback; compare scrolling on your device',
-      contourFpsRow: 'Animation frame rate',
-      contourFpsHint: 'Choose the contour animation refresh rate',
-      contourFpsUnit: 'FPS',
-      contourSpeedRow: 'Animation speed',
-      contourSpeedHint: 'Choose contour motion speed without changing refresh rate',
-      contourSpeedSlow: 'Slow',
-      contourSpeedNormal: 'Normal',
-      contourSpeedFast: 'Fast',
-      contourScrollPauseRow: 'Pause animation while scrolling',
-      contourScrollPauseOn: 'Pause on scroll',
-      contourScrollPauseOff: 'Keep animating',
-      contourScrollPauseHintOn: 'Pauses contour animation while scrolling and resumes about 10ms after it stops',
-      contourScrollPauseHintOff: 'Warning: scrolling may stutter when this is off',
       scrollAnimRow: 'Output scroll animation',
       scrollAnimOn: 'Turn on',
       scrollAnimOff: 'Turn off',
@@ -290,7 +229,6 @@
       scrollAnimLevelSnappy: 'Snappy',
       scrollAnimLevelHint: 'Softer is smoother but keeps the newest line further from the bottom; snappier follows closer',
       scrollAnimNeedOn: 'Turn on the output scroll animation first',
-      contourAnimNeedLayer: 'Turn on the contour background first',
       watermarkRow: 'Background wordmark',
       watermarkOn: 'Turn on',
       watermarkOff: 'Turn off',
@@ -303,7 +241,7 @@
       loaderRow: 'Boot animation',
       loaderOn: 'Turn on',
       loaderOff: 'Turn off',
-      loaderHintOn: 'Plays the ENDFIELD boot screen on reload (progress rail + percentage, following the palette)',
+      loaderHintOn: 'Plays the boot screen on reload (progress rail + percentage, following the palette)',
       loaderHintOff: 'Off by default; plays once on every page reload when enabled',
       loaderNeed: 'Turn on the boot animation first',
       preview: 'Preview',
@@ -352,7 +290,7 @@
       audioBootRow: 'Boot animation sound',
       audioBootOn: 'Turn on',
       audioBootOff: 'Turn off',
-      audioBootHint: 'Rings once when the ENDFIELD boot plate plays; a real page load only — the Preview button replays it silently',
+      audioBootHint: 'Rings once when the boot plate plays; a real page load only — the Preview button replays it silently',
       audioStartRow: 'Task-start sound',
       audioStartOn: 'Turn on',
       audioStartOff: 'Turn off',
@@ -413,8 +351,8 @@
       /* Registered through ctx.effect so the dictionaries retire with the run;
          re-applying the bundle would otherwise throw on the duplicate (ns, locale)
          the service rejects by design. */
-      ctx.effect(() => locale.register(ENDFIELD_NS, { zh: LOCALE_ZH, en: LOCALE_EN }))
-      const bound = locale.bind(ENDFIELD_NS)
+      ctx.effect(() => locale.register(ARK_NS, { zh: LOCALE_ZH, en: LOCALE_EN }))
+      const bound = locale.bind(ARK_NS)
       if (typeof bound === 'function') {
         t = bound
         localeReady = true

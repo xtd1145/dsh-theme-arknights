@@ -17,7 +17,7 @@
         }
         document.body.classList.remove(THEMED_CLASS)
         document.body.classList.remove(LAYOUT_ADVANCED_CLASS)
-        document.body.removeAttribute?.('data-endfield-glass')
+        document.body.removeAttribute?.('data-ak-glass')
       }
       destroyFactionBar()
       /* 终端层注入的铭牌、扇区编号与菜单抬头都不带主题样式表的兜底：
@@ -26,10 +26,6 @@
       // The plate is styled by the theme stylesheet just torn down — an orphaned
       // plate would sit there as an unstyled black-less div, so drop it too.
       destroyLoader()
-      // Same reasoning for the contour sheet: its positioning and the background
-      // transparency rules it depends on both live in that stylesheet, so leaving
-      // it mounted would drop two raw canvases into the app's layout flow.
-      contourTeardown()
       /* The output-scroll animator holds a transform on the transcript column. The
          theme does not style that column, so an orphaned offset would survive as a
          permanently shifted transcript — the one thing here that must be released
@@ -44,7 +40,7 @@
       /* The watermark must go with the stylesheet too, and it cannot wait for
          syncWatermarkVisibility(): with the sheet torn down its
          `opacity: var(--edge-wm-alpha)` computes invalid and falls back to 1,
-         so an orphaned mark sits on the page as a fully opaque 9.5vw ENDFIELD.
+         so an orphaned mark sits on the page as a fully opaque 9.5vw ARKNIGHTS.
          This path also runs when the switch is turned off from ANOTHER window
          (reconcileFromPrefs -> unmount), where nothing else removes the node —
          the local toggle path only looked covered because toggleTheme happened
@@ -65,10 +61,6 @@
     if (isEnabled()) {
       mount()
       syncWatermarkVisibility()
-      // The contour sheet needs the stylesheet mount() just inserted, and the app
-      // frame to exist; syncContour is a no-op until both are true and the
-      // watermark's MutationObserver retries it as the app renders.
-      syncContour()
       // Output-scroll animation: a no-op until the app renders a conversation
       // scrollport. The same observer retries it as the app mounts one, so opening
       // a session later needs no reload.
@@ -93,15 +85,15 @@
        (<profile>/cordis.patch.yml on 0.1.7, <dshHome>/settings.yaml before it),
        or the host reverts a value). It mirrors the initial mount block above so a
        runtime change re-paints exactly the live surfaces it can: the master switch mounts/unmounts
-       the token + stylesheet layers, then radius/palette/watermark/contour/
+       the token + stylesheet layers, then radius/palette/watermark/
        thunder re-derive from the new value. The boot loader is deliberately not
        replayed here: it is a once-per-page-load plate, so a mid-session section
        change must not slam a startup animation over a running app. The one thing
        that DOES start it outside apply() is the first authoritative settle
        (onPrefsSettled) — that is the same page-load moment, not a later edit — plus
        the plate's own toggle and 预览 button. Every layer entry point is idempotent
-       (mount() and unmount() guard on `mounted`, syncContour is a no-op until the
-       frame and stylesheet exist), so repeated echoes are cheap and safe. */
+       (mount() and unmount() guard on `mounted`, syncScrollAnim is a no-op until the
+       app renders a conversation scrollport), so repeated echoes are cheap and safe. */
     reconcileFromPrefs = () => {
       const enabledNext = isEnabled()
       const enabledNow = mounted
@@ -111,12 +103,11 @@
         // These sync helpers read the store on each call, so no snapshot passing.
         syncRadiusMode()
         syncGlass()
-        syncPaletteClass()
+        syncFactionClass()
         syncLayoutClass()
         syncFactionBar()
         syncTerminalUI()
         syncWatermarkVisibility()
-        syncContour()
         syncScrollAnim()
         syncThunder()
         // Same reason: it re-reads both switches and starts or stops the poll.

@@ -175,11 +175,11 @@
     let scrollAnimFrameAt = 0
     let scrollAnimMotionQuery = null
 
-    /* Everything that must hold for the feature to run at all. `prefersReducedMotion`
-       is the contour sheet's own reader (declared earlier in this file's order), so
-       the OS preference is read live and honoured identically by both surfaces; the
-       hidden-tab test is the same one the contour loop uses, and here it also keeps
-       a frozen rAF from leaving an offset stranded while the tab is away. */
+    /* Everything that must hold for the feature to run at all. The OS preference is
+       read live through the shared prefersReducedMotion() gate (see 17-motion-gate.js),
+       so every animated surface answers it the same way; the hidden-tab test is here
+       because a frozen rAF would otherwise leave an offset stranded on the
+       transcript while the tab is away. */
     const scrollAnimActive = () => isEnabled() && isScrollAnimOn()
       && !prefersReducedMotion()
       && (typeof document === 'undefined' || !document.hidden)
@@ -188,8 +188,8 @@
     const scrollAnimMark = (entry, state) => {
       if (entry.state === state) return
       entry.state = state
-      if (state === null) entry.port.removeAttribute('data-endfield-scroll-anim')
-      else entry.port.setAttribute('data-endfield-scroll-anim', state)
+      if (state === null) entry.port.removeAttribute('data-ak-scroll-anim')
+      else entry.port.setAttribute('data-ak-scroll-anim', state)
     }
 
     const scrollAnimClear = (entry) => {

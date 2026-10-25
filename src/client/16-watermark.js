@@ -1,5 +1,5 @@
 
-    /* ---------- background ENDFIELD watermark (settings-toggleable) ----------
+    /* ---------- background ARKNIGHTS watermark (settings-toggleable) ----------
        Two independent switches:
          WATERMARK_KEY  — the watermark itself (default ON), shown on the hero page.
          WATERMARK_PERSIST_KEY — "keep showing it off the hero page" (default OFF),
@@ -44,6 +44,21 @@
       }
       return null
     }
+    /** The app frame — the persist-mode fallback anchor.
+     *  Located via its CENTRE COLUMN child rather than by matching '_frame': that
+     *  suffix is used by three components (layout frame plus two question cards),
+     *  so a [class*='_frame'] match is ambiguous and could mount the mark inside a
+     *  card. '_centerCol' is unique to the layout frame, and matching the module
+     *  SUFFIX instead of a pinned hash survives an app rebuild that rehashes. */
+    const findAppFrame = () => {
+      if (typeof document === 'undefined') return null
+      const col = document.querySelector('[class$="_centerCol"], [class*="_centerCol "]')
+      const frame = col !== null ? col.parentElement : null
+      if (frame === null) return null
+      const r = frame.getBoundingClientRect()
+      if (r.width === 0 || r.height === 0) return null
+      return frame
+    }
     const findVisibleHeadline = () => {
       if (typeof document === 'undefined') return null
       /* DSH 0.2 renamed the hero headline export from '*_headlineText' to
@@ -77,9 +92,7 @@
       // in it the stylesheet gives the frame isolation:isolate (the same pair of
       // properties the conversation column gets above), so -1 stays above the
       // frame background and strictly below the page content. body is only the
-      // last resort for a page that has no frame at all. findAppFrame is declared
-      // further down but only ever called from here at runtime, never during the
-      // synchronous apply pass.
+      // last resort for a page that has no frame at all.
       const frame = findAppFrame()
       return { mode: 'persist', parent: frame !== null ? frame : document.body }
     }
@@ -93,7 +106,7 @@
     }
     const positionWatermark = () => {
       if (!watermarkEl) return
-      if (watermarkEl.getAttribute('data-endfield-watermark') === 'persist') {
+      if (watermarkEl.getAttribute('data-ak-watermark') === 'persist') {
         // Centred in its own positioned parent — no per-frame measurement needed.
         return
       }
@@ -121,7 +134,7 @@
     const watermarkRafLoop = () => {
       // Only the hero placement is measured per frame; persist mode is pure CSS, so
       // the loop must stop when the mode changes rather than spin for nothing.
-      if (!watermarkEl || watermarkEl.getAttribute('data-endfield-watermark') !== 'hero') {
+      if (!watermarkEl || watermarkEl.getAttribute('data-ak-watermark') !== 'hero') {
         watermarkRaf = null
         return
       }
@@ -205,7 +218,7 @@
          off — is still caught on the same batch. */
       if (watermarkEl !== null && watermarkHost !== null && watermarkHost.isConnected
         && typeof document !== 'undefined'
-        && watermarkEl.getAttribute('data-endfield-watermark') === 'persist'
+        && watermarkEl.getAttribute('data-ak-watermark') === 'persist'
         && isEnabled() && isWatermarkOn() && isWatermarkPersistOn()
         && document.querySelector('[class$="_root"][data-phase="hero"]') === null) return
       const on = isEnabled() && isWatermarkOn()
@@ -216,8 +229,8 @@
         && (target.mode === 'hero' || isWatermarkPersistOn())
       if (shouldShow && watermarkEl) {
         // A page change can flip the mode or move the parent — restyle/reparent in place.
-        if (watermarkEl.getAttribute('data-endfield-watermark') !== target.mode) {
-          watermarkEl.setAttribute('data-endfield-watermark', target.mode)
+        if (watermarkEl.getAttribute('data-ak-watermark') !== target.mode) {
+          watermarkEl.setAttribute('data-ak-watermark', target.mode)
           styleWatermark(watermarkEl, target.mode)
         }
         if (watermarkHost !== target.parent) {
@@ -226,7 +239,7 @@
         }
       } else if (shouldShow && !watermarkEl) {
         const el = document.createElement('div')
-        el.setAttribute('data-endfield-watermark', target.mode)
+        el.setAttribute('data-ak-watermark', target.mode)
         /* Translation-proofing. The wordmark is a brand name that must never be
            rewritten by Chrome/Edge "translate this page", a Google Translate widget
            or a translator extension.
@@ -254,7 +267,7 @@
       // While visible, follow the headline every frame (page switches, sidebar
       // width changes, animations) — no reliance on observer timing. The persist
       // placement is pure CSS, so it needs no frame loop.
-      const needsLoop = watermarkEl !== null && watermarkEl.getAttribute('data-endfield-watermark') === 'hero'
+      const needsLoop = watermarkEl !== null && watermarkEl.getAttribute('data-ak-watermark') === 'hero'
       if (needsLoop && !watermarkRaf && typeof requestAnimationFrame === 'function') {
         watermarkRaf = requestAnimationFrame(watermarkRafLoop)
       } else if (!needsLoop && watermarkRaf !== null && typeof cancelAnimationFrame === 'function') {
@@ -263,31 +276,23 @@
       }
     }
     const onWatermarkResize = () => { if (watermarkEl) positionWatermark() }
-    let contourScrollHook = () => {}
-    let contourScrollEndHook = () => {}
-    const onContourScrollEvent = () => { contourScrollHook() }
-    const onContourScrollEndEvent = () => { contourScrollEndHook() }
     if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
       window.addEventListener('resize', onWatermarkResize)
-      window.addEventListener('scroll', onContourScrollEvent, true)
-      window.addEventListener('scrollend', onContourScrollEndEvent, true)
     }
     let watermarkObserver = null
-    /* Assigned to syncContour once that is defined below. Declared here as a real
-       mutable binding rather than referenced directly, because a `const` declared
-       later is in its temporal dead zone during apply() — and `typeof` does NOT
-       protect against a TDZ ReferenceError the way it does for an undeclared name. */
-    let contourSyncHook = () => {}
-    /* Same seam for the output-scroll animator: it too has to attach to nodes the
-       app renders asynchronously (the conversation scrollport), and the observer
-       below is already the page's "something changed, re-attach" channel. Declared
-       here as a real binding and assigned in the fragment that defines it, for the
-       TDZ reason given above. */
+    /* The re-attach seam for the output-scroll animator: it has to attach to nodes
+       the app renders asynchronously (the conversation scrollport), and the
+       observer below is already the page's "something changed, re-attach" channel.
+       Declared here as a real mutable binding — not referenced directly, and not
+       `const` — because the fragment that defines it is concatenated AFTER this
+       one and a later `const` sits in its temporal dead zone during apply(), where
+       `typeof` does NOT protect against a TDZ ReferenceError the way it does for an
+       undeclared name. Assigned inside that fragment. */
     let scrollAnimSyncHook = () => {}
     /* The bundle can be evaluated before <body> exists (the same window runLoader
        defends with a DOMContentLoaded deferral). The old code created the observer
        only when body was already there and never retried, so an early-boot apply
-       left the watermark and the contour sheet without their (re)attach channel
+       left the watermark and the animator without their (re)attach channel
        for good. Deferred install instead, and right after installing, catch up on
        everything the observer missed while it did not exist yet. */
     const installWatermarkObserver = () => {
@@ -299,7 +304,6 @@
         // route changes, so the layer has to be able to (re)attach later. This
         // fires on every DOM change on the page, including every streaming token,
         // so the hook's first act is an O(1) "still attached?" check.
-        contourSyncHook()
         scrollAnimSyncHook()
       })
       watermarkObserver.observe(document.body, { childList: true, subtree: true })
@@ -308,7 +312,6 @@
       installWatermarkObserver()
       if (watermarkObserver === null) return
       syncWatermarkVisibility()
-      contourSyncHook()
       scrollAnimSyncHook()
     }
     if (typeof document !== 'undefined' && document.body !== null) installWatermarkObserver()

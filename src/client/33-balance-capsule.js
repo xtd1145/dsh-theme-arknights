@@ -2,7 +2,7 @@
     /* ---------- 顶部余额胶囊 ----------
        A fixed capsule at the top center of the frame showing the account
        balance AND the API's peak/off-peak pricing window, styled after the
-       Endfield HUD plate: dark pill, currency + big tnum number, a small
+       Arknights HUD plate: dark pill, currency + big tnum number, a small
        countdown to the next window edge, the elapsed-window percentage pushed
        to the right, and the accent-yellow round badge.
 
@@ -37,8 +37,8 @@
     /* What the credits mode's RIGHT-hand percentage slot reads: 已用xx% (the
        plugin's own badge reading) or 剩余xx%. Anything other than 'remaining'
        reads as 'used' — the preference is a two-literal choice, stored as
-       exactly one of them, and the tolerant default mirrors how
-       readContourRenderer treats its own select. */
+       exactly one of them, and the tolerant default mirrors how every other
+       two-literal select in this panel reads its stored value. */
     const CREDIT_DISPLAY_KEY = 'creditDisplay'
     const readCreditDisplay = () => (prefsGet(CREDIT_DISPLAY_KEY) === 'used' ? 'used' : 'remaining')
     let balanceEl = null
@@ -100,7 +100,7 @@
        与各自开关相与，balanceShadeReason() 仍保留「原始原因合成」语义。
        会话与遮挡无关，重新渲染会话时布局列节点可能被 React 重挂——所以
        sidebarCol 缩放突变时由 ResizeObserver 自己重找目标（isConnected 守卫）。 */
-    const BALANCE_SIDEBAR_PROBE_ATTR = 'data-endfield-balance-sidebar-probe'
+    const BALANCE_SIDEBAR_PROBE_ATTR = 'data-ak-balance-sidebar-probe'
     /* 每次判定都重读偏好（isBalanceSidebarHideOn / isBalanceHoverHideOn）：
        设置页的开关是低频写入、判定是低频事件（列宽变化 / mousemove），重读
        让开关即时生效而无需重建胶囊。开关刚关掉时残留的隐藏态由开关处理器
@@ -110,8 +110,8 @@
       if (balanceEl === null) return
       const wantHide = (isBalanceSidebarHideOn() && balanceSidebarOpen)
         || (isBalanceHoverHideOn() && balanceHoverHide)
-      if (wantHide) balanceEl.setAttribute('data-endfield-balance-shade', '')
-      else balanceEl.removeAttribute('data-endfield-balance-shade')
+      if (wantHide) balanceEl.setAttribute('data-ak-balance-shade', '')
+      else balanceEl.removeAttribute('data-ak-balance-shade')
     }
     /* 在整份 DOM 里找当前布局的侧栏列。两个后缀在客户端 UI 里唯一属于布局
        frame（`_centerCol`/`_sidebarCol`/`_rightbarCol`），位置选择决定盯哪根：
@@ -299,7 +299,7 @@
         const node = balanceEl.querySelector('[' + attr + ']')
         if (node) node.textContent = text
       }
-      setText('data-endfield-balance-int', data.int)
-      setText('data-endfield-balance-frac', data.frac === '' ? '' : '.' + data.frac)
-      setText('data-endfield-balance-currency', data.currency === 'USD' ? '$' : '¥')
+      setText('data-ak-balance-int', data.int)
+      setText('data-ak-balance-frac', data.frac === '' ? '' : '.' + data.frac)
+      setText('data-ak-balance-currency', data.currency === 'USD' ? '$' : '¥')
     }

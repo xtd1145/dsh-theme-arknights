@@ -414,29 +414,29 @@
         <div class="msg__bubble markdown">
           <h2>三套阵营，一次 class 翻转</h2>
           <p>
-            每个 <code>--dsw-alias-*</code> 令牌都被接到一个 <code>--ak-*</code> 变量上，
-            而 <code>--ak-*</code> 的六组取值（3 阵营 × 明暗）全部声明在样式表的
+            每个 <code>--dsw-alias-*</code> 令牌都被接到一个 <code>--edge-*</code> 变量上，
+            而 <code>--edge-*</code> 的六组取值（3 阵营 × 明暗）全部声明在样式表的
             <code>&lt;body&gt;</code> 规则里。于是切换阵营只是给 <code>&lt;body&gt;</code>
             加一个 class。
           </p>
           <div class="code-block">
-            <div class="code-block__banner">theme.css</div>
-            <pre>body.ak-theme.ak-laterano {
-  --ak-bg-base: #f6f1e7;
-  --ak-ink:      #241d14;
-  --ak-accent:   #886812;
+            <div class="code-block__banner">faction.css</div>
+            <pre>body.theme-arknights-advanced.theme-arknights-laterano {
+  --edge-paper:  #eceef2;
+  --edge-ink:    #14161a;
+  --edge-accent: #1a3fd0;
 }
 
-body.ak-theme.ak-laterano[data-ds-dark-theme] {
-  --ak-bg-base: #12100c;
-  --ak-accent:  #e8c168;
+body.theme-arknights-advanced.theme-arknights-laterano[data-ds-dark-theme] {
+  --edge-paper:  #0b0d12;
+  --edge-accent: #6b8cff;
 }</pre>
           </div>
           <table class="table">
             <tr><th>阵营</th><th>强调色·亮</th><th>强调色·暗</th></tr>
-            <tr><td>罗德岛</td><td>#0f6bb0</td><td>#4aa8e8</td></tr>
-            <tr><td>拉特兰</td><td>#886812</td><td>#e8c168</td></tr>
-            <tr><td>莱茵生命</td><td>#00795c</td><td>#00d9a3</td></tr>
+            <tr><td>罗德岛</td><td>#1a6fa8</td><td>#4fb3e8</td></tr>
+            <tr><td>拉特兰</td><td>#1a3fd0</td><td>#6b8cff</td></tr>
+            <tr><td>莱茵生命</td><td>#1a1a1c</td><td>#ececee</td></tr>
           </table>
         </div>
       </div>

@@ -75,13 +75,6 @@
       factionBar: '1',
       radius: 'square',
       glass: 'off',
-      contour: '0',
-      contourAnim: '1',
-      contourFps: '24',
-      contourSpeed: '2',
-      contourRenderer: 'canvas',
-      contourScrollPause: '1',
-      contourTrail: '0',
       /* 输出滚动动画 —— default ON: it changes nothing about what the app decides
          (the read-back stays exact) and only softens the streaming pin, so it is a
          pure improvement for a feature whose whole point is that the output was
@@ -151,9 +144,8 @@
        from the other by stripping the namespace prefix — the old
        `k.slice(PREFS_NS.length + 1)` — is the bug this table exists to kill: it
        turned 'dsh-theme-arknights-thunder-anim' into 'thunder-anim', while the
-       schema declares 'thunderAnim'. Six fields were affected (thunderAnim,
-       contourAnim, contourFps, contourSpeed, contourScrollPause,
-       watermarkPersist): the write landed on an UNDECLARED key, schemastery
+       schema declares 'thunderAnim'. Every compound field was affected this way
+       (thunderAnim, watermarkPersist): the write landed on an UNDECLARED key, schemastery
        kept it (it validates declared fields and passes extras through) but the
        declared field stayed at its default, so the switch worked for the page
        session, persisted junk into settings.yaml, and came back at its default
@@ -167,20 +159,6 @@
       'dsh-theme-arknights-faction-bar': 'factionBar',
       'dsh-theme-arknights-radius': 'radius',
       'dsh-theme-arknights-glass': 'glass',
-      'dsh-theme-arknights-contour': 'contour',
-      'dsh-theme-arknights-contour-anim': 'contourAnim',
-      'dsh-theme-arknights-contour-fps': 'contourFps',
-      'dsh-theme-arknights-contour-speed': 'contourSpeed',
-      'dsh-theme-arknights-contour-renderer': 'contourRenderer',
-      /* The renderer row's own key is the BARE 'contourRenderer' (a
-         localStorage-era name), not the namespaced spelling. It is listed
-         explicitly because test/settings-namespace.test.js requires the table to
-         cover every UI key the panel uses, and because the prefix-strip fallback
-         turning 'contourRenderer' into 'contourrenderer' is exactly the class of
-         silent mismatch this table exists to prevent. */
-      contourRenderer: 'contourRenderer',
-      'dsh-theme-arknights-contour-scroll-pause': 'contourScrollPause',
-      'dsh-theme-arknights-contour-trail': 'contourTrail',
       /* 输出滚动动画. The two keys happen to equal their schema fields, so the
          prefix-strip fallback would also resolve them — they are listed explicitly
          because the table is the ONE place a UI key becomes a field, and because
@@ -216,7 +194,7 @@
       'dsh-theme-arknights-audio-diag': 'audioDiag',
     }
     /* The pre-migration spelling of a compound field, for the sections that the
-       buggy build already wrote: 'contourAnim' -> 'contour-anim'. Derived from
+       buggy build already wrote: 'thunderAnim' -> 'thunder-anim'. Derived from
        the table (not from the schema, which cannot know it) so the two can never
        drift, and only for fields that really do have a distinct legacy double:
        every single-word field maps to itself and is skipped. */

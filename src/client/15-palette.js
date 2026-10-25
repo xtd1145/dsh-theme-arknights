@@ -10,9 +10,8 @@
        'rhodes' 是默认，所以未设置与任何无法识别的值都回落到它——一份坏掉的
        持久化文档不会让界面停在「无阵营」的半吊子状态。
 
-       唯一的例外仍是等高线画布（canvas 描边不能是 CSS 变量），它改为**读
-       --edge-accent 的实时值**再自行加 alpha，因此三套阵营（以及未来任何新增
-       配色）都自动跟随，不必在这里再列举一遍颜色。 */
+       因此三套阵营（以及未来任何新增配色）都自动跟随，不必在这里再列举
+       一遍颜色。 */
     const FACTION_KEY = 'dsh-theme-arknights-faction'
     const FACTION_IDS = ['rhodes', 'laterano', 'rhine']
     /* 默认阵营不带 class —— 它就是样式表里不带阵营 class 的那一组。 */
@@ -78,10 +77,3 @@
       } catch (e) { /* 计算样式读不到就退回中性灰 */ }
       return '#888888'
     }
-
-    /* ---- 兼容名 ----------------------------------------------------------
-       下面这几个名字是 20-contour.js / 43-unmount.js 仍在引用的旧接口。保留它们
-       比在多个文件里改名字安全：两套阵营时代的调用点都指向同一件事。 */
-    const PALETTE_CLASS = FACTION_CLASS.rhine
-    const syncPaletteClass = syncFactionClass
-    const isWulingPalette = () => isFaction('rhine')

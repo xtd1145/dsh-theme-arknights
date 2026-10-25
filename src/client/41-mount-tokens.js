@@ -86,8 +86,8 @@
          which fits the mechanism: the blur does not composite in this window (Chromium
          cannot blur a transparent window, which is why the same component ships a
          separate opaque `data-menu-backing` element for macOS only), so the 45% fill
-         lands on top of the contour sheet a couple of RGB steps away from the page
-         colour — a panel that is technically painted and visually absent.
+         lands a couple of RGB steps away from the page colour — a panel that is
+         technically painted and visually absent.
 
          The fix is one token, not a selector: the theme already owns an opaque
          popover colour (--dsw-alias-bg-overlay, the app's own "Overlay and popover

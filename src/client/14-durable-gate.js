@@ -214,8 +214,8 @@
       return out
     }
     /* Sections written by the BUILD THAT SHIPPED THE FIELD-NAME BUG still carry
-       the pre-migration spelling of a compound field ('contourAnim' written as
-       'contour-anim'), because that write landed on an undeclared key the schema
+       the pre-migration spelling of a compound field ('thunderAnim' written as
+       'thunder-anim'), because that write landed on an undeclared key the schema
        passes through instead of storing it into the declared field. Without this
        pass the user's stored choice is ignored and the field default silently
        wins — for them the switch would look like it reset again after the fix.
@@ -557,13 +557,13 @@
     const syncGlass = () => {
       if (typeof document === 'undefined' || document.body === null) return
       const value = readGlass()
-      if (isEnabled() && value !== 'off') document.body.setAttribute?.('data-endfield-glass', value)
-      else document.body.removeAttribute?.('data-endfield-glass')
+      if (isEnabled() && value !== 'off') document.body.setAttribute?.('data-ak-glass', value)
+      else document.body.removeAttribute?.('data-ak-glass')
     }
     const syncRadiusMode = () => {
       // The bundle can run before <body> exists (see runLoader's DOMContentLoaded
       // deferral for the same window); a classList touch on null would throw and
-      // kill the whole install. syncPaletteClass guards the same way.
+      // kill the whole install. syncFactionClass guards the same way.
       if (typeof document === 'undefined' || document.body === null) return
       const mode = prefsGet(RADIUS_KEY) || 'square'
       if (mode === 'round') document.body.classList.add('theme-arknights-round')

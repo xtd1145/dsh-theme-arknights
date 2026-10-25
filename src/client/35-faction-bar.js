@@ -15,32 +15,30 @@
      * ==================================================================== */
     const FACTION_BAR_KEY = 'dsh-theme-arknights-faction-bar'
 
-    /* 阵营元数据。`accent` 里的颜色只给悬浮条与设置页卡片的色块用，不参与实际
-       渲染——真正生效的颜色全部在样式表的六组 --edge-* 规则里，所以「选之前看到
-       的」与「选之后得到的」来自同一份设计。 */
+    /* 阵营元数据。这里不放颜色：真正生效的配色全部在样式表的六组 --edge-* 规则
+       里，悬浮条与设置页只出形状（.ak-crest 走 currentColor）。在 JS 里再抄一份
+       色值只会和样式表悄悄分叉——上一次就是这样，色块显示的是暖金与青绿，而界面
+       实际给的是电光蓝与单色。hint 描述的是选完之后真的能看到的东西。 */
     const FACTION_META = [
       {
         id: 'rhodes',
         badge: 'R.I.',
         nav: { zh: '罗德岛', en: 'Rhodes Island' },
         hint: { zh: '舰船指挥 · 冷蓝网格', en: 'Ship command · cold blue mesh' },
-        accent: { light: '#0f6bb0', dark: '#4aa8e8' },
         keys: '1',
       },
       {
         id: 'laterano',
         badge: 'LTR',
         nav: { zh: '拉特兰', en: 'Laterano' },
-        hint: { zh: '圣城 · 暖金圣光', en: 'Holy city · warm gold light' },
-        accent: { light: '#886812', dark: '#e8c168' },
+        hint: { zh: '圣城 · 电光蓝图纸', en: 'Holy city · electric-blue blueprint' },
         keys: '2',
       },
       {
         id: 'rhine',
         badge: 'R.L',
         nav: { zh: '莱茵生命', en: 'Rhine Lab' },
-        hint: { zh: '实验室 · 荧光青绿', en: 'Laboratory · fluorescent teal' },
-        accent: { light: '#00795c', dark: '#00d9a3' },
+        hint: { zh: '实验室 · 单色结构', en: 'Laboratory · mono structure' },
         keys: '3',
       },
     ]
@@ -120,7 +118,9 @@
 
     /* ---- DOM ------------------------------------------------------------ */
     let factionBarRoot = null
-    let factionBarOpen = true
+    /* 默认收起：这是一层压在内容右上角的浮层，展开时三行会盖住第一条消息的尾部。
+       收起后只剩当前阵营一行 + 一个 ▾，切换仍然一次点击到位（▾ → 三选）。 */
+    let factionBarOpen = false
     let factionBarKeysBound = false
 
     const bindFactionKeys = () => {
@@ -155,6 +155,10 @@
         paintFactionBar()
       })
 
+      const crest = document.createElement('span')
+      crest.className = 'ak-crest'
+      crest.setAttribute('data-ak-crest', readFaction())
+      crest.setAttribute('aria-hidden', 'true')
       const badge = document.createElement('span')
       badge.className = 'ak-bar__badge'
       const label = document.createElement('span')
@@ -162,6 +166,7 @@
       const caret = document.createElement('span')
       caret.className = 'ak-bar__caret'
       caret.textContent = '\u25be'
+      current.appendChild(crest)
       current.appendChild(badge)
       current.appendChild(label)
       current.appendChild(caret)
@@ -176,15 +181,15 @@
         item.title = akPick(meta.hint) + '  \u00b7  Ctrl+Shift+' + meta.keys
         item.addEventListener('click', () => setFaction(meta.id))
 
-        const swatch = document.createElement('span')
-        swatch.className = 'ak-bar__swatch'
-        swatch.setAttribute('data-accent-light', meta.accent.light)
-        swatch.setAttribute('data-accent-dark', meta.accent.dark)
+        const crest = document.createElement('span')
+        crest.className = 'ak-crest'
+        crest.setAttribute('data-ak-crest', meta.id)
+        crest.setAttribute('aria-hidden', 'true')
         const text = document.createElement('span')
         text.className = 'ak-bar__badge'
         text.textContent = meta.badge
 
-        item.appendChild(swatch)
+        item.appendChild(crest)
         item.appendChild(text)
         list.appendChild(item)
       }
@@ -207,8 +212,14 @@
       const meta = factionMetaOf(readFaction())
       factionBarRoot.setAttribute('data-open', factionBarOpen ? 'true' : 'false')
 
+      /* 当前态徽标只有一份 DOM，切换阵营时要跟着换形状；下拉那三枚按 meta.id
+         各自固定，不需要重画。用 .ak-bar__current 限定：badge 在两边同名，
+         而 querySelector 只会命中文档序第一个，把作用域写清楚免得以后调换
+         结构时悄悄改错元素。 */
+      const crest = factionBarRoot.querySelector('.ak-bar__current .ak-crest')
       const badge = factionBarRoot.querySelector('.ak-bar__badge')
       const label = factionBarRoot.querySelector('.ak-bar__label')
+      if (crest !== null) crest.setAttribute('data-ak-crest', meta.id)
       if (badge !== null) badge.textContent = meta.badge
       if (label !== null) label.textContent = akPick(meta.nav)
 

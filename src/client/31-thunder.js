@@ -21,10 +21,10 @@
        which is what stops 「任务开始」 from firing merely because the user switched
        into a session that was already running. */
     const THUNDER_KEY = 'dsh-theme-arknights-thunder'
-    /* The slam-in animation is its OWN switch, default OFF — same shape as
-       等高线背景 → 动态等高线: the layer is one decision, animating it is another.
-       With it off the word still appears instantly, holds 3s and leaves; only the
-       scale punch and the fade are dropped. */
+    /* The slam-in animation is its OWN switch, default OFF: showing the word is
+       one decision, animating it is another. With it off the word still appears
+       instantly, holds 3s and leaves; only the scale punch and the fade are
+       dropped. */
     const THUNDER_ANIM_KEY = 'dsh-theme-arknights-thunder-anim'
     const THUNDER_START = '任务开始'
     const THUNDER_DONE = '任务完成'
@@ -34,9 +34,9 @@
     const isThunderOn = () => prefsGet(THUNDER_KEY) === '1'
     // Default OFF for the same reason, and read independently of the parent switch.
     const isThunderAnimOn = () => prefsGet(THUNDER_ANIM_KEY) === '1'
-    /* The OS preference still wins over an enabled animation switch, exactly as
-       contourWantsAnim() does for the contour sheet. Checked live rather than
-       cached, so changing the OS setting takes effect on the next announcement. */
+    /* The OS preference still wins over an enabled animation switch. Checked live
+       rather than cached, so changing the OS setting takes effect on the next
+       announcement. */
     const thunderWantsAnim = () => isThunderAnimOn() && !prefersReducedMotion()
     let thunderEl = null
     let thunderTimer = null
@@ -63,7 +63,7 @@
       if (typeof document === 'undefined' || !document.body) return
       destroyThunder()
       const el = document.createElement('div')
-      el.setAttribute('data-endfield-thunder', '')
+      el.setAttribute('data-ak-thunder', '')
       // Pure decoration over content the user is already reading: never announced,
       // never hit-tested (pointer-events:none lives in the stylesheet).
       el.setAttribute('aria-hidden', 'true')
@@ -71,9 +71,9 @@
          removed by the timer below. Two independent reasons land on this same static
          path — the animation switch being off (the default) and the OS asking for
          reduced motion — so both go through thunderWantsAnim(). */
-      if (!thunderWantsAnim()) el.setAttribute('data-endfield-thunder-still', '')
+      if (!thunderWantsAnim()) el.setAttribute('data-ak-thunder-still', '')
       const word = document.createElement('span')
-      word.setAttribute('data-endfield-thunder-word', '')
+      word.setAttribute('data-ak-thunder-word', '')
       word.textContent = text
       el.appendChild(word)
       document.body.appendChild(el)
@@ -305,9 +305,9 @@
       }
       thunderDetach()
     }
-    /* Switched off costs nothing: no subscription, no timer, no plate. This mirrors
-       the contour layer's rule — an off switch must not leave a listener behind that
-       wakes on every streamed token just to return early. */
+    /* Switched off costs nothing: no subscription, no timer, no plate. An off switch
+       must not leave a listener behind that wakes on every streamed token just to
+       return early. */
     const syncThunder = () => {
       if (!(isEnabled() && isThunderOn())) {
         thunderStopWatch()

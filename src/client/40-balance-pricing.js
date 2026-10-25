@@ -184,7 +184,7 @@
        every tick; before the first balance answer arrives the money half still
        shows its 待机 (¥--) seed, so the capsule never renders an empty slot.
        The dial is driven by ONE custom property: the ring's conic-gradient reads
-       --endfield-balance-sweep, so progress never re-lays-out the pill. */
+       --ak-balance-sweep, so progress never re-lays-out the pill. */
     const balancePaintWindow = () => {
       if (balanceEl === null || typeof document === 'undefined') return
       // Credits mode owns the right-hand dial (consumption share) and has no
@@ -199,7 +199,7 @@
           const ready = balanceBootAnswered || waited >= BALANCE_BOOT_MAX_MS
           if (waited >= BALANCE_BOOT_MIN_MS && ready && loaderEl === null) {
             balanceBootAt = 0
-            balanceEl.removeAttribute('data-endfield-balance-boot')
+            balanceEl.removeAttribute('data-ak-balance-boot')
           }
         }
         return
@@ -214,16 +214,16 @@
         const node = balanceEl.querySelector('[' + attr + ']')
         if (node) node.textContent = text
       }
-      const phase = balanceEl.querySelector('[data-endfield-balance-phase]')
+      const phase = balanceEl.querySelector('[data-ak-balance-phase]')
       if (phase) {
         phase.textContent = win.peak ? '高峰' : '低谷'
-        phase.setAttribute('data-endfield-balance-phase-peak', win.peak ? '1' : '0')
+        phase.setAttribute('data-ak-balance-phase-peak', win.peak ? '1' : '0')
       }
-      setText('data-endfield-balance-remain', balanceFormatCountdown(win.remainingMs))
-      setText('data-endfield-balance-pct', (win.peak ? '高峰已过' : '低谷已过') + win.elapsedPct + '%')
+      setText('data-ak-balance-remain', balanceFormatCountdown(win.remainingMs))
+      setText('data-ak-balance-pct', (win.peak ? '高峰已过' : '低谷已过') + win.elapsedPct + '%')
       // The brand pose names the window it opens onto, so the panel never claims
       // 低谷 while the clock has already crossed into 高峰.
-      const brandTitle = balanceEl.querySelector('[data-endfield-balance-brand-title]')
+      const brandTitle = balanceEl.querySelector('[data-ak-balance-brand-title]')
       if (brandTitle) {
         // The pose names the window it opens onto; on a statutory holiday it
         // names the holiday, because 低谷 alone would read as an ordinary night.
@@ -233,7 +233,7 @@
         if (brandTitle.textContent !== label) brandTitle.textContent = label
       }
       if (typeof balanceEl.style?.setProperty === 'function') {
-        balanceEl.style.setProperty('--endfield-balance-sweep', win.elapsedPct * 3.6 + 'deg')
+        balanceEl.style.setProperty('--ak-balance-sweep', win.elapsedPct * 3.6 + 'deg')
       }
       /* Collapse the brand pose: held for at least MIN so the brand is readable,
          released by the first answer, capped by MAX when the host never replies,
@@ -247,7 +247,7 @@
         const ready = balanceBootAnswered || waited >= BALANCE_BOOT_MAX_MS
         if (waited >= BALANCE_BOOT_MIN_MS && ready && loaderEl === null) {
           balanceBootAt = 0
-          balanceEl.removeAttribute('data-endfield-balance-boot')
+          balanceEl.removeAttribute('data-ak-balance-boot')
         }
       }
     }
@@ -283,7 +283,7 @@
       if (typeof document === 'undefined' || !document.body) return
       if (balanceEl !== null) return
       const el = document.createElement('div')
-      el.setAttribute('data-endfield-balance', '')
+      el.setAttribute('data-ak-balance', '')
         /* The pill's silhouette is DRAWN by its background gradients (see the
            stylesheet section): two end discs + a band, correct in every renderer.
            border-radius must therefore be ZERO, pinned inline with priority: the
@@ -302,59 +302,59 @@
       // Informational overlay over navigation: never announced, never hit-tested.
       el.setAttribute('aria-hidden', 'true')
       el.innerHTML =
-        '<span data-endfield-balance-icon></span>' +
-        '<span data-endfield-balance-money>' +
-        '<span data-endfield-balance-currency>¥</span>' +
-        '<span data-endfield-balance-int>--</span>' +
-        '<span data-endfield-balance-frac></span>' +
+        '<span data-ak-balance-icon></span>' +
+        '<span data-ak-balance-money>' +
+        '<span data-ak-balance-currency>¥</span>' +
+        '<span data-ak-balance-int>--</span>' +
+        '<span data-ak-balance-frac></span>' +
         '</span>' +
         // The channel read lives in its own group and swaps with the wallet via
-        // the pill's data-endfield-credit-mode attribute (wallet | credits).
-        '<span data-endfield-credit-money>' +
-        '<span data-endfield-credit-channel></span>' +
-        '<span data-endfield-credit-int>--</span>' +
-        '<span data-endfield-credit-unit></span>' +
+        // the pill's data-ak-credit-mode attribute (wallet | credits).
+        '<span data-ak-credit-money>' +
+        '<span data-ak-credit-channel></span>' +
+        '<span data-ak-credit-int>--</span>' +
+        '<span data-ak-credit-unit></span>' +
         '</span>' +
         // The pricing countdown is the wallet mode's middle read only — peak/
         // off-peak windows are a DeepSeek API concept, so the credits mode
         // hides the whole run via the same mode attribute.
-        '<span data-endfield-balance-window>' +
-        '<span data-endfield-balance-phase>低谷</span>' +
+        '<span data-ak-balance-window>' +
+        '<span data-ak-balance-phase>低谷</span>' +
         // The 「时段剩余hh:mm:ss」 tail is its own group so a phone can drop
         // the countdown while the 高峰/低谷 label survives: the static glue
         // text has no node of its own and could not be hidden any other way.
-        '<span data-endfield-balance-remain-run>' +
+        '<span data-ak-balance-remain-run>' +
         '时段剩余' +
-        '<span data-endfield-balance-remain></span>' +
+        '<span data-ak-balance-remain></span>' +
         '</span>' +
         '</span>' +
         // The right-hand slot carries one read per mode: the elapsed pricing
         // share (wallet) or the channel's consumption share (credits). Two
         // exclusive nodes, swapped by the same attribute.
-        '<span data-endfield-balance-pct></span>' +
-        '<span data-endfield-credit-pct></span>' +
-        '<span data-endfield-balance-badge>' +
-        '<span data-endfield-balance-ring></span>' +
-        '<span data-endfield-balance-clock></span>' +
+        '<span data-ak-balance-pct></span>' +
+        '<span data-ak-credit-pct></span>' +
+        '<span data-ak-balance-badge>' +
+        '<span data-ak-balance-ring></span>' +
+        '<span data-ak-balance-clock></span>' +
         '</span>' +
         // The brand pose lives in the same box, absolutely placed over the row:
         // it is inert when the attribute is off (opacity 0, pointer-events none).
-        '<span data-endfield-balance-brand>' +
-        '<span data-endfield-balance-brand-mark></span>' +
-        '<span data-endfield-balance-brand-copy>' +
-        '<span data-endfield-balance-brand-kicker>/// DEEPSEEK API</span>' +
-        '<span data-endfield-balance-brand-title>DeepSeek 当前低谷</span>' +
+        '<span data-ak-balance-brand>' +
+        '<span data-ak-balance-brand-mark></span>' +
+        '<span data-ak-balance-brand-copy>' +
+        '<span data-ak-balance-brand-kicker>/// DEEPSEEK API</span>' +
+        '<span data-ak-balance-brand-title>DeepSeek 当前低谷</span>' +
         '</span>' +
         '</span>'
       document.body.appendChild(el)
       balanceEl = el
       balanceBootAnswered = false
-      /* 停靠位：CSS 在 [data-endfield-balance-position='left'|'right'] 上换
+      /* 停靠位：CSS 在 [data-ak-balance-position='left'|'right'] 上换
          top/left 定位；居中是基规则，不需要属性。位置偏好变化走
          syncBalanceCapsule -> showBalanceCapsule（destroy 重建），所以这里
          一次性写入即可，运行期不会漂移。 */
       const bootPosition = readBalanceCapsulePosition()
-      if (bootPosition !== 'center') el.setAttribute('data-endfield-balance-position', bootPosition)
+      if (bootPosition !== 'center') el.setAttribute('data-ak-balance-position', bootPosition)
       /* 防遮挡接线（33 片段定义观察器）：先清一次隐藏态，再挂侧栏监听与
          window mousemove —— 挂载失败（stub 环境）时两个判定保持关闭。 */
       balanceSidebarOpen = false
@@ -366,14 +366,14 @@
       if (bootAnimated) {
         // Raised before the first paint, so the pill never flashes the settled
         // row on its way into the pose.
-        el.setAttribute('data-endfield-balance-boot', '')
+        el.setAttribute('data-ak-balance-boot', '')
         balanceBootAt = Date.now()
       } else {
         balanceBootAt = 0
       }
       // Wallet mode is the seed: an absent model service or a DeepSeek session
       // must never leave the channel group blanking the money read.
-      el.setAttribute('data-endfield-credit-mode', 'wallet')
+      el.setAttribute('data-ak-credit-mode', 'wallet')
       creditPaintIdle()
       balanceFetch()
       creditsStart()
@@ -398,7 +398,7 @@
     const balancePositionChanged = () => {
       if (balanceEl === null) return false
       const want = readBalanceCapsulePosition()
-      return balanceEl.getAttribute('data-endfield-balance-position') !== (want === 'center' ? null : want)
+      return balanceEl.getAttribute('data-ak-balance-position') !== (want === 'center' ? null : want)
     }
 
     const syncBalanceCapsule = () => {
