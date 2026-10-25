@@ -91,7 +91,6 @@ async function main() {
   await send('Page.enable')
   await send('Runtime.enable')
   await send('Network.enable')
-  await send('Emulation.setDeviceMetricsOverride', { width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false })
 
   /* 记录所有 /plugins/ 请求的状态，这是「client bundle 有没有被收录」的直接证据。 */
   const pluginRequests = []
