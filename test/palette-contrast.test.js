@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 "use strict"
 /**
- * test/palette-contrast.test.js — 三套阵营 × 明暗的 WCAG 对比度验算。
+ * test/palette-contrast.test.js — 阵营 × 档位 × 明暗的 WCAG 对比度验算。
  *
  * 颜色是量出来的，不是挑出来的。这个脚本解析 src/styles/faction.css 里那六组
- * --edge-* 变量，对每一个**实际落在某个表面上**的角色算对比度：
+ * --edge-* 变量，再叠上 src/styles/lab.css 的档位层（第三档「莱茵终端版」改写
+ * 纸面家族，强调色留给阵营），对每一个**实际落在某个表面上**的角色算对比度：
  *
  *   正文 / 次要文字                      压在 paper 与 panel 上
  *   强调色作为文字                       压在 paper 与 panel 上
@@ -71,10 +72,12 @@ function contrast(foreground, background) {
  * ------------------------------------------------------------------ */
 
 const CSS = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles', 'faction.css'), 'utf8')
+const LAB_CSS = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles', 'lab.css'), 'utf8')
 
-function varsOf(selector) {
+function varsOf(selector, text) {
+  const source = text === undefined ? CSS : text
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const match = CSS.match(new RegExp(escaped + '\\s*\\{([^}]*)\\}'))
+  const match = source.match(new RegExp(escaped + '\\s*\\{([^}]*)\\}'))
   if (match === null) return null
   const out = {}
   for (const decl of match[1].matchAll(/(--edge-[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
@@ -83,7 +86,14 @@ function varsOf(selector) {
   return out
 }
 
-const GROUPS = [
+/* 第三档「莱茵终端版」叠在阵营之上：它接管纸面家族与语义状态色，强调色留给
+   阵营。所以每一档的验算表 = 阵营组 ∪ 档位组，与运行时的层叠顺序一致。 */
+const LAB_LAYER = {
+  light: 'body.theme-arknights-advanced.theme-arknights-lab',
+  dark: 'body.theme-arknights-advanced.theme-arknights-lab[data-ds-dark-theme]',
+}
+
+const FACTION_GROUPS = [
   { label: '罗德岛', mode: 'light', light: 'body.theme-arknights-themed', dark: 'body.theme-arknights-themed[data-ds-dark-theme]' },
   { label: '罗德岛', mode: 'dark', light: 'body.theme-arknights-themed', dark: 'body.theme-arknights-themed[data-ds-dark-theme]' },
   { label: '拉特兰', mode: 'light', light: 'body.theme-arknights-themed.theme-arknights-laterano', dark: 'body.theme-arknights-themed.theme-arknights-laterano[data-ds-dark-theme]' },
@@ -92,13 +102,29 @@ const GROUPS = [
   { label: '莱茵生命', mode: 'dark', light: 'body.theme-arknights-themed.theme-arknights-rhine', dark: 'body.theme-arknights-themed.theme-arknights-rhine[data-ds-dark-theme]' },
 ]
 
+const GROUPS = FACTION_GROUPS.concat(
+  FACTION_GROUPS.map((group) => Object.assign({}, group, {
+    lab: true,
+    label: group.label + '·莱茵终端档',
+  }))
+)
+
 /* 暗色组继承同阵营亮色组的造型变量（字体、字距）。测试把两组叠起来，拿到的是
    运行时**实际生效**的那一份变量表，而不是「这一组自己写了什么」。 */
 function effectiveVars(group) {
   const light = varsOf(group.light)
   const dark = varsOf(group.dark)
   if (light === null || dark === null) return null
-  return group.mode === 'light' ? Object.assign({}, light) : Object.assign({}, light, dark)
+  const faction = group.mode === 'light' ? Object.assign({}, light) : Object.assign({}, light, dark)
+  if (!group.lab) return faction
+  /* 档位组叠在阵营组之上，顺序与样式表一致（lab.css 在 faction.css 之后）。
+     漏掉这一步，验算的就是「阵营那套纸 + 档位那套字」这种运行时不存在的组合。 */
+  const labLight = varsOf(LAB_LAYER.light, LAB_CSS)
+  const labDark = varsOf(LAB_LAYER.dark, LAB_CSS)
+  if (labLight === null || labDark === null) return null
+  return group.mode === 'light'
+    ? Object.assign({}, faction, labLight)
+    : Object.assign({}, faction, labLight, labDark)
 }
 
 /* ------------------------------------------------------------------ *
@@ -197,7 +223,7 @@ for (const group of GROUPS) {
     else fail('accent-rgb 与 accent 不一致', 'accent=' + accentHex + ' → ' + wanted + '，accent-rgb=' + got)
   }
 
-  accents.push({ label: group.label, mode: group.mode, accent: accentHex })
+  accents.push({ label: group.label, mode: group.mode, lab: group.lab === true, accent: accentHex, paper: at('paper') })
 }
 
 /* ------------------------------------------------------------------ *
@@ -207,12 +233,36 @@ for (const group of GROUPS) {
 console.log('\n[阵营之间必须可区分]')
 
 for (const mode of ['light', 'dark']) {
-  const ofMode = accents.filter((row) => row.mode === mode)
+  const ofMode = accents.filter((row) => row.mode === mode && row.lab === false)
   const unique = new Set(ofMode.map((row) => String(row.accent).toLowerCase()))
   if (ofMode.length === 3 && unique.size === 3) {
     ok(mode + ' 下三套阵营的强调色两两不同', ofMode.map((row) => row.label + '=' + row.accent).join('  '))
   } else {
     fail(mode + ' 下阵营强调色有重复或缺失', ofMode.map((row) => row.label + '=' + row.accent).join('  '))
+  }
+}
+
+/* 档位换的是材质不是身份：lab 组仍读阵营那一份 accent，纸面家族整套换掉。
+   所以「lab 与同阵营同明暗的普通组相比，accent 相同、paper 不同」是这一档唯一
+   能被静态验算的存在性证明——哪天 lab.css 的纸面令牌被误删，这条会先红。 */
+for (const row of accents) {
+  if (row.lab === false) continue
+  const faction = accents.find(
+    (other) => other.lab === false && other.mode === row.mode && row.label.indexOf(other.label + '·') === 0
+  )
+  if (faction === undefined) {
+    fail('找不到莱茵终端档对应的阵营组', row.label)
+    continue
+  }
+  if (String(row.accent).toLowerCase() === String(faction.accent).toLowerCase()) {
+    ok(row.label + ' 强调色仍归阵营', faction.accent)
+  } else {
+    fail(row.label + ' 越界改了强调色', faction.accent + ' → ' + row.accent + '（颜色只该有阵营那一份真相）')
+  }
+  if (String(row.paper).toLowerCase() !== String(faction.paper).toLowerCase()) {
+    ok(row.label + ' 换了纸面家族', faction.paper + ' → ' + row.paper)
+  } else {
+    fail(row.label + ' 没有换纸', row.paper + '（档位层失效，切档不会有任何视觉变化）')
   }
 }
 

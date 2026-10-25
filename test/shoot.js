@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 "use strict"
 /**
- * test/shoot.js — 把主题注入一个**真实的 DSH 页面**并截图三套阵营。
+ * test/shoot.js — 把主题注入一个**真实的 DSH 页面**并截图三套阵营 × 两个档位。
  *
  * 为什么不是单元测试：令牌层与样式表最终要落到应用自己的 DOM 上，而「--ak-*
  * 声明在 <body> 上、--dsw-alias-* 以 var() 引用它们」这条链路只有在真实页面里
  * 才成立。所以这个脚本连 CDP，注入 client.js（用一份会像应用那样把令牌写成
- * <body> 行内样式的假 theme 服务），然后逐个阵营截图。
+ * <body> 行内样式的假 theme 服务，加一份可写的假 configForms 偏好通道），然后
+ * 逐个档位与阵营截图。档位走偏好通道而不是手工加 class：界面版本是 prefs 读的，
+ * 手工 class 拍到的是运行时不存在的组合。
  *
  * 它**不修改** profile、不安装插件：注入只发生在这一张临时浏览器标签里。
  *
@@ -15,7 +17,7 @@
  *   node test/shoot.js <url>           # 截一个真实的 DSH 页面（需要带 token）
  *   node test/shoot.js fixture dark    # 只截暗色
  *
- * 产物：docs/screenshots/*.png
+ * 产物：docs/screenshots/*.png（进阶版 6 张 + 莱茵终端档 6 张）
  */
 
 const fs = require('fs')
@@ -136,6 +138,25 @@ async function main() {
   await evaluate(`
     window.__akCaptured = null;
     window.__ModuleLoader__ = { load: (definition) => { window.__akCaptured = definition; } };
+
+    /* 假的 Host 偏好通道（configForms 那一代）。真实页面上这一层是 Host 提供的
+       可写 section；有了它，截图脚本才能像用户改设置一样把「界面版本」递进
+       client——档位是靠 prefs 读的，不是靠 body class，所以手工加 class 拍到的是
+       一个运行时不存在的组合（陶瓷材质 + 进阶版文案）。 */
+    window.__akSection = {};
+    window.__akNotify = null;
+    window.__akForm = {
+      getSnapshot: () => ({ status: 'ready', writable: true, value: window.__akSection }),
+      subscribe: (listener) => {
+        window.__akNotify = listener;
+        return () => { window.__akNotify = null; };
+      },
+      set: (field, value) => {
+        window.__akSection[field] = String(value);
+        return Promise.resolve(true);
+      },
+      unset: (field) => { delete window.__akSection[field]; return Promise.resolve(true); },
+    };
     'shim ready'
   `)
 
@@ -163,8 +184,12 @@ async function main() {
         inject: (name, callback) => callback(),
         register: () => () => {},
       };
+      const configForms = {
+        get: (ns) => (ns === 'theme-arknights' ? window.__akForm : null),
+        describe: () => ({ getSnapshot: () => ({ view: { namespaces: [{ ns: 'theme-arknights' }] } }) }),
+      };
       const ctx = {
-        get: (key) => ({ theme, slots })[key],
+        get: (key) => ({ theme, slots, configForms })[key],
         effect: (callback) => { window.__akDispose = callback(); },
       };
       mod.apply(ctx);
@@ -178,64 +203,88 @@ async function main() {
   `)
   console.log('注入结果: ' + JSON.stringify(injected))
 
-  /* ---- 逐个阵营截图 ------------------------------------------------ */
+  /* ---- 逐档位 × 阵营截图 -------------------------------------------- */
 
   fs.mkdirSync(OUT_DIR, { recursive: true })
 
   const shots = []
-  for (const mode of (modeFilter === 'both' ? ['light', 'dark'] : [modeFilter])) {
-    for (const faction of ['rhodes', 'laterano', 'rhine']) {
-      const key = faction === 'rhodes' ? '1' : faction === 'laterano' ? '2' : '3'
-      await evaluate(`
-        (() => {
-          const dark = ${mode === 'dark'};
-          if (dark) document.body.setAttribute('data-ds-dark-theme', '');
-          else document.body.removeAttribute('data-ds-dark-theme');
-          /* 应用在明暗切换时会重设全部令牌，这里照做。 */
-          if (window.__akLayer) {
-            for (const [name, pair] of Object.entries(window.__akLayer)) {
-              document.body.style.setProperty(name, dark ? pair.dark : pair.light);
+  /* fixture 才有「会话页 / 空状态」两个可切的状态；真实页面拍它当前这一屏。 */
+  const states = useFixture ? ['chat', 'deploy'] : ['chat']
+  for (const stateName of states) {
+    if (useFixture) {
+      await evaluate(`document.body.setAttribute('data-ak-state', '${stateName}'); '${stateName}'`)
+      await sleep(250)
+    }
+    for (const mode of (modeFilter === 'both' ? ['light', 'dark'] : [modeFilter])) {
+      for (const tier of ['advanced', 'lab']) {
+        for (const faction of ['rhodes', 'laterano', 'rhine']) {
+        const key = faction === 'rhodes' ? '1' : faction === 'laterano' ? '2' : '3'
+        await evaluate(`
+          (() => {
+            const dark = ${mode === 'dark'};
+            if (dark) document.body.setAttribute('data-ds-dark-theme', '');
+            else document.body.removeAttribute('data-ds-dark-theme');
+            /* 应用在明暗切换时会重设全部令牌，这里照做。 */
+            if (window.__akLayer) {
+              for (const [name, pair] of Object.entries(window.__akLayer)) {
+                document.body.style.setProperty(name, dark ? pair.dark : pair.light);
+              }
             }
-          }
-          document.dispatchEvent(new KeyboardEvent('keydown', {
-            key: '${key}', ctrlKey: true, shiftKey: true, bubbles: true,
-          }));
-          return document.body.className;
-        })()
-      `)
-      await sleep(700)
-      const state = await evaluate(`
-        (() => {
-          const body = document.body;
-          const badge = document.querySelector('.ak-bar__badge');
-          const bar = document.querySelector('.ak-bar');
-          const bg = getComputedStyle(body).backgroundColor;
-          const ink = getComputedStyle(body).color;
-          /* 强调色与纸面都读**解析后**的值：--edge-accent 由样式表按 <body> 的
-             class 定义，能读到具体 hex 就证明六组规则真的生效了。 */
-          const accent = getComputedStyle(body).getPropertyValue('--edge-accent').trim();
-          const paper = getComputedStyle(body).getPropertyValue('--edge-paper').trim();
-          /* 令牌层写进行内样式的值仍是 var(--edge-*) 字面量（自定义属性不会在
-             getPropertyValue 里被解析），所以要验证的是「它被换成了变量引用」
-             而不是「被解析成颜色」——前者才是这套机制成立的条件。 */
-          const tokenRef = getComputedStyle(body).getPropertyValue('--dsw-alias-bg-base').trim();
-          return {
-            classes: body.className,
-            accent,
-            paper,
-            background: bg,
-            ink,
-            badge: badge === null ? null : badge.textContent,
-            barItems: bar === null ? 0 : bar.querySelectorAll('.ak-bar__item').length,
-            tokenRef,
-          };
-        })()
-      `)
-      const name = faction + '-' + mode + '.png'
-      const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
-      fs.writeFileSync(path.join(OUT_DIR, name), Buffer.from(shot.data, 'base64'))
-      shots.push({ name, state })
-      console.log('  ' + name + '  accent=' + state.accent + '  bg=' + state.background + '  badge=' + state.badge)
+            /* 档位经 Host 通道下发：section 变 → 订阅 → reconcileFromPrefs 重排
+               body class 并重画终端文案。 */
+            window.__akSection.layout = '${tier}';
+            if (window.__akNotify) window.__akNotify();
+            document.dispatchEvent(new KeyboardEvent('keydown', {
+              key: '${key}', ctrlKey: true, shiftKey: true, bubbles: true,
+            }));
+            return document.body.className;
+          })()
+        `)
+        await sleep(700)
+        const state = await evaluate(`
+          (() => {
+            const body = document.body;
+            const badge = document.querySelector('.ak-bar__badge');
+            const bar = document.querySelector('.ak-bar');
+            const bg = getComputedStyle(body).backgroundColor;
+            const ink = getComputedStyle(body).color;
+            /* 强调色与纸面都读**解析后**的值：--edge-accent 由样式表按 <body> 的
+               class 定义，能读到具体 hex 就证明变量组真的生效了。 */
+            const accent = getComputedStyle(body).getPropertyValue('--edge-accent').trim();
+            const paper = getComputedStyle(body).getPropertyValue('--edge-paper').trim();
+            /* 令牌层写进行内样式的值仍是 var(--edge-*) 字面量（自定义属性不会在
+               getPropertyValue 里被解析），所以要验证的是「它被换成了变量引用」
+               而不是「被解析成颜色」——前者才是这套机制成立的条件。 */
+            const tokenRef = getComputedStyle(body).getPropertyValue('--dsw-alias-bg-base').trim();
+            /* 档位文案是终端层在每次扫描时重写的：读到 RHINE 就证明 lab 这一档
+               不只是叠了 CSS，DOM 层的词表也跟着换了档。 */
+            const deck = document.querySelector('[data-ak-part="deckBrand"]');
+            const foot = document.querySelector('[data-ak-part="footChannel"]');
+            return {
+              classes: body.className,
+              accent,
+              paper,
+              background: bg,
+              ink,
+              badge: badge === null ? null : badge.textContent,
+              barItems: bar === null ? 0 : bar.querySelectorAll('.ak-bar__item').length,
+              deck: deck === null ? null : deck.textContent,
+              foot: foot === null ? null : foot.textContent,
+              sectors: document.querySelectorAll('[class*="_projectRow"] .ak-sector-code').length,
+              tokenRef,
+            };
+          })()
+        `)
+        const name = (tier === 'lab' ? 'lab-' : '')
+          + (stateName === 'deploy' ? 'deploy-' : '')
+          + faction + '-' + mode + '.png'
+        const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
+        fs.writeFileSync(path.join(OUT_DIR, name), Buffer.from(shot.data, 'base64'))
+        shots.push({ name, faction, mode, tier, stateName, state })
+        console.log('  ' + name + '  accent=' + state.accent + '  paper=' + state.paper
+          + '  deck=' + state.deck + '  sectors=' + state.sectors + '  badge=' + state.badge)
+        }
+      }
     }
   }
 
@@ -244,11 +293,8 @@ async function main() {
   console.log('\n=== 一致性检查')
   let problems = 0
 
-  /** 该截图对应的阵营，从文件名前缀取。 */
-  const factionOfShot = (name) => name.split('-')[0]
-
   for (const shot of shots) {
-    const wanted = factionOfShot(shot.name)
+    const wanted = shot.faction
     const classes = String(shot.state.classes)
 
     /* ---- 阵营 class 必须与文件名一致 ---- */
@@ -271,6 +317,42 @@ async function main() {
     } else {
       console.log('  FAIL ' + shot.name + ': 缺少 theme-arknights-themed')
       problems += 1
+    }
+
+    /* ---- 档位 class ----
+       lab 是叠在 advanced 之上的一层材质，所以两个 class 必须同时在位；只多了
+       lab 而没带上 advanced，说明 syncLayoutClass 的层叠写错了。 */
+    const hasAdvanced = classes.indexOf('theme-arknights-advanced') !== -1
+    const hasLabClass = classes.indexOf('theme-arknights-lab') !== -1
+    const tierClassOk = shot.tier === 'lab' ? hasAdvanced && hasLabClass : hasAdvanced && !hasLabClass
+    if (tierClassOk) {
+      console.log('  ok   ' + shot.name + ': 档位 class 正确（' + shot.tier + '）')
+    } else {
+      console.log('  FAIL ' + shot.name + ': 档位 class 不符 (' + classes + ')')
+      problems += 1
+    }
+
+    /* ---- 终端文案跟着档位走 ----
+       铭牌词表由 36-terminal-ui.js 在每次扫描时按 readLayout() 重写：读到 RHINE
+       而不只是陶瓷底色，才证明 DOM 层也切了档。fixture 里没有应用那套
+       `_sidebarCol` / `_projectRow` 锚点，DOM 层不会挂载——读不到铭牌就跳过，
+       截真实页面（node test/shoot.js <url>）时这一条才会真的判。 */
+    const wantedDeck = shot.tier === 'lab' ? 'RHINE' : 'PRTS'
+    if (shot.state.deck === null) {
+      console.log('  --   ' + shot.name + ': 页面上没有终端铭牌，跳过文案判定')
+    } else {
+      if (String(shot.state.deck) === wantedDeck) {
+        console.log('  ok   ' + shot.name + ': 铭牌文案 = ' + wantedDeck)
+      } else {
+        console.log('  FAIL ' + shot.name + ': 铭牌文案是 ' + shot.state.deck + '，应为 ' + wantedDeck + '（档位只改了 CSS，DOM 层没跟上）')
+        problems += 1
+      }
+      if (Number(shot.state.sectors) > 0) {
+        console.log('  ok   ' + shot.name + ': 工作区行编号 ' + shot.state.sectors + ' 条')
+      } else {
+        console.log('  FAIL ' + shot.name + ': 侧栏没有一条工作区编号，终端 DOM 层没挂上')
+        problems += 1
+      }
     }
 
     /* ---- 强调色必须解析成具体颜色（证明六组变量真的生效） ---- */
@@ -300,6 +382,29 @@ async function main() {
       console.log('  ok   ' + shot.name + ': 悬浮条有 3 个阵营，徽标 ' + shot.state.badge)
     } else {
       console.log('  FAIL ' + shot.name + ': 悬浮条异常，按钮数 ' + shot.state.barItems + '，徽标 ' + shot.state.badge)
+      problems += 1
+    }
+  }
+  /* ---- 档位换的是材质，不是身份 ----
+     与同阵营同明暗的进阶版截图对照：accent 必须一模一样（颜色只有阵营那一份
+     真相），paper 必须不同（否则这一档切了等于没切）。 */
+  for (const shot of shots) {
+    if (shot.tier !== 'lab') continue
+    const base = shots.find(
+      (other) => other.tier === 'advanced' && other.faction === shot.faction
+        && other.mode === shot.mode && other.stateName === shot.stateName
+    )
+    if (base === undefined) continue
+    if (String(base.state.accent).toLowerCase() === String(shot.state.accent).toLowerCase()) {
+      console.log('  ok   ' + shot.name + ': 强调色仍归阵营 (' + shot.state.accent + ')')
+    } else {
+      console.log('  FAIL ' + shot.name + ': 档位越界改了强调色 (' + base.state.accent + ' → ' + shot.state.accent + ')')
+      problems += 1
+    }
+    if (String(base.state.paper).toLowerCase() !== String(shot.state.paper).toLowerCase()) {
+      console.log('  ok   ' + shot.name + ': 纸面家族已换 (' + base.state.paper + ' → ' + shot.state.paper + ')')
+    } else {
+      console.log('  FAIL ' + shot.name + ': 纸面没换 (' + shot.state.paper + ')，lab 层未生效')
       problems += 1
     }
   }

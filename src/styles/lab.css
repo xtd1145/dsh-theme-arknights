@@ -1,0 +1,610 @@
+/* ============================================================================
+ * dsh-theme-arknights — lab.css · 第三档「莱茵终端版」
+ *
+ * 追加在 faction.css 之后。它不是第四套阵营，也不是 advanced 的替代品：它是
+ * **叠在 advanced 之上的一层材质**，所以它的每条结构规则都同时挂着
+ * .theme-arknights-advanced.theme-arknights-lab —— 少挂前者，lab 会去重排一个
+ * 没有注入钩子的裸界面；少挂后者，档位切换就找不到这一层。
+ *
+ * 设计依据：MikeQu223/Rhine-Music-Database（Qt6/QML 的音乐库终端）。它的界面
+ * 不是「明日方舟的阵营皮肤」，而是一台**器材**：固定 1920×1080 舞台、整屏
+ * 陶瓷白面板、列表按行交替条纹、数值一律右对齐、标题是
+ * 一行大写拉丁 + 一行中文副标题、返回键是实心块、全局只有一个圆形元素
+ * （播放盘），页脚写 POWERED BY RHINE LAB。本层把这些逐条搬到 DSH 上。
+ *
+ * 分工（与阵营维度正交）
+ * ----------------------
+ *   阵营（faction.css）  强调色、点缀色、回合状态色、徽标形状 —— 「谁的设备」
+ *   档位（本文件）       纸面家族、字体字距、玻璃、阴影、几何语言、装饰密度
+ *                        —— 「设备是哪一代」
+ * 因此本文件**不覆盖 --edge-accent / --accent-rgb / --accent-onpaper / --signal
+ * / --status-***：身份色仍然只有阵营那一份真相，切阵营在 lab 里一样看得见。
+ * 陶瓷底 + 钢蓝 / 电光蓝 / 墨黑三种强调都成立，其中莱茵生命那一套与参考项目
+ * 几乎重合。
+ *
+ * 唯一的例外是 --edge-error / --success / --warn 三个语义状态色：它们判的是
+ * 「压在哪张纸上」，而纸正是本层换掉的东西，所以按陶瓷/石墨重新量过一遍
+ * （test/palette-contrast.test.js 会把阵营的莱茵终端档逐组验算）。
+ *
+ * 参考项目的两条硬规则被完整保留：
+ *   1. 一个界面里只允许一个圆形元素（播放盘）。本层把它给发送按钮，其余全部
+ *      直角 —— 所以 advanced 的斜切 clip-path 在这里退回直线。
+ *   2. 数值永远靠右、标签永远靠左，中间用一根发丝线连起来。侧栏计数、频道号、
+ *      扇区编号都按这个排。
+ * ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+ * 1. 材质令牌：陶瓷白 / 石墨黑
+ *
+ * 纸面家族整套接管（这是档位的本体），强调色留给阵营。--lab-* 是本层自己的
+ * 派生量，不进 check.js 的阵营契约清单，因为它们不描述颜色身份，只描述材质：
+ * 条纹、值块、发丝线，以及参考里那台器材的「硬件件」颜色——硬件件用的就是
+ * 阵营强调色，所以这里没有第二份色值需要维护。
+ * ------------------------------------------------------------------------- */
+
+/* ---- 亮色：陶瓷 ---------------------------------------------------------- */
+body.theme-arknights-advanced.theme-arknights-lab {
+  /* 纸面取自参考的陶瓷档，但整族上移一格：它的页底 #e1ded6 压上钢蓝强调色
+     只有 4.02:1，实心按钮上的字不到 AA。把 #edebe4（参考的面板档）当成本档的
+     paper，最紧的那一档（罗德岛）刚好回到 4.53:1，而条纹仍然是 #edebe4 /
+     #e7e5df 那对——观感不变，判据过关。 */
+  --edge-paper: #edebe4;
+  --edge-panel: #f1efe9;
+  --edge-overlay: #f7f6f1;
+  --edge-soft: #e7e5df;
+  --edge-line: #dcd8ce;
+  --edge-line-2: #b3afa1;
+  --edge-ink: #1a1c19;
+  --edge-ink-2: #55584d;
+
+  --edge-btn-muted: #e4e1d9;
+  --edge-error: #9f3830;
+  --edge-success: #3d5c33;
+  --edge-warn: #7a5a12;
+
+  /* 装饰强度：陶瓷面是哑光器材，不该有辉光；点阵与颗粒一并压到最低。 */
+  --edge-glow-light: 0.02;
+  --edge-glow-dark: 0.02;
+  --edge-wm-alpha: 0.07;
+
+  /* 字族：参考用一版宽字距的中性 grotesque 做标题，正文不动。 */
+  --edge-font-display: 'Inter', 'Helvetica Neue', 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --edge-tracking-display: 0.16em;
+
+  --edge-glass-fill: 241 239 233;
+  --edge-glass-alpha: 0.86;
+  --edge-glass-blur: 12px;
+  --edge-glass-edge: rgb(255 255 255 / 0.6);
+  --edge-glass-sheen: rgb(255 255 255 / 0.34);
+
+  /* 本层派生量 */
+  --lab-stripe: #e7e5df;
+  --lab-chip: #f1efe9;
+  --lab-hairline: rgba(85, 88, 77, 0.22);
+  --lab-hairline-strong: rgba(85, 88, 77, 0.4);
+  --lab-depth: 0 18px 42px -30px rgba(60, 58, 46, 0.34);
+  --lab-plate: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 38%);
+}
+
+/* ---- 暗色：石墨 ------------------------------------------------------------
+   参考的暗色不是纯黑，是带一点绿相的深石墨（#141613 / #161914），文字
+   #eeeeeb；分层同样靠发丝线。语义色取自它自己的取样：薄荷绿与铁锈红。 */
+body.theme-arknights-advanced.theme-arknights-lab[data-ds-dark-theme] {
+  --edge-paper: #141613;
+  --edge-panel: #161914;
+  --edge-overlay: #1d211b;
+  --edge-soft: #30312b;
+  --edge-line: #303b43;
+  --edge-line-2: #4a5147;
+  --edge-ink: #eeeeeb;
+  --edge-ink-2: #a2a89a;
+
+  --edge-btn-muted: #24271f;
+  --edge-error: #d9695c;
+  --edge-success: #8fe3bb;
+  --edge-warn: #d8b26a;
+
+  --edge-glow-light: 0.02;
+  --edge-glow-dark: 0.05;
+  --edge-wm-alpha: 0.05;
+
+  --edge-glass-fill: 22 25 20;
+  --edge-glass-alpha: 0.8;
+  --edge-glass-blur: 14px;
+  --edge-glass-edge: rgb(255 255 255 / 0.12);
+  --edge-glass-sheen: rgb(255 255 255 / 0.05);
+
+  --lab-stripe: #1b1e19;
+  --lab-chip: #22261f;
+  --lab-hairline: rgba(162, 168, 154, 0.22);
+  --lab-hairline-strong: rgba(162, 168, 154, 0.4);
+  --lab-depth: 0 20px 48px -32px rgba(0, 0, 0, 0.72);
+  --lab-plate: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 40%);
+}
+
+/* 结构层的派生量同样要跟着改：终端层用 --ak-* 描述网格、点阵与深度，
+   这些在陶瓷档里都比明日方舟那套更弱。 */
+body.theme-arknights-advanced.theme-arknights-lab {
+  --ak-cut: 0px;
+  --ak-grid-small: rgba(var(--edge-accent-rgb), 0.035);
+  --ak-grid-large: rgba(var(--edge-accent-rgb), 0.06);
+  --ak-wash: rgba(85, 88, 77, 0.07);
+  --ak-wash-strong: rgba(85, 88, 77, 0.13);
+  --ak-hairline: var(--lab-hairline);
+  --ak-signal-line: var(--lab-hairline-strong);
+  --ak-depth: var(--lab-depth);
+  --ak-deck-bg: var(--lab-plate), var(--edge-panel);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab[data-ds-dark-theme] {
+  --ak-wash: rgba(162, 168, 154, 0.07);
+  --ak-wash-strong: rgba(162, 168, 154, 0.13);
+  --ak-dot: rgba(162, 168, 154, 0.22);
+  --ak-depth: var(--lab-depth);
+}
+
+/* ---------------------------------------------------------------------------
+ * 2. 几何语言：斜切退回直线，分层交给发丝线
+ *
+ * advanced 的招牌动作是 clip-path 切角；参考的招牌动作是**没有切角**，只有一
+ * 根根把面板分开的细线。这一节把前者关掉、把后者补上，其余结构规则才能读起来
+ * 像同一台机器。
+ * ------------------------------------------------------------------------- */
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='hero']::before,
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='hero-stack']::before,
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='hero-stack']::after {
+  content: none;
+}
+
+/* 光晕是一个真实节点，不是伪元素，所以只能收起而不是 content:none。 */
+body.theme-arknights-advanced.theme-arknights-lab [class*='_heroGlow'] {
+  display: none;
+}
+
+/* 扫描光带只在罗德岛阵营那组规则里存在（选择器带两个 :not），所以这里要用
+   同样的 :not 把它压掉：权重必须不低于它，写成通用一条会静默失效。 */
+body.theme-arknights-advanced.theme-arknights-lab:not(.theme-arknights-laterano):not(.theme-arknights-rhine)::after {
+  content: none;
+}
+
+/* 氛围层换成等距陶瓷块：一块压在右上、一块压在左下，形状来自遮罩，颜色仍然是
+   --edge-accent —— 所以阵营切三套，这块「设备外壳」跟着换三种色，但绝不出现
+   明日方舟的圆环、图纸网格或扫描带。 */
+body.theme-arknights-advanced.theme-arknights-lab [class*='_frame']::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-color: var(--edge-accent);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1800' height='1100'%3E%3Cdefs%3E%3Cpattern id='h' width='64' height='64' patternUnits='userSpaceOnUse'%3E%3Cpath d='M64 0H0V64' fill='none' stroke='%23fff' stroke-width='.4' stroke-opacity='.3'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='1800' height='1100' fill='url(%23h)'/%3E%3Cg fill='%23fff'%3E%3Cg fill-opacity='.5'%3E%3Cpath d='M1420 120 l150 78 v156 l-150 78 -150-78 V198Z' fill-opacity='.07'/%3E%3Cpath d='M1420 150 l120 62 v124 l-120 62 -120-62 V212Z' fill-opacity='0' stroke='%23fff' stroke-opacity='.34' stroke-width='1'/%3E%3C/g%3E%3Cg fill-opacity='.4'%3E%3Cpath d='M300 760 l110 57 v114 l-110 57 -110-57 V817Z' fill-opacity='.055'/%3E%3Cpath d='M300 786 l84 44 v88 l-84 44 -84-44 V830Z' fill-opacity='0' stroke='%23fff' stroke-opacity='.3' stroke-width='1'/%3E%3C/g%3E%3C/g%3E%3Cg stroke='%23fff' stroke-opacity='.3' stroke-width='1' fill='none'%3E%3Cpath d='M0 300H1800M0 300H1800'/%3E%3Cpath d='M1560 0V1100'/%3E%3C/g%3E%3Cg fill='%23fff'%3E%3Crect x='60' y='1024' width='220' height='3' fill-opacity='.34'/%3E%3Crect x='300' y='1024' width='60' height='3' fill-opacity='.2'/%3E%3Crect x='1440' y='72' width='180' height='3' fill-opacity='.3'/%3E%3C/g%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1800' height='1100'%3E%3Cdefs%3E%3Cpattern id='h' width='64' height='64' patternUnits='userSpaceOnUse'%3E%3Cpath d='M64 0H0V64' fill='none' stroke='%23fff' stroke-width='.4' stroke-opacity='.3'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='1800' height='1100' fill='url(%23h)'/%3E%3Cg fill='%23fff'%3E%3Cg fill-opacity='.5'%3E%3Cpath d='M1420 120 l150 78 v156 l-150 78 -150-78 V198Z' fill-opacity='.07'/%3E%3Cpath d='M1420 150 l120 62 v124 l-120 62 -120-62 V212Z' fill-opacity='0' stroke='%23fff' stroke-opacity='.34' stroke-width='1'/%3E%3C/g%3E%3Cg fill-opacity='.4'%3E%3Cpath d='M300 760 l110 57 v114 l-110 57 -110-57 V817Z' fill-opacity='.055'/%3E%3Cpath d='M300 786 l84 44 v88 l-84 44 -84-44 V830Z' fill-opacity='0' stroke='%23fff' stroke-opacity='.3' stroke-width='1'/%3E%3C/g%3E%3C/g%3E%3Cg stroke='%23fff' stroke-opacity='.3' stroke-width='1' fill='none'%3E%3Cpath d='M0 300H1800M0 300H1800'/%3E%3Cpath d='M1560 0V1100'/%3E%3C/g%3E%3Cg fill='%23fff'%3E%3Crect x='60' y='1024' width='220' height='3' fill-opacity='.34'/%3E%3Crect x='300' y='1024' width='60' height='3' fill-opacity='.2'/%3E%3Crect x='1440' y='72' width='180' height='3' fill-opacity='.3'/%3E%3C/g%3E%3C/svg%3E");
+  -webkit-mask-size: cover;
+  mask-size: cover;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+}
+
+body.theme-arknights-advanced.theme-arknights-lab[data-ds-dark-theme] [class*='_frame']::before {
+  mix-blend-mode: screen;
+  opacity: 0.36;
+}
+
+/* 页面边缘 HUD：四角括号换成「上沿一条通长的发丝线 + 右缘刻度」，
+   这是参考里那种把整屏当成一块面板边缘的画法。 */
+body.theme-arknights-advanced.theme-arknights-lab::before {
+  background-image:
+    linear-gradient(var(--lab-hairline-strong), var(--lab-hairline-strong)),
+    linear-gradient(var(--lab-hairline-strong), var(--lab-hairline-strong)),
+    repeating-linear-gradient(to bottom, var(--lab-hairline-strong) 0 1px, transparent 1px 16px);
+  background-size: 100% 1px, 1px 100%, 3px 100%;
+  background-position: 0 44px, right 10px top 0, right 10px top 0;
+  background-repeat: no-repeat, no-repeat, repeat-y;
+  opacity: 0.5;
+}
+
+/* 卡片与弹窗退回直线。 */
+body.theme-arknights-advanced.theme-arknights-lab [class*='_card'],
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='composer'],
+body.theme-arknights-advanced.theme-arknights-lab .ak-bar {
+  clip-path: none;
+  border-radius: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * 3. 列表：交替条纹 + 左标签右数值
+ *
+ * 参考的每一张表都是同一个形状：行与行靠 #edebe4 / #e7e5df 两档交替分开，
+ * 标签靠左、数值靠右，选中行整条压成实心块。DSH 的侧栏（工作区行 / 会话行）
+ * 正好是同一类列表，所以这一节是本档最主要的观感来源。
+ * ------------------------------------------------------------------------- */
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'],
+body.theme-arknights-advanced.theme-arknights-lab [class*='_sessionRow'] {
+  border: 0;
+  border-radius: 0;
+  box-shadow: inset 0 -1px 0 var(--lab-hairline);
+  background-image: none;
+  clip-path: none;
+}
+
+/* 条纹只加在未选中、未悬停的行上：选中行的实心块必须比条纹更抢眼，
+   而悬停已经自带底色，再叠条纹就变成了噪点。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row']:nth-child(even),
+body.theme-arknights-advanced.theme-arknights-lab [class*='_sessionRow']:nth-child(even) {
+  background-color: var(--lab-stripe);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row']:nth-child(odd),
+body.theme-arknights-advanced.theme-arknights-lab [class*='_sessionRow']:nth-child(odd) {
+  background-color: var(--edge-panel);
+}
+
+/* 编号槽：参考里所有编号都是同一枚「值块」——右对齐、等宽、比正文小一号，
+   底色比面板浅一档。侧栏行里的扇区号与频道号共用这一个形状。 */
+body.theme-arknights-advanced.theme-arknights-lab .ak-sector-code {
+  min-width: 30px;
+  padding: 2px 6px;
+  border: 1px solid var(--lab-hairline);
+  border-radius: 0;
+  background: var(--lab-chip);
+  color: var(--edge-ink-2);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-align: right;
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'][data-ak-active='true'] .ak-sector-code {
+  background: var(--edge-accent);
+  border-color: var(--edge-accent);
+  color: var(--edge-paper);
+}
+
+/* 选中行：整条压成阵营强调色的实心块，右侧编号反白 —— 与参考的选中行一致，
+   只是这里没有切角。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'][data-ak-active='true'],
+body.theme-arknights-advanced.theme-arknights-lab [class*='_sessionRow'][class*='_selected'],
+body.theme-arknights-advanced.theme-arknights-lab [class*='_sessionRow'][aria-selected='true'] {
+  background-image: none;
+  box-shadow: inset 3px 0 0 var(--edge-accent), inset 0 -1px 0 var(--lab-hairline);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'][data-ak-active='true']::after,
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='new-session']::after {
+  content: none;
+}
+
+/* 「新会话」在参考里对应的是实心按钮块，而不是带箭头的终端指令。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='new-session'] {
+  clip-path: none;
+  border: 1px solid var(--edge-accent);
+  border-radius: 0;
+  background: var(--edge-accent);
+  color: var(--edge-paper);
+  letter-spacing: 0.1em;
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='new-session']:hover {
+  background: var(--edge-accent-deep);
+  border-color: var(--edge-accent-deep);
+  color: var(--edge-paper);
+}
+
+/* ---------------------------------------------------------------------------
+ * 4. 侧栏铭牌：从 HUD 面板改成器材标签
+ *
+ * advanced 的铭牌是「PRTS 终端牌」：斜切、扇区大字、信号格。同一批 DOM 在
+ * 这里读起来像参考里的分区标签：顶部一行拉丁小字 + 一根发丝线，扇区号收成
+ * 右侧值块，信号格换成一条刻度尺。字面内容（RHINE / TRACK、SELECT）由
+ * 36-terminal-ui.js 的词表负责，本层只管形状。
+ * ------------------------------------------------------------------------- */
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-deck {
+  clip-path: none;
+  border: 1px solid var(--lab-hairline);
+  border-left: 3px solid var(--edge-accent);
+  border-radius: 0;
+  background: var(--lab-plate), var(--edge-panel);
+  box-shadow: none;
+}
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-deck::before,
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-deck::after {
+  content: none;
+}
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-deck__top {
+  border-bottom: 1px solid var(--lab-hairline);
+}
+
+/* 扇区号：左大字换成右侧对齐的值块 —— 参考的编号从不占版面中心。重排只靠
+   order，不动 DOM：__main 本来就是 flex，所以三块的新顺序是「名称 … 标签 编号」。 */
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-deck__sector {
+  order: 3;
+  flex: 0 0 auto;
+  min-width: 42px;
+  padding: 3px 7px;
+  border: 1px solid var(--lab-hairline-strong);
+  background: var(--lab-chip);
+  color: var(--edge-ink);
+  font-family: var(--ak-mono);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: 0.08em;
+  text-align: right;
+}
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-deck__sectorLabel {
+  order: 2;
+  margin-left: auto;
+  padding-left: 0;
+  border-left: 0;
+  font-size: 7px;
+  letter-spacing: 0.2em;
+  text-align: right;
+  color: var(--edge-ink-2);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-deck__ident {
+  order: 1;
+  margin-left: 0;
+  text-align: left;
+}
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-deck__en {
+  letter-spacing: var(--edge-tracking-display);
+  color: var(--edge-ink);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-deck__status i,
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-sector-head__live i {
+  border-radius: 0;
+  background: var(--edge-accent);
+}
+
+/* 信号格：四根柱状条换成一段一段的刻度尺 —— 同一份信息，器材的说法。 */
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-deck__signal i {
+  width: 3px;
+  height: 7px !important;
+  opacity: 0.5 !important;
+  background: var(--lab-hairline-strong);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-deck__signal i:last-child {
+  background: var(--edge-accent);
+  opacity: 1 !important;
+}
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-deck__bottom {
+  border-top: 1px solid var(--lab-hairline);
+}
+
+/* 频道号靠右：值块与侧栏编号同一形状。 */
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-deck__freq {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: 1px solid var(--lab-hairline);
+  background: var(--lab-chip);
+  color: var(--edge-ink-2);
+}
+
+/* ---- 分区抬头 ---------------------------------------------------------- */
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-sector-head {
+  clip-path: none;
+  border: 1px solid var(--lab-hairline);
+  border-left: 3px solid var(--edge-accent);
+  border-radius: 0;
+  background: var(--edge-panel);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-sector-head__top {
+  border-bottom: 1px solid var(--lab-hairline);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='section-header'] {
+  border-bottom: 1px solid var(--lab-hairline);
+}
+
+/* ---------------------------------------------------------------------------
+ * 5. 空状态：标题两行制 + 工作位置面板
+ *
+ * 参考的每一个抬头都是「大写拉丁一行 + 中文一行」，且中文行更小、更淡。
+ * advanced 已经有这个骨架（hero-stack / deploy-row），这里只把它的军事味
+ * 换成器材味：去掉外框四角括号与幽灵扇区号，把面板改成一格一格的陶瓷块。
+ * ------------------------------------------------------------------------- */
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='hero-stack']::after,
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='deploy-row']::after,
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='workspace']::after,
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='header'][data-ak-blank='true']::before,
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='header'][data-ak-blank='true']::after,
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='composer']::after {
+  content: none;
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='header'][data-ak-blank='true'] {
+  border-bottom: 1px solid var(--lab-hairline);
+}
+
+/* 空状态抬头：左侧一条 3px 的硬件色竖带，是参考里给「当前面板」记名的方式。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='deploy-row'] {
+  clip-path: none;
+  border: 1px solid var(--lab-hairline);
+  border-left: 3px solid var(--edge-accent);
+  border-radius: 0;
+  background: var(--edge-panel);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='deploy-row']::before {
+  content: 'WORKSPACE // TERMINAL LIBRARY';
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='workspace'],
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='mode'] {
+  clip-path: none;
+  border-radius: 0;
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='workspace'][data-ak-active='true'] {
+  background: var(--edge-accent);
+  color: var(--edge-paper);
+}
+
+/* ---------------------------------------------------------------------------
+ * 6. 输入区：transport 条 + 全局唯一的圆盘
+ *
+ * 参考的输入/播放条是一根横通的板：上方一条发丝线、左侧编号、右侧一枚圆形
+ * 播放盘。DSH 的 composer 就是它对应的那块，所以这一节把 advanced 的
+ * 「任务简报通道」换成「播放条」，并把整个界面唯一的圆形留给发送按钮。
+ * ------------------------------------------------------------------------- */
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='composer'] {
+  border: 1px solid var(--lab-hairline-strong) !important;
+  border-top: 2px solid var(--edge-accent);
+  border-radius: 0 !important;
+  background-color: var(--edge-overlay) !important;
+  background-image: var(--lab-plate) !important;
+  box-shadow: var(--lab-depth);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='composer']:focus-within {
+  border-color: var(--edge-accent) !important;
+  box-shadow: var(--lab-depth), inset 0 0 0 1px rgba(var(--edge-accent-rgb), 0.14);
+}
+
+/* 发送盘：参考里唯一允许自己不是直角的那个元素。用 !important 是因为应用的
+   圆角写在行内样式上；形状是本档的承诺，不该被上游的一行 style 改掉。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='composer'] button[class*='_primary'] {
+  border-radius: 50% !important;
+  background: var(--edge-accent) !important;
+  color: var(--edge-paper) !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--edge-accent-rgb), 0.4);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='composer'] button[class*='_primary']:hover:not(:disabled) {
+  background: var(--edge-accent-deep) !important;
+  color: var(--edge-paper) !important;
+}
+
+/* 「+」附件键保持直角，并且只描边——圆盘只有一个，这是参考的硬规则。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='composer'] [class*='_add'] {
+  border-radius: 0 !important;
+  border: 1px solid var(--lab-hairline-strong);
+  background: var(--lab-chip);
+}
+
+/* 输入条左上角的标注：advanced 写的是「任务简报通道」，这一档写它是谁的设备。
+   直接改写同一条 ::before 的 content，而不是关掉再另造一个 —— 两处标签会打架。 */
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='composer']::before {
+  left: 10px;
+  top: 5px;
+  font-size: 6px;
+  letter-spacing: 0.24em;
+  color: var(--edge-ink-2);
+  opacity: 0.8;
+  content: 'RHINE TERMINAL // INPUT';
+}
+
+/* ---------------------------------------------------------------------------
+ * 7. 页脚与悬浮条：POWERED BY RHINE LAB
+ *
+ * advanced 的页脚是一条作战记录带。参考的页脚是一行硬件署名。同一位置、同一
+ * 尺寸，把措辞换掉、把 sector 徽章换成右对齐值块即可。
+ * ------------------------------------------------------------------------- */
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-footer {
+  gap: 9px;
+  opacity: 0.62;
+}
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-footer [data-ak-part='footChannel']::after {
+  content: ' · POWERED BY RHINE LAB';
+  letter-spacing: 0.24em;
+}
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-footer__sector {
+  border: 1px solid var(--lab-hairline);
+  background: var(--lab-chip);
+  color: var(--edge-ink-2);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-footer__rule {
+  background: linear-gradient(90deg, transparent, var(--lab-hairline-strong));
+}
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-terminal-footer__rule:last-child {
+  background: linear-gradient(90deg, var(--lab-hairline-strong), transparent);
+}
+
+/* 悬浮阵营条：与参考的面板一致 —— 直边、发丝线、右对齐值块，去掉切角。 */
+body.theme-arknights-advanced.theme-arknights-lab .ak-bar {
+  border-left-width: 3px;
+  box-shadow: var(--lab-depth);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-bar__item[aria-pressed='true'] {
+  border-radius: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * 8. 工作区菜单：部署控制面板 → 库面板
+ * ------------------------------------------------------------------------- */
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-deploy-menu__head {
+  clip-path: none;
+  border: 1px solid var(--lab-hairline);
+  border-left: 3px solid var(--edge-accent);
+  border-radius: 0;
+  background: var(--edge-panel);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-deploy-menu [role='menuitem'] {
+  border-radius: 0;
+  clip-path: none;
+}
+
+body.theme-arknights-advanced.theme-arknights-lab .ak-deploy-menu [role='menuitem'][data-ak-active='true'] {
+  background: var(--edge-accent);
+  color: var(--edge-paper);
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='menu-item']::before {
+  letter-spacing: 0.12em;
+}
+
+/* ---------------------------------------------------------------------------
+ * 9. 品牌文案：加载屏的两行大字跟随档位
+ *
+ * 阵营决定署名的身份，档位决定它说什么话。lab 之下加载屏念的是这台设备的
+ * 名字（RHINE / TERMINAL），三套阵营共用；boot 序列的副行同理。选择器带上
+ * .theme-arknights-lab 之后与 faction.css 的同名规则权重相同、来源更晚，
+ * 所以只需要这一段，不必把三套阵营各写一遍。
+ * ------------------------------------------------------------------------- */
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-loader-word1]::before {
+  content: 'RHINE';
+}
+
+body.theme-arknights-advanced.theme-arknights-lab [data-ak-loader-word2]::before {
+  content: 'TERMINAL';
+}
+
+/* ---------------------------------------------------------------------------
+ * 10. 减弱动效与窄屏
+ *
+ * 本层没有常驻动画（扫描带与辉光都关掉了），所以这一节只做一件事：把条纹
+ * 在很窄的侧栏里退成单色，避免行高不足时条纹读成灰带。
+ * ------------------------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row']:nth-child(even),
+  body.theme-arknights-advanced.theme-arknights-lab [class*='_sessionRow']:nth-child(even) {
+    background-color: var(--edge-panel);
+  }
+}

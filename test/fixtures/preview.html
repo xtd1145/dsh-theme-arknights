@@ -14,6 +14,11 @@
    * 于是这张图验证的正是主题真正的机制：别名被换成 var(--ak-*)，而 --ak-* 由
    * 样式表按 <body> 的 class 声明 —— 换阵营就是一个 class，页面里没有任何一处
    * 写着主题色的字面值。
+   *
+   * 骨架同时照着应用的 DOM 形状挂锚点（_frame / _sidebarCol / _logoRow /
+   * _projectRow[data-row-key] / _composerHero / _composerSeat / data-slot=…）：
+   * 主题的样式表与终端 DOM 层只认这些名字。挂上之后这里能拍到 PRTS 铭牌、扇区
+   * 编号、部署面板与档位词表，而不只是换了个底色。
    * ====================================================================== */
 
   :root {
@@ -365,6 +370,15 @@
     font-weight: 600;
   }
 
+  /* 应用的发送键是一枚接近正方形的图标键（不是「发送」文字键），圆盘才画得圆。 */
+  ._primaryBtn_9zx {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+  }
+
   .status-line {
     display: flex;
     align-items: center;
@@ -373,28 +387,80 @@
     font-size: 11px;
     color: var(--dsw-alias-label-tertiary);
   }
+
+  /* ---- 空状态（部署选择）--------------------------------------------- */
+  .hero {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 14px;
+    padding: 40px 26px 20px;
+  }
+
+  .hero__headline { display: flex; flex-direction: column; gap: 8px; }
+  .hero__title { font-size: 24px; font-weight: 650; letter-spacing: 0.01em; }
+  .hero__sub { font-size: 12.5px; color: var(--dsw-alias-label-secondary); }
+
+  .hero__workspace { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--dsw-alias-label-tertiary); }
+
+  .hero__workspace button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--dsw-alias-border-l2);
+    border-radius: 8px;
+    background: var(--dsw-alias-bg-layer-1);
+    color: var(--dsw-alias-label-primary);
+    font-size: 12.5px;
+  }
+
+  /* 两个状态各拍一张：会话页看令牌层与列表，空状态看部署面板与页脚。
+     页脚是主题注入到 <body> 上的，靠 hero 是否存在来挂载——而这里两种状态的
+     hero 都在 DOM 里（只是 display:none），所以会话页要显式收掉它。 */
+  body[data-ak-state='deploy'] .transcript { display: none; }
+  body[data-ak-state='chat'] .hero { display: none; }
+  body[data-ak-state='chat'] .ak-terminal-footer { display: none; }
 </style>
 </head>
 <body>
-<div class="app">
-  <aside class="sidebar">
-    <div class="brand">
+<!-- 结构锚点用应用的 CSS-module 命名（_frame_xxx / _sidebarCol_xxx / …）：主题的
+     样式表与终端 DOM 层只认这些名字。没有它们，fixture 只能验令牌层，拍不到铭牌、
+     扇区编号、部署面板与 transport 输入条。 -->
+<div class="app _frame_f3a1d">
+  <aside class="sidebar _sidebarCol_9kc2" data-slot="sidebar">
+    <div class="brand _logoRow_2hxa7">
       <span class="brand__mark"></span>
       <span class="brand__name">DeepSeek Harness</span>
     </div>
-    <div class="new-chat">＋ 新建会话</div>
+    <div class="new-chat _newSession_5pq1">＋ 新建会话</div>
     <div class="nav-label">会话</div>
-    <div class="nav-item nav-item--active"><span class="nav-item__dot"></span>阵营主题的三套皮肤</div>
-    <div class="nav-item">令牌层是怎么接上的</div>
-    <div class="nav-item">对比度验算记录</div>
-    <div class="nav-item">构建与门禁</div>
-    <div class="nav-label">工作区</div>
-    <div class="nav-item">dsh-theme-arknights</div>
-    <div class="nav-item">docs / screenshots</div>
+    <div class="nav-item nav-item--active _sessionRow_1zx9 _panelRow_6q">
+      <span class="nav-item__dot"></span>阵营主题的三套皮肤
+    </div>
+    <div class="nav-item _sessionRow_1zx9 _panelRow_6q">令牌层是怎么接上的</div>
+    <div class="nav-item _sessionRow_1zx9 _panelRow_6q">对比度验算记录</div>
+    <div class="nav-item _sessionRow_1zx9 _panelRow_6q">构建与门禁</div>
+    <div data-slot="sidebar.workspaces">
+      <div class="nav-label _sectionHeader_7mn3"><span class="_sectionLabel_4rt8">工作区</span></div>
+      <div class="nav-item _projectRow_8kd1 _selected_2f" data-row-key="workspace:ds">
+        <span class="_title_3hb">ds</span>
+      </div>
+      <div class="nav-item _projectRow_8kd1" data-row-key="workspace:dsh-theme-arknights">
+        <span class="_title_3hb">dsh-theme-arknights</span>
+      </div>
+      <div class="nav-item _projectRow_8kd1" data-row-key="workspace:docs">
+        <span class="_title_3hb">docs / screenshots</span>
+      </div>
+      <div class="nav-item _projectRow_8kd1" data-row-key="workspace:token-meter">
+        <span class="_title_3hb">token-meter</span>
+      </div>
+    </div>
   </aside>
 
-  <div class="main">
-    <header class="topbar">
+  <div class="main _centerCol_2lp5">
+    <header class="topbar _header_6vy0">
       <span class="topbar__title">阵营主题的三套皮肤</span>
       <span class="topbar__right">
         <span class="chip chip--accent">deepseek-v4-flash</span>
@@ -402,6 +468,18 @@
         <span class="chip">12.4k tokens</span>
       </span>
     </header>
+
+    <div class="hero _composerHero_4st7">
+      <div class="hero__headline _headline_9ba2">
+        <span class="hero__title">今天想做点什么？</span>
+        <span class="hero__sub">从左侧挑一个工作区，或者直接开始一段对话。</span>
+      </div>
+      <div class="hero__workspace _heroWorkspaceRow_5nu8">
+        <span>工作区</span>
+        <button type="button" aria-haspopup="menu" aria-label="选择工作区">ds</button>
+        <button type="button" aria-haspopup="menu" aria-label="选择模式">标准模式</button>
+      </div>
+    </div>
 
     <div class="transcript">
       <div class="msg msg--user">
@@ -447,15 +525,15 @@ body.theme-arknights-advanced.theme-arknights-laterano[data-ds-dark-theme] {
       </div>
     </div>
 
-    <div class="composer">
-      <div class="composer__box">
+    <div class="composer _composerSeat_3ew6">
+      <div class="composer__box" data-composer-card>
         <div class="composer__text">继续，说明一下暗色为什么要提亮…</div>
         <div class="composer__bar">
           <div class="composer__tools">
-            <button class="btn">附件</button>
-            <button class="btn">技能</button>
+            <button class="btn _addBtn_4kq">附件</button>
+            <button class="btn _addBtn_7me">技能</button>
           </div>
-          <button class="btn btn--primary">发送</button>
+          <button class="btn btn--primary _primaryBtn_9zx">发送</button>
         </div>
       </div>
     </div>
@@ -465,5 +543,12 @@ body.theme-arknights-advanced.theme-arknights-laterano[data-ds-dark-theme] {
     </div>
   </div>
 </div>
+<script>
+  /* ?state=deploy 拍空状态（部署面板 + 页脚），默认拍会话页。 */
+  document.body.setAttribute(
+    'data-ak-state',
+    new URLSearchParams(location.search).get('state') === 'deploy' ? 'deploy' : 'chat'
+  )
+</script>
 </body>
 </html>

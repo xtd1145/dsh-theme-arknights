@@ -32,7 +32,7 @@ const NAMESPACE = LEGACY_NAMESPACE;
  *   - default-OFF switches store '0' and the client reads them as `=== '1'`;
  *   - faction / layout / radii / frame-rate / speed each store exactly one of
  *     their documented literals ('rhodes'/'laterano'/'rhine';
- *     'universal'/'advanced'; 'square'/'round'; fps in 24/60/120;
+ *     'universal'/'advanced'/'lab'; 'square'/'round'; fps in 24/60/120;
  *     speed in 1/2/4), with the shipped default filled in here.
  */
 const FIELD_DEFAULTS = {
@@ -40,8 +40,9 @@ const FIELD_DEFAULTS = {
   faction: 'rhodes',        // 阵营 —— rhodes（罗德岛）/ laterano（拉特兰）/ rhine（莱茵生命）
   // 界面版本 —— universal（通用适配：只换配色与版式细节，不动应用布局）
   //            | advanced（进阶版：重排整体 UI —— HUD 侧栏、切线角、扫描装饰）
+  //            | lab（莱茵终端版：叠在 advanced 之上的陶瓷材质层，见 styles/lab.css）
   // 默认 advanced：这一版就是本主题与「只换颜色」的皮肤的区别所在。想保守的
-  // 用户随时可以在设置里切回 universal，两者共用同一套令牌与配色。
+  // 用户随时可以在设置里切回 universal，三者共用同一套令牌与配色。
   layout: 'advanced',
   factionBar: '1',          // 悬浮阵营条（右上角快速切换）—— default on
   glass: 'off',             // optional local frost; original material by default

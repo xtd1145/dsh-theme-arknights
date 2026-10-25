@@ -17,6 +17,7 @@
         }
         document.body.classList.remove(THEMED_CLASS)
         document.body.classList.remove(LAYOUT_ADVANCED_CLASS)
+        document.body.classList.remove(LAYOUT_LAB_CLASS)
         document.body.removeAttribute?.('data-ak-glass')
       }
       destroyFactionBar()

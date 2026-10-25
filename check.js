@@ -109,6 +109,7 @@ console.log('\n[2] 阵营变量集完整（3 阵营 × 明暗）')
 
 const themeCss = read('src/styles/theme.css')
 const factionCss = read('src/styles/faction.css')
+const labCss = read('src/styles/lab.css')
 
 /** 抠出 faction.css 里某个选择器块声明的变量。 */
 function varsOf(selector) {
@@ -163,10 +164,11 @@ for (const group of GROUPS) {
   }
 }
 
-/* theme.css 引用到的 --edge-* 必须全部在契约清单里（否则说明有一处引用没人定义）。 */
+/* 三份样式表引用到的 --edge-* 必须全部在契约清单里（否则说明有一处引用没人定义）。 */
 const referenced = new Set()
-for (const match of themeCss.matchAll(/var\((--edge-[a-z0-9-]+)/g)) referenced.add(match[1])
-for (const match of factionCss.matchAll(/var\((--edge-[a-z0-9-]+)/g)) referenced.add(match[1])
+for (const css of [themeCss, factionCss, labCss]) {
+  for (const match of css.matchAll(/var\((--edge-[a-z0-9-]+)/g)) referenced.add(match[1])
+}
 /* 这四个是加载屏排版与字体，定义在 theme.css 自己身上，不在六组里。 */
 const LOCALLY_DEFINED = ['--edge-word', '--edge-gap', '--edge-font']
 const undocumented = Array.from(referenced).filter(
@@ -206,6 +208,63 @@ for (const id of idList) {
 }
 
 /* ------------------------------------------------------------------ *
+ * 3b. 界面版本档位（lab 是叠在 advanced 之上的第三层）
+ * ------------------------------------------------------------------ */
+
+console.log('\n[3b] 界面版本档位与莱茵终端层')
+
+const layoutIds = (palette.match(/LAYOUT_IDS = \[([^\]]*)\]/) || [])[1]
+const layoutList = layoutIds === undefined ? [] : (layoutIds.match(/'[a-z]+'/g) || []).map((s) => s.replace(/'/g, ''))
+if (layoutList.length === 3) ok('LAYOUT_IDS 有 3 个档位', JSON.stringify(layoutList))
+else fail('LAYOUT_IDS 应当有 3 个档位', JSON.stringify(layoutList))
+
+/* lab.css 必须在 faction.css 之后：层叠顺序就是档位顺序。写反了会得到
+   「切到莱茵终端版但纸面还是阵营的那套」——规则全在，一条都不生效。 */
+const clientManifest = read('src/client/manifest.js')
+const factionEntry = clientManifest.indexOf("'../styles/faction.css'")
+const labEntry = clientManifest.indexOf("'../styles/lab.css'")
+if (factionEntry !== -1 && labEntry !== -1 && labEntry > factionEntry) {
+  ok('manifest 在 faction.css 之后注册了 lab.css')
+} else {
+  fail('lab.css 没有注册在 faction.css 之后', 'factionEntry=' + factionEntry + ' labEntry=' + labEntry)
+}
+
+/* lab 接管的是「材质」：纸面家族整套覆盖，强调色仍由阵营决定。少写一个，
+   那个表面就会在切档后留下阵营的原色，看起来像档只生效了一半。 */
+const LAB_SURFACE = [
+  '--edge-paper', '--edge-panel', '--edge-overlay', '--edge-soft',
+  '--edge-line', '--edge-line-2', '--edge-ink', '--edge-ink-2',
+]
+const LAB_GROUPS = [
+  { label: '莱茵终端·亮', selector: 'body.theme-arknights-advanced.theme-arknights-lab' },
+  { label: '莱茵终端·暗', selector: 'body.theme-arknights-advanced.theme-arknights-lab[data-ds-dark-theme]' },
+]
+for (const group of LAB_GROUPS) {
+  const escaped = group.selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const match = labCss.match(new RegExp(escaped + '\\s*\\{([^}]*)\\}'))
+  if (match === null) {
+    fail(group.label + ': 找不到规则块', group.selector)
+    continue
+  }
+  const declared = new Set()
+  for (const decl of match[1].matchAll(/(--edge-[a-z0-9-]+)\s*:/g)) declared.add(decl[1])
+  const missing = LAB_SURFACE.filter((name) => !declared.has(name))
+  if (missing.length === 0) ok(group.label, LAB_SURFACE.length + ' 个表面变量齐全')
+  else fail(group.label + ' 缺少表面变量', JSON.stringify(missing))
+}
+
+/* 三档都必须有两份语言的标签与提示：少一个 key，设置页那一段就渲染成
+   「undefined」，而且只在切到那一档时可见。 */
+const copy = read('src/client/50-settings-copy.js')
+for (const id of layoutList) {
+  for (const [prefix, name] of [['layout_', '档位名'], ['layoutHint_', '档位提示']]) {
+    const hits = (copy.match(new RegExp(prefix + id + ':', 'g')) || []).length
+    if (hits === 2) ok(name + ' ' + id + ' 中英各一份')
+    else fail(name + ' ' + id + ' 的文案份数不对', hits + ' 处，应为 2（zh + en）')
+  }
+}
+
+/* ------------------------------------------------------------------ *
  * 4. 极性 / 枚举
  * ------------------------------------------------------------------ */
 
@@ -214,7 +273,7 @@ console.log('\n[4] 开关极性与枚举')
 if (hostTable !== null) {
   const ENUM_FIELDS = {
     faction: ['rhodes', 'laterano', 'rhine'],
-    layout: ['universal', 'advanced'],
+    layout: ['universal', 'advanced', 'lab'],
     radius: ['square', 'round'],
     glass: ['off', 'on'],
     scrollAnimLevel: ['soft', 'standard', 'snappy'],
@@ -267,9 +326,11 @@ const KNOWN_LOCAL_NAMES = new Set([
   '_compactionButton', '_compactionRow', '_compactionSep', '_colorMessages', '_colorSystem',
 ])
 
-/** 抠出 faction.css 里所有 `[class*='_x']` / `[class$='_x']` 的 localName。 */
+/** 抠出样式表里所有 `[class*='_x']` / `[class$='_x']` 的 localName。 */
 const usedAnchors = new Set()
-for (const m of factionCss.matchAll(/\[class[*$]=['"](_[A-Za-z0-9]+)['"]\]/g)) usedAnchors.add(m[1])
+for (const css of [factionCss, labCss]) {
+  for (const m of css.matchAll(/\[class[*$]=['"](_[A-Za-z0-9]+)['"]\]/g)) usedAnchors.add(m[1])
+}
 
 const unknownAnchors = Array.from(usedAnchors).filter((name) => !KNOWN_LOCAL_NAMES.has(name))
 if (unknownAnchors.length === 0) {
@@ -279,9 +340,12 @@ if (unknownAnchors.length === 0) {
 }
 
 /* 同时禁止把 class 写成 data 属性：`[data-composer-seat]` 是这类错误的典型形态。 */
-const fakeDataAttrs = Array.from(
-  factionCss.matchAll(/\[data-(composer[a-z-]*|sidebar[a-z-]*|frame[a-z-]*|transcript[a-z-]*|bubble[a-z-]*)\]/g)
-).map((m) => m[0])
+const fakeDataAttrs = []
+for (const css of [factionCss, labCss]) {
+  for (const m of css.matchAll(/\[data-(composer[a-z-]*|sidebar[a-z-]*|frame[a-z-]*|transcript[a-z-]*|bubble[a-z-]*)\]/g)) {
+    fakeDataAttrs.push(m[0])
+  }
+}
 if (fakeDataAttrs.length === 0) ok('没有把 class 误写成 data 属性')
 else fail('有 data-* 选择器可能是把 class 写错了', JSON.stringify(fakeDataAttrs))
 
@@ -292,7 +356,7 @@ else fail('有 data-* 选择器可能是把 class 写错了', JSON.stringify(fak
 console.log('\n[6] 样式表可安全嵌入模板字面量')
 
 const BACKTICK = String.fromCharCode(96)
-for (const [name, css] of [['theme.css', themeCss], ['faction.css', factionCss]]) {
+for (const [name, css] of [['theme.css', themeCss], ['faction.css', factionCss], ['lab.css', labCss]]) {
   if (css.indexOf(BACKTICK) === -1) ok(name + ' 无反引号')
   else fail(name + ' 里出现了反引号', '它会提前结束 insertCss 的模板字面量')
   if (css.indexOf('${') === -1) ok(name + ' 无 ${')

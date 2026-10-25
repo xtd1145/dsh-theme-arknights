@@ -228,15 +228,17 @@
             setFaction(id)
             setFactionState(readFaction())
           }
-          /* 界面版本切换。universal 与 advanced 共用同一套令牌与配色，只有是否
-             重排布局的区别，所以这里也是一个 class 的加减。 */
-          const toggleLayout = () => {
-            const next = readLayout() === 'advanced' ? 'universal' : 'advanced'
-            prefsSet(LAYOUT_KEY, next)
-            setLayoutMode(next)
+          /* 界面版本切换。三档共用同一套令牌与配色，差别只在叠了几层结构，所以
+             这里仍然是 class 的加减（见 syncLayoutClass）。写成「选中某个值」而不是
+             「在两档间翻转」：三档里翻转会丢掉中间那一档，而 lab 必须是显式选择——
+             它同时挂 advanced 与 lab 两个 class。 */
+          const chooseLayout = (id) => {
+            if (LAYOUT_IDS.indexOf(id) === -1) return
+            prefsSet(LAYOUT_KEY, id)
+            setLayoutMode(id)
             syncLayoutClass()
-            /* 终端层只属于进阶版：切到通用版要立刻收回注入节点，切回进阶版
-               则重新扫描。 */
+            /* 终端层只属于 advanced 与 lab：切到通用版要立刻收回注入节点，切到
+               那两档则重新扫描。 */
             syncTerminalUI()
           }
           /* 输出滚动动画. syncScrollAnim() reads the pref store, so the write above is
@@ -579,16 +581,37 @@
               ]),
               row('layout', false, [
                 R.createElement('span', { style: labelStyle },
-                  t('layoutRow') + t('sep') + t(layoutMode === 'advanced' ? 'layoutAdvanced' : 'layoutUniversal'),
-                  R.createElement('span', { style: hintStyle },
-                    t(layoutMode === 'advanced' ? 'layoutHintAdvanced' : 'layoutHintUniversal')
-                  )
+                  t('layoutRow') + t('sep') + t('layout_' + layoutMode),
+                  R.createElement('span', { style: hintStyle }, t('layoutHint_' + layoutMode))
                 ),
-                R.createElement('button', {
-                  type: 'button',
-                  onClick: toggleLayout,
-                  style: btnStyleFor(true),
-                }, t(layoutMode === 'advanced' ? 'layoutToUniversal' : 'layoutToAdvanced'))
+                /* 三档分段控件：与阵营行同一种形状，选中的那一段实心反白。
+                   这里同样不铺颜色常量——强调色只有样式表一份真相。 */
+                R.createElement('span', {
+                  style: { display: 'flex', gap: '4px', flex: '0 0 auto', alignItems: 'center' },
+                  role: 'group',
+                  'aria-label': t('layoutRow'),
+                }, LAYOUT_IDS.map((id) => {
+                  const active = layoutMode === id
+                  return R.createElement('button', {
+                    key: id,
+                    type: 'button',
+                    'aria-pressed': active ? 'true' : 'false',
+                    title: t('layoutHint_' + id),
+                    onClick: () => chooseLayout(id),
+                    style: {
+                      padding: '5px 8px', cursor: 'pointer',
+                      font: 'inherit', fontSize: '11px', letterSpacing: '0.04em',
+                      color: active
+                        ? (enabled ? 'var(--edge-paper)' : 'var(--dsw-alias-label-primary-inverted)')
+                        : 'var(--dsw-alias-label-secondary)',
+                      background: active
+                        ? (enabled ? 'var(--edge-accent)' : 'var(--dsw-alias-interactive-bg-hover-solid)')
+                        : 'transparent',
+                      border: '1px solid ' + (active ? 'transparent' : 'var(--dsw-alias-border-l2)'),
+                      borderRadius: mode === 'round' ? '999px' : '0',
+                    },
+                  }, t('layout_' + id))
+                }))
               ]),
               row('glass', false, [
                 R.createElement('span', { style: labelStyle }, t('glassRow'),

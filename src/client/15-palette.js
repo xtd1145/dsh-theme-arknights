@@ -50,17 +50,38 @@
     }
 
     /* ---- 界面版本 --------------------------------------------------------
-       universal 与 advanced 共用同一套令牌与配色（见样式表），差别只在是否
-       重排应用的整体布局。默认 advanced —— 这一版就是「本主题不只是换颜色」
-       的地方；想要保守外观的用户随时切回 universal。 */
+       三个档位是**叠加的层**，不是互斥的分支：
+         universal  只换配色与字体细节，应用骨架不动
+         advanced   + 明日方舟终端版式（HUD 侧栏、切角、扫描装饰、四角括号）
+         lab        + 莱茵终端材质（陶瓷纸面、条纹行、transport 输入条）
+
+       lab 重排的东西全都挂在 advanced 注入的钩子上（data-ak-tui/*、
+       .ak-terminal-*），所以它必须连着 advanced 的 class 一起挂，而不是取代
+       advanced——只挂 lab 会得到一个「材质换了、结构没了」的半吊子界面。
+       默认 advanced —— 这一版就是「本主题不只是换颜色」的地方；想要保守外观
+       的用户随时切回 universal。 */
     const LAYOUT_KEY = 'dsh-theme-arknights-layout'
+    const LAYOUT_IDS = ['universal', 'advanced', 'lab']
     const LAYOUT_ADVANCED_CLASS = 'theme-arknights-advanced'
-    const readLayout = () => (prefsGet(LAYOUT_KEY) === 'universal' ? 'universal' : 'advanced')
+    const LAYOUT_LAB_CLASS = 'theme-arknights-lab'
+    const readLayout = () => {
+      const value = prefsGet(LAYOUT_KEY)
+      return LAYOUT_IDS.indexOf(value) === -1 ? 'advanced' : value
+    }
+
+    /** 终端层要不要跑：advanced 与 lab 都需要那套 DOM 钩子。 */
+    const isTerminalLayout = () => {
+      const mode = readLayout()
+      return mode === 'advanced' || mode === 'lab'
+    }
 
     const syncLayoutClass = () => {
       if (typeof document === 'undefined' || document.body === null) return
-      if (isEnabled() && readLayout() === 'advanced') document.body.classList.add(LAYOUT_ADVANCED_CLASS)
+      const active = isEnabled() ? readLayout() : 'universal'
+      if (active !== 'universal') document.body.classList.add(LAYOUT_ADVANCED_CLASS)
       else document.body.classList.remove(LAYOUT_ADVANCED_CLASS)
+      if (active === 'lab') document.body.classList.add(LAYOUT_LAB_CLASS)
+      else document.body.classList.remove(LAYOUT_LAB_CLASS)
     }
 
     /* ---- 强调色的实时值 --------------------------------------------------

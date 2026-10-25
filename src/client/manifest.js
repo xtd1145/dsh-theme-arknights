@@ -63,12 +63,16 @@ module.exports = [
   { file: '41-mount-tokens.js' },
 
   /* ---- 主题样式表 ------------------------------------------------------
-     两个片段会被构建器合进同一个 THEME_CSS：
+     三个片段会被构建器合进同一个 THEME_CSS：
        theme.css   功能样式（玻璃、加载屏、大字、胶囊、审批弹窗重绘…）
        faction.css 三阵营变量组 + 明日方舟几何层 + 进阶版排版层
-     顺序就是层叠顺序，faction.css 必须在后（它覆盖 theme.css 里的默认配色）。 */
+       lab.css     第三档「莱茵终端版」的材质层（叠在 advanced 之上）
+     顺序就是层叠顺序：faction.css 必须在 theme.css 之后（它覆盖默认配色），
+     lab.css 必须在 faction.css 之后（它覆盖阵营的纸面家族，并把 advanced 的
+     斜切语言换成陶瓷发丝线）。check.js 的 [3b] 钉住这条顺序。 */
   { file: '../styles/theme.css' },
   { file: '../styles/faction.css' },
+  { file: '../styles/lab.css' },
 
   /* ---- 挂载收尾 / 卸载 / 设置页文案与渲染 --------------------------- */
   { file: '42-mount-tail.js' },

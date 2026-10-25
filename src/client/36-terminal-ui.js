@@ -55,11 +55,71 @@
     const terminalMeta = () => TERMINAL_META[readFaction()] || TERMINAL_META.rhodes
     const terminalPad = (n) => (n < 10 ? '0' + n : String(n))
 
+    /* ---- 终端用词（按界面版本取，不按阵营） ------------------------------
+       advanced 说的是明日方舟自己的话（PRTS / SECTOR / 终端作战位置），lab 说的是
+       参考项目那套音乐终端的话（RHINE / TRACK / 终端工作位置）。两档共用同一批
+       注入节点和同一批 data-ak-part 槽位，所以差别只落在字面上：词表按档位取，
+       每次扫描重写一遍——切档不需要重建 DOM，重建才是闪烁的来源。
+
+       阵营词（TERMINAL_META）继续负责身份（R.I. / LTR / R.L、频道号），词表只负
+       管「怎么称呼这块面板」。两者正交，所以切阵营不用动词表、切档位不用动颜色。
+
+       这里是唯一一处两档共用文案的地方：写进 buildX 的 innerHTML 只是首帧默认值
+       （advanced 那份），paintX 会立刻按当前档位改写。 */
+    const TERMINAL_WORDS = {
+      advanced: {
+        deckBrand: 'PRTS',
+        deckLabel: 'SECTOR<br>COMMAND',
+        headChannel: 'PRTS <b>//</b> DEPLOYMENT',
+        headTitle: '终端作战位置',
+        headMeta: 'TERMINAL DEPLOYMENT POSITION',
+        footChannel: 'PRTS <b>//</b> OPERATIONS LEDGER',
+        menuChannel: 'PRTS <b>//</b> DEPLOYMENT CONTROL',
+        menuTitle: '终端作战位置',
+        menuSub: 'TERMINAL DEPLOYMENT POSITION',
+        /* 编号前缀与计数单位不在 data-ak-part 槽位里（它们是拼接出来的一行字），
+           所以单独列出来由 paint 拼。 */
+        sectorPrefix: 'SECTOR ',
+        sectorUnit: ' SECTORS',
+        positionUnit: ' POSITIONS',
+      },
+      lab: {
+        deckBrand: 'RHINE',
+        deckLabel: 'TRACK<br>SELECT',
+        headChannel: 'RHINE <b>//</b> LIBRARY',
+        headTitle: '终端工作位置',
+        headMeta: 'TERMINAL WORKSPACE POSITION',
+        footChannel: 'RHINE <b>//</b> PLAYBACK LEDGER',
+        menuChannel: 'RHINE <b>//</b> LIBRARY CONTROL',
+        menuTitle: '终端工作位置',
+        menuSub: 'TERMINAL WORKSPACE POSITION',
+        sectorPrefix: 'TRACK ',
+        sectorUnit: ' TRACKS',
+        positionUnit: ' TRACKS',
+      },
+    }
+    const terminalWords = () => (readLayout() === 'lab' ? TERMINAL_WORDS.lab : TERMINAL_WORDS.advanced)
+
     const akSetAttr = (el, name, value) => {
       if (el !== null && el !== undefined && el.getAttribute(name) !== value) el.setAttribute(name, value)
     }
     const akSetText = (el, text) => {
       if (el !== null && el !== undefined && el.textContent !== text) el.textContent = text
+    }
+    /* 词表里的 <b> 是给样式表的重音槽位，所以这几个节点写 innerHTML。
+       写进去的永远是上面那张字面量表，不含任何用户或模型文本。 */
+    const akSetHtml = (el, html) => {
+      if (el !== null && el !== undefined && el.innerHTML !== html) el.innerHTML = html
+    }
+    const akSetWords = (root, words) => {
+      if (root === null || root === undefined) return
+      for (const key of Object.keys(words)) {
+        const value = words[key]
+        const node = root.querySelector('[data-ak-part="' + key + '"]')
+        if (node === null) continue
+        if (value.indexOf('<') === -1) akSetText(node, value)
+        else akSetHtml(node, value)
+      }
     }
     const akMark = (el, role) => {
       if (el !== null && el !== undefined) akSetAttr(el, 'data-ak-tui', role)
@@ -97,7 +157,7 @@
       if (terminalObserver !== null) return
       if (typeof MutationObserver === 'undefined' || typeof document === 'undefined' || document.body === null) return
       terminalObserver = new MutationObserver((records) => {
-        if (!isEnabled() || readLayout() !== 'advanced') return
+        if (!isEnabled() || !isTerminalLayout()) return
         for (const record of records) {
           if (record.type === 'attributes') {
             if (isTerminalElement(record.target)) {
@@ -136,12 +196,12 @@
       deck.setAttribute('aria-hidden', 'true')
       deck.innerHTML =
         '<div class="ak-terminal-deck__top">' +
-          '<span class="ak-terminal-deck__prts">PRTS <b>//</b> <span data-ak-part="code">R.I.</span></span>' +
+          '<span class="ak-terminal-deck__prts"><span data-ak-part="deckBrand">PRTS</span> <b>//</b> <span data-ak-part="code">R.I.</span></span>' +
           '<span class="ak-terminal-deck__status"><i></i><span data-ak-part="status">LINK ESTABLISHED</span></span>' +
         '</div>' +
         '<div class="ak-terminal-deck__main">' +
           '<span class="ak-terminal-deck__sector" data-ak-part="sector">01</span>' +
-          '<span class="ak-terminal-deck__sectorLabel">SECTOR<br>COMMAND</span>' +
+          '<span class="ak-terminal-deck__sectorLabel" data-ak-part="deckLabel">SECTOR<br>COMMAND</span>' +
           '<span class="ak-terminal-deck__ident">' +
             '<span class="ak-terminal-deck__en" data-ak-part="en">RHODES ISLAND</span>' +
             '<span class="ak-terminal-deck__zh" data-ak-part="zh">罗德岛</span>' +
@@ -161,6 +221,7 @@
         const key = part.getAttribute('data-ak-part')
         if (meta[key] !== undefined) akSetText(part, meta[key])
       })
+      akSetWords(deck, terminalWords())
       const channel = deck.querySelector('[data-ak-part="channel"]')
       if (channel !== null) akSetText(channel, meta.channel)
       deck.setAttribute('data-faction', readFaction())
@@ -176,12 +237,12 @@
       head.setAttribute('aria-hidden', 'true')
       head.innerHTML =
         '<div class="ak-terminal-sector-head__top">' +
-          '<span>PRTS <b>//</b> DEPLOYMENT</span>' +
+          '<span data-ak-part="headChannel">PRTS <b>//</b> DEPLOYMENT</span>' +
           '<span data-ak-part="count">00 SECTORS</span>' +
         '</div>' +
-        '<div class="ak-terminal-sector-head__title">终端作战位置</div>' +
+        '<div class="ak-terminal-sector-head__title" data-ak-part="headTitle">终端作战位置</div>' +
         '<div class="ak-terminal-sector-head__meta">' +
-          '<span>TERMINAL DEPLOYMENT POSITION</span>' +
+          '<span data-ak-part="headMeta">TERMINAL DEPLOYMENT POSITION</span>' +
           '<span class="ak-terminal-sector-head__live"><i></i>SELECT</span>' +
         '</div>'
       return head
@@ -197,7 +258,7 @@
       foot.setAttribute('aria-hidden', 'true')
       foot.innerHTML =
         '<span class="ak-terminal-footer__rule"></span>' +
-        '<span>PRTS <b>//</b> OPERATIONS LEDGER</span>' +
+        '<span data-ak-part="footChannel">PRTS <b>//</b> OPERATIONS LEDGER</span>' +
         '<span class="ak-terminal-footer__sector" data-ak-part="sector">SECTOR 01</span>' +
         '<span data-ak-part="footerLink">CH 121.5 · LINK ESTABLISHED</span>' +
         '<span class="ak-terminal-footer__rule"></span>'
@@ -207,7 +268,9 @@
     const paintTerminalFooter = (sector) => {
       if (terminalFooterEl === null) return
       const meta = terminalMeta()
-      akSetText(terminalFooterEl.querySelector('[data-ak-part="sector"]'), 'SECTOR ' + sector)
+      const words = terminalWords()
+      akSetWords(terminalFooterEl, words)
+      akSetText(terminalFooterEl.querySelector('[data-ak-part="sector"]'), words.sectorPrefix + sector)
       akSetText(terminalFooterEl.querySelector('[data-ak-part="footerLink"]'), 'CH ' + meta.freq + ' · ' + meta.status)
     }
 
@@ -221,12 +284,12 @@
       head.setAttribute('aria-hidden', 'true')
       head.innerHTML =
         '<div class="ak-deploy-menu__top">' +
-          '<span>PRTS <b>//</b> DEPLOYMENT CONTROL</span>' +
+          '<span data-ak-part="menuChannel">PRTS <b>//</b> DEPLOYMENT CONTROL</span>' +
           '<span><b data-ak-part="sector">01</b> · <span data-ak-part="count">00 POSITIONS</span></span>' +
         '</div>' +
         '<div class="ak-deploy-menu__title">' +
-          '<span>终端作战位置</span>' +
-          '<i>TERMINAL DEPLOYMENT POSITION</i>' +
+          '<span data-ak-part="menuTitle">终端作战位置</span>' +
+          '<i data-ak-part="menuSub">TERMINAL DEPLOYMENT POSITION</i>' +
           '<em data-ak-part="code">R.I.</em>' +
         '</div>'
       return head
@@ -234,9 +297,11 @@
 
     const paintMenuHead = (head, count, sector) => {
       const meta = terminalMeta()
+      const words = terminalWords()
+      akSetWords(head, words)
       akSetText(head.querySelector('[data-ak-part="code"]'), meta.code)
       akSetText(head.querySelector('[data-ak-part="sector"]'), sector === '' ? meta.sector : sector)
-      akSetText(head.querySelector('[data-ak-part="count"]'), terminalPad(count) + ' POSITIONS')
+      akSetText(head.querySelector('[data-ak-part="count"]'), terminalPad(count) + words.positionUnit)
     }
 
     const isWorkspaceMenu = (menu) => {
@@ -418,7 +483,7 @@
     }
 
     const paintTerminalUI = () => {
-      if (!isEnabled() || readLayout() !== 'advanced') return
+      if (!isEnabled() || !isTerminalLayout()) return
       if (typeof document === 'undefined' || document.body === null) return
       try {
         const sidebar = document.querySelector('[data-slot="sidebar"]')
@@ -449,6 +514,7 @@
             terminalSectorHeadEl = buildSectorHead()
             sectionHeader.parentNode.insertBefore(terminalSectorHeadEl, sectionHeader)
           }
+          akSetWords(terminalSectorHeadEl, terminalWords())
         } else if (terminalSectorHeadEl !== null) {
           if (terminalSectorHeadEl.parentNode !== null) terminalSectorHeadEl.parentNode.removeChild(terminalSectorHeadEl)
           terminalSectorHeadEl = null
@@ -456,7 +522,7 @@
 
         const rowsState = paintWorkspaceRows(workspaces)
         if (terminalSectorHeadEl !== null) {
-          akSetText(terminalSectorHeadEl.querySelector('[data-ak-part="count"]'), terminalPad(rowsState.count) + ' SECTORS')
+          akSetText(terminalSectorHeadEl.querySelector('[data-ak-part="count"]'), terminalPad(rowsState.count) + terminalWords().sectorUnit)
           akSetAttr(terminalSectorHeadEl, 'data-ak-active-sector', rowsState.activeSector === '' ? '01' : rowsState.activeSector)
         }
 
@@ -491,7 +557,7 @@
     }
 
     const syncTerminalUI = () => {
-      if (!isEnabled() || readLayout() !== 'advanced') {
+      if (!isEnabled() || !isTerminalLayout()) {
         destroyTerminalUI()
         return
       }

@@ -7,22 +7,29 @@
 - **Client 侧**（`client.js`）：令牌映射、三套阵营样式表、终端 DOM 层、快速切换器、设置页、全部视觉效果。
 - **Host 侧**（`index.js`）：偏好持久化（DSH 设置表单 + profile 落盘）与音频通知播放。
 
-| 罗德岛·亮色 | 拉特兰·亮色 | 莱茵生命·亮色 |
+| 进阶版 · 罗德岛 | 进阶版 · 拉特兰 | 进阶版 · 莱茵生命 |
 | --- | --- | --- |
-| ![罗德岛·亮色](docs/screenshots/rhodes-light.png) | ![拉特兰·亮色](docs/screenshots/laterano-light.png) | ![莱茵生命·亮色](docs/screenshots/rhine-light.png) |
+| ![进阶版·罗德岛](docs/screenshots/rhodes-light.png) | ![进阶版·拉特兰](docs/screenshots/laterano-light.png) | ![进阶版·莱茵生命](docs/screenshots/rhine-light.png) |
+| **莱茵终端档 · 罗德岛** | **莱茵终端档 · 拉特兰** | **莱茵终端档 · 莱茵生命** |
+| ![莱茵终端档·罗德岛](docs/screenshots/lab-rhodes-light.png) | ![莱茵终端档·拉特兰](docs/screenshots/lab-laterano-light.png) | ![莱茵终端档·莱茵生命](docs/screenshots/lab-rhine-light.png) |
 
-以上均为真实 DSH 页面截图：侧栏扇区 12（`ds`）是当前选中工作区，空状态选择器、页脚与铭牌读同一个扇区号。
+上面六张由 `node test/shoot.js` 打在仿 DSH 骨架（`test/fixtures/preview.html`）上：同一份骨架、同一份注入的 `client.js`，只有阵营 class 与档位不同，所以横向对比读到的差异是真的。侧栏铭牌、扇区编号、部署面板与档位文案都在这批图里。下面这张是**真实 DSH 页面**：12 个工作区、扇区 12（`ds`）已部署，工作区菜单被画成部署控制面板，抬头与侧栏、页脚读同一个扇区号。
 
-## 两档界面版本
+![工作区菜单：部署控制面板（真实页面）](docs/screenshots/rhodes-menu.png)
 
-设置里的 **界面版本** 一个开关切换。两档共用同一套令牌与三套配色，区别在于是否重排布局：
+## 三档界面版本
+
+设置里的 **界面版本** 一段切换器，三档共用同一套令牌与三套配色，区别在于重排到什么程度：
 
 | 版本 | 做什么 | 适用 |
 | --- | --- | --- |
 | **进阶版**（默认） | 重排整体 UI：PRTS 铭牌、终端作战位置、扇区编号、部署选择面板、菜单抬头、任务简报输入区、顶栏频道、作战记录页脚、切角与 HUD 标注、三套阵营氛围层 | 想要完整明日方舟观感 |
+| **莱茵终端版** | 叠在进阶版之上的**材质层**：陶瓷白/墨黑纸面、列表按行条纹、数值右对齐 + 发丝线、直角为主、发送键是全屏唯一的圆形、输入区改成 transport 条、文案换成 `RHINE // LIBRARY` 与 `TRACK`；取自 [Rhine-Music-Database](https://github.com/MikeQu223/Rhine-Music-Database) 的界面逻辑 | 想要参考项目那种「器材」而非「皮肤」的味道 |
 | **通用适配** | 只换配色、标题字族、圆角与细节，界面骨架与应用原生完全一致 | 保守 / 上游改版后临时退避 |
 
 进阶版的全部规则**只加装饰、不改布局骨架**：CSS 选择器失配时最坏结果是少一处装饰，不会破版。终端 DOM 层也只做标注与少量装饰节点，关闭主题或切到通用适配时会把注入节点、观察器和原生节点上的属性全部收回。
+
+莱茵终端版不是第四套阵营：**阵营管颜色，档位管材质**。切到它，强调色、徽标、状态色仍然是阵营那一份真相（`--edge-accent` / `--signal` / `--status-*` 一律不覆盖），被接管的只有纸面家族、字体字距、几何语言与装饰密度；它复用进阶版注入的 DOM 钩子，所以 body 上同时挂 `theme-arknights-advanced` 与 `theme-arknights-lab`。陶瓷底 + 钢蓝（罗德岛）/ 电光蓝（拉特兰）/ 墨黑（莱茵生命）三种强调都验过对比度，其中莱茵生命那一套与参考项目几乎重合。
 
 ## 终端作战位置
 
@@ -33,8 +40,7 @@
 - 空状态的工作区选择器被包进一块 **「终端作战位置 // TERMINAL DEPLOYMENT POSITION」** 面板，右上角读 `SECTOR xx // READY`；打开工作区菜单时，菜单顶部出现 **PRTS // DEPLOYMENT CONTROL**，列出 `xx POSITIONS`，每一项同样带扇区编号与选中态。
 - 进入对话后，页脚收回、空状态部署面板消失，但侧栏的作战位置与顶栏频道仍在；对话页没有 hero 可读时，选中态回退到应用自身的结构信号，不会把当前会话对应的目录弄丢。
 - 底部有一条只在空状态出现的 **PRTS // OPERATIONS LEDGER** 页脚，显示当前扇区、频道与链路状态。
-
-![工作区菜单：部署控制面板](docs/screenshots/rhodes-menu.png)
+- 切到**莱茵终端版**，这套结构一个不动，只换词表：铭牌与抬头读 `RHINE // LIBRARY`、标题「终端工作位置」、编号 `TRACK 01`、页脚 `RHINE // PLAYBACK LEDGER · POWERED BY RHINE LAB`。词表在 `36-terminal-ui.js` 的 `TERMINAL_WORDS` 里按档位取，扫描时重写文本，不重建节点。
 
 ## 三套阵营
 
@@ -47,6 +53,8 @@
 | **莱茵生命** | [莱茵生命主题 PPT](https://www.bilibili.com/video/BV19Z4y187gi) | 暖白 `#f6f5f3` / 纯黑 `#0a0a0b` | 黑白 `#1a1a1c` / `#ececee`，信号橙 `#c9701a` / `#e8862a` | Inter 宽松字距无衬线 | 单色 ∞ 结构 + X 对角线 + 十字准星 + 极细分度 |
 
 三套都**换的不只是颜色**：纹理几何、标题字族、字距、光晕强度、状态灯颜色、侧栏字标（`R.I. / 01`、`LTR / 02`、`R.L / 03`）与频道名（`CH 121.5` / `144.0` / `88.6`）都各自一套。版式骨架共用，所以切换时页面不跳动。
+
+表里的「纸面」是进阶版的取值。切到莱茵终端版，三套纸面统一换成陶瓷 `#edebe4` / 墨黑 `#141613`，强调色、点缀色与徽标一律不变——这正是「阵营管颜色、档位管材质」那条分工的落点。
 
 两点和直觉相反、但按参考纠正过来的地方：
 
@@ -63,7 +71,7 @@
 
 | 入口 | 操作 |
 | --- | --- |
-| **设置页**：设置 › 明日方舟阵营主题 | 阵营行三个徽标按钮（底色是各自阵营的强调色），另有界面版本开关 |
+| **设置页**：设置 › 明日方舟阵营主题 | 阵营行三个徽标按钮（底色是各自阵营的强调色），另有界面版本三选切换器 |
 | **悬浮阵营条**：右上角常驻胶囊 | 点当前徽标展开三选 |
 | **键盘** | `Ctrl/Cmd+Shift+1` / `2` / `3` 直选，`Ctrl/Cmd+Shift+K` 循环 |
 
@@ -75,7 +83,7 @@
 
 | 组 | 功能 |
 | --- | --- |
-| **01 主题** | 总开关、阵营（三选）、界面版本（两选）、圆角模式、磨砂玻璃 |
+| **01 主题** | 总开关、阵营（三选）、界面版本（三选：通用适配 / 进阶版 / 莱茵终端版）、圆角模式、磨砂玻璃 |
 | **02 背景** | 背景水印、水印保持显示 |
 | **03 动画** | 输出滚动动画（把流式输出的整段跳变摊成逐帧滑动，不改应用滚动位置）、动画强度、启动加载动画 |
 | **04 娱乐** | 雷霆大字（任务开始/完成，3 秒自动消失，点击即关）、大字入场动画、顶部余额胶囊（DeepSeek 峰谷时段 / 渠道额度）、渠道额度读数、胶囊位置与防遮挡 |
@@ -136,8 +144,8 @@ dsh plugin --profile web add github:xtd1145/dsh-theme-arknights
 
 ```bash
 node scripts/build.js        # 由 src/ 拼出 index.js + client.js
-npm run check                # 产物是否过期 + 静态契约校验（29 项）
-npm test                     # 构建校验 + 契约 + 对比度（92 项断言）
+npm run check                # 产物是否过期 + 静态契约校验（42 项）
+npm test                     # 构建校验 + 契约 + 对比度（194 项断言）
 npm run shots                # 用 fixture 页面截三套阵营（需本机 Edge/Chrome）
 npm run verify -- <url>      # 在**真实 dsh web 页面**上验证并截图
 ```
@@ -164,10 +172,11 @@ npm run verify -- <url>      # 在**真实 dsh web 页面**上验证并截图
 
 ```text
 src/client/        Client 侧源码片段（拼接顺序见 src/client/manifest.js）
-  36-terminal-ui.js        进阶版终端 DOM 层（铭牌/作战位置/页脚/菜单抬头）
+  36-terminal-ui.js        进阶版终端 DOM 层（铭牌/作战位置/页脚/菜单抬头，含按档位切换的文案表）
 src/host/          Host 侧源码片段（拼接顺序见 src/host/manifest.js）
 src/styles/theme.css     功能样式（玻璃、加载屏、大字、胶囊、审批弹窗重绘…）
 src/styles/faction.css   三阵营变量组 + 明日方舟氛围层 + 进阶版终端排版层
+src/styles/lab.css       第三档「莱茵终端版」材质层（陶瓷纸面、条纹行、右对齐数值、transport 输入条）
 client.js / index.js      发布产物，由 scripts/build.js 拼出（不要直接编辑）
 lib/               音频通知：槽位定义、WAV 合成与播放运行时
 sounds/            生成的通知音
