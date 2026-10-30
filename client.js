@@ -1457,11 +1457,14 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
     const findVisibleHeadline = () => {
       if (typeof document === 'undefined') return null
       /* DSH 0.2 renamed the hero headline export from '*_headlineText' to
-         '*_headline' (HeroShell.module.css: "Hqq-bq_headline"); in the 0.2
-         app.asar 'headlineText' occurs 0 times across all @deepseek-ai
-         packages. Match both spellings so 0.1.2-rc.1-era builds keep working.
-         Verified against 0.2.0-rc.2: hits only Hqq-bq_headline, never
-         Hqq-bq_root/_stack/_titleGroup/_previewBadge, Dc7zOa_* or RlGAzG_*. */
+         '*_headline' (HeroShell.module.css); in the 0.2 app.asar 'headlineText'
+         occurs 0 times across all @deepseek-ai packages. Match both spellings
+         so 0.1.2-rc.1-era builds keep working.
+         The build prefix is NOT stable across upgrades — it was Hqq-bq_ on
+         0.2.0-rc.2 and is pXSMma_ on 0.2.1-rc.5 — which is exactly why this
+         matches on the localName suffix. Verified against 0.2.1-rc.5: hits
+         only pXSMma_headline ("探索未至之境"), never pXSMma_root/_stack/
+         _titleGroup/_previewBadge, Dc7zOa_* or RlGAzG_*. */
       const all = document.querySelectorAll('[class$="_headline"], [class$="_headlineText"]')
       for (const h of all) {
         const r = h.getBoundingClientRect()
@@ -4043,6 +4046,19 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       }, delay === undefined ? 120 : delay)
     }
 
+    /* 拖窗口不产生 DOM 变更，MutationObserver 不会响；而柜面一矮，托盘与档案板
+       的尺寸就得重算，否则板又会被托盘压掉半块。 */
+    let cabinetResizeBound = false
+    const bindCabinetResize = () => {
+      if (cabinetResizeBound) return
+      if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return
+      cabinetResizeBound = true
+      window.addEventListener('resize', () => {
+        if (!isEnabled() || !isTerminalLayout()) return
+        scheduleTerminalScan(160)
+      })
+    }
+
     const bindTerminalObserver = () => {
       if (terminalObserver !== null) return
       if (typeof MutationObserver === 'undefined' || typeof document === 'undefined' || document.body === null) return
@@ -4566,6 +4582,58 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       else field.scrollTop = next
     }
 
+    /* ---- 柜面不够高时把格位一起缩 ----------------------------------------
+       DSH 0.2.1-rc.5 在侧栏里加了「插件 / 自动化任务 / 更多」三行面板导航
+       （112px），1366×768 下柜面从 221px 掉到 155px：托盘（读数带 + 一排方块）
+       与 108px 的档案板加起来 196px，必然互压——真页面上半块板被托盘吃掉；
+       不展开目录时也一样，108 的板在一面 155px 的柜里只看得见一行半，第二行
+       只露个板头。所以格位尺寸按柜面**实际可用高度**算，写在这三个变量上：
+       托盘态保证「板 + 托盘」同屏，普通态保证「至少两行板」。装得下参考尺寸
+       的时候变量缺席，一切仍是参考原值。返回托盘应占的高度，供滚动定位用。 */
+    const CABINET = {
+      slabMax: 108, slabMin: 56, blockMax: 74, blockMin: 46, trayPad: 14, gap: 8,
+    }
+    const CABINET_VARS = ['--lab-slab-h', '--lab-block-h', '--lab-tray-h']
+
+    const fitCabinet = (field, tray) => {
+      const defaultTray = CABINET.blockMax + CABINET.trayPad
+      const avail = field.clientHeight
+      if (avail <= 0) return defaultTray
+      /* 同值不重写：这条在每次扫描里都会跑，写 CSSOM 会让浏览器重算整棵样式树。 */
+      const setVar = (name, value) => {
+        if (field.style.getPropertyValue(name) !== value) field.style.setProperty(name, value)
+      }
+      const clearVar = (name) => {
+        if (field.style.getPropertyValue(name) !== '') field.style.removeProperty(name)
+      }
+      if (tray) {
+        if (defaultTray + CABINET.gap + CABINET.slabMax <= avail) {
+          for (const name of CABINET_VARS) clearVar(name)
+          return defaultTray
+        }
+        const blockH = Math.max(CABINET.blockMin, Math.min(CABINET.blockMax, Math.round(avail * 0.36)))
+        const trayH = blockH + CABINET.trayPad
+        const slabH = Math.max(CABINET.slabMin,
+          Math.min(CABINET.slabMax, avail - trayH - CABINET.gap))
+        setVar('--lab-slab-h', slabH + 'px')
+        setVar('--lab-block-h', blockH + 'px')
+        setVar('--lab-tray-h', trayH + 'px')
+        return trayH
+      }
+      /* 没展开目录时柜面整面都是墙：155px 里塞 108 的板只能看见一行半，第二行
+         只露个板头，像被裁断了。按「至少看得见两行」压一次。 */
+      const rows = 2
+      const want = Math.floor((avail - CABINET.gap * (rows - 1)) / rows)
+      if (want >= CABINET.slabMax) {
+        clearVar('--lab-slab-h')
+        return defaultTray
+      }
+      setVar('--lab-slab-h', Math.max(CABINET.slabMin, want) + 'px')
+      clearVar('--lab-block-h')
+      clearVar('--lab-tray-h')
+      return defaultTray
+    }
+
     const revealOpenFolder = (field, activeRow) => {
       if (field === null) return
       const blocks = sessionBlocks(field)
@@ -4577,11 +4645,12 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
 
       if (blocksInOneRow(blocks)) {
         field.setAttribute('data-ak-tray', 'true')
-        /* 托盘高 88px（读数带 + 一组方块，见 lab.css）。墙滚到「当前板
-           刚好落在托盘上方」的位置；一行板 108px，柜面矮也放得下。 */
+        /* 尺寸可能刚刚被改过，重新读一次布局再定位：目标是「当前板整块落在
+           托盘上方」，而不是只保证它在矩形里——半块板被托盘盖住也算看不见。 */
+        const trayH = fitCabinet(field, true)
         if (activeRow !== null) {
+          const limit = field.clientHeight - trayH - 4
           const rowBottom = activeRow.offsetTop + activeRow.offsetHeight - field.scrollTop
-          const limit = field.clientHeight - 92
           if (rowBottom > limit) field.scrollTop += rowBottom - limit
           if (activeRow.offsetTop - field.scrollTop < 4) {
             scrollFieldTo(field, activeRow.offsetTop - 4)
@@ -4590,7 +4659,8 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         return
       }
 
-      /* 多行方块比柜面还高：让会话区顶部贴住柜面上沿，剩下的用户自己滚。 */
+      /* 多行方块比柜面还高：让会话区顶部贴住柜面上沿，剩下的用户自己滚。
+         格位尺寸由调用方按「非托盘态」统一算，这里不插手。 */
       let delta = last.bottom - (frame.bottom - 4)
       if (delta < 0) delta = 0
       if (first.top - delta < frame.top + 22) delta = first.top - frame.top - 22
@@ -4598,14 +4668,17 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
       scrollFieldTo(field, field.scrollTop + delta)
     }
 
-    /* 钉住的托盘只容得下一行；会话数量变了（新开一个会话）就把托盘收回，
-       否则后面的行会全部贴住同一个底边。 */
+    /* 钉住的托盘只容得下一行；会话数量变了（新开一个会话）就收回托盘，
+       否则后面的行会全部贴住同一个底边。返回值 = 这一轮柜面是不是托盘态，
+       调用方据此决定格位尺寸（fitCabinet）。 */
     const syncSessionTray = (field, opened, count) => {
-      if (field === null) return
-      if (field.getAttribute('data-ak-tray') !== 'true') return
+      if (field === null) return false
+      if (field.getAttribute('data-ak-tray') !== 'true') return false
       if (!opened || count === 0 || !blocksInOneRow(sessionBlocks(field))) {
         field.removeAttribute('data-ak-tray')
+        return false
       }
+      return true
     }
 
     /* ---- 悬停铭牌 --------------------------------------------------------
@@ -4791,7 +4864,10 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
 
         const rowsState = paintWorkspaceRows(workspaces)
         const blocksState = paintSessionBlocks(sidebar, rowsState)
-        syncSessionTray(blocksState.field, rowsState.opened, blocksState.count)
+        const trayOn = syncSessionTray(blocksState.field, rowsState.opened, blocksState.count)
+        /* 格位尺寸跟着柜面高度走（拖窗口、应用侧栏面板增减都会改它）。这里只改
+           尺寸，不碰滚动位置——用户自己拖到的地方不能被扫描拽回去。 */
+        if (blocksState.field !== null) fitCabinet(blocksState.field, trayOn)
         if (rowsState.opened && blocksState.count > 0 && blocksState.field !== null) {
           if (terminalRevealedKey !== terminalOpenedKey) {
             revealOpenFolder(blocksState.field, rowsState.activeRow)
@@ -4855,8 +4931,9 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         'data-ak-foreign']) {
         document.querySelectorAll('[' + name + ']').forEach((node) => node.removeAttribute(name))
       }
-      /* 刻度尺定位用的数字通道写在行内样式里，也要收回。 */
-      for (const name of ['--ak-col', '--ak-cols', '--ak-blk', '--ak-blks']) {
+      /* 刻度尺定位用的数字通道、柜面格位尺寸都写在行内样式里，也要收回。 */
+      for (const name of ['--ak-col', '--ak-cols', '--ak-blk', '--ak-blks',
+        '--lab-slab-h', '--lab-block-h', '--lab-tray-h']) {
         document.querySelectorAll('[style*="' + name + '"]').forEach((node) => node.style.removeProperty(name))
       }
     }
@@ -4867,6 +4944,7 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         return
       }
       bindTerminalObserver()
+      bindCabinetResize()
       paintTerminalUI()
     }
 
@@ -6317,17 +6395,22 @@ function apply(ctx) {    // Idempotency: the installed bundle can be applied mor
         margin-top: 0;
         padding: 0 24px !important;
       }
-      /* The warning copy and the checkbox row stay left-aligned (they are
-         paragraphs), but the column of them is centred on the band. */
-      [role='dialog'][class*='_confirmation'] [class*='_warning'],
-      [role='dialog'][class*='_confirmation'] [class*='_acknowledgement'] {
+      /* DSH ships TWO CSS-module naming schemes at once: most packages emit
+         'hash_local' (so [class*='_local'] hits, e.g. bhn1Oq_sessionRow),
+         while this one emits 'local_hash' — the real class is
+         acknowledgement_cjd8z_38, so the underscore-first form alone matched
+         nothing and these three rules were dead code. Match both shapes.
+         (Found by 'node test/anchors.js' while adapting to 0.2.1-rc.5.
+         No backticks in here: this sheet is embedded into a JS template.) */
+      [role='dialog'][class*='_confirmation'] :is([class*='_acknowledgement'], [class*='acknowledgement_']) {
         max-width: 640px;
-      }
-      [role='dialog'][class*='_confirmation'] [class*='_acknowledgement'] {
         margin-top: 0;
       }
-      [role='dialog'][class*='_confirmation'] [class*='_acknowledgement'] input {
+      [role='dialog'][class*='_confirmation'] :is([class*='_acknowledgement'], [class*='acknowledgement_']) input {
         accent-color: var(--edge-accent);
+      }
+      [role='dialog'][class*='_confirmation'] [class*='_warning'] {
+        max-width: 640px;
       }
       [role='dialog'][class*='_confirmation'] [class*='_footer'] {
         justify-content: center;
@@ -10311,14 +10394,18 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'] [
 /* ---- 一块档案板 --------------------------------------------------------
    36px 宽、108px 高：参考里每块板的立面比例也是这个竖长条。定宽而不是
    flex-grow —— 柜面的格宽是死的，排不满右边留空，这样才不像「一组自适应卡片」。
-   6×36 + 5×5 的格距是 270px 侧栏里一排六格的算法；108 的高度让 13 个工作区
-   加一排会话方块正好落在侧栏现有的 450px 柜面里，不必滚动。 */
+   6×36 + 5×5 的格距是 270px 侧栏里一排六格的算法。
+   高度是**上限而不是承诺**：DSH 0.2.1-rc.5 在侧栏里加了「插件 / 自动化任务 /
+   更多」三行面板导航（112px），1366×768 下柜面从 221px 掉到 155px，托盘（读数带
+   + 一排方块）与 108 的板必然互压——真页面上半块板被托盘吃掉。所以 JS 按柜面
+   实际可用高度写 --lab-slab-h，柜面够高时它缺席、仍是参考原尺寸。 */
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'] {
   position: relative;
   order: 0;
   flex: 0 0 36px;
   display: block;
-  height: 108px;
+  /* 默认 108；柜面不够高时由 JS 按可用高度改写 --lab-slab-h（见下面的托盘注释）。 */
+  height: var(--lab-slab-h, 108px);
   /* 进阶版给每行留了 margin: 1px 8px。格距由容器 gap 负责，留着它会把每格撑成
      52px —— 五格放不进 223px 的侧栏，柜面会莫名多出几行。 */
   margin: 0;
@@ -10349,7 +10436,8 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'] > :
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'] .ak-sector-code {
   position: absolute;
   left: 6px;
-  top: 12px;
+  /* 板被柜面压矮时标签跟着上移，但不爬到板顶以外。 */
+  top: max(5px, calc(var(--lab-slab-h, 108px) * 0.11));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -10563,8 +10651,10 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-block] {
   align-items: flex-start;
   gap: 2px;
   margin: 0;
-  min-height: 74px;
-  padding: 22px 7px 6px;
+  /* 托盘是 sticky 的，高度必须是确定的：内容撑高会让托盘底（读数带）盖不住
+     方块。矮柜面下 JS 写 --lab-block-h 把它压下来。 */
+  height: var(--lab-block-h, 74px);
+  padding: max(14px, calc(var(--lab-block-h, 74px) * 0.3)) 7px 6px;
   border: 0;
   border-radius: 0;
   clip-path: none;
@@ -10677,10 +10767,12 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-block][data-ak-active
 }
 
 /* ---- 会话托盘 ----------------------------------------------------------
-   矮窗口（768px 高只剩两百来像素）里，会话区排在整面墙后面，点开也看不见。
-   一行方块可以钉在柜面下沿：读数带加高成整条托盘底，方块坐在上面，当前板
-   滚到托盘上方；多行方块不钉（每行都会贴同一个底边，叠成一摞），由 JS 改
-   成滚动。托盘只由 [data-ak-tray='true'] 打开，平时柜面还是完整的墙面。 */
+   柜面不够高时（0.2.1-rc.5 起，1366×768 只剩 155px），会话区排在整面墙后面，
+   点开也看不见。一行方块可以钉在柜面下沿：读数带加高成整条托盘底，方块坐在
+   上面，当前板滚到托盘上方；多行方块不钉（每行都会贴同一个底边，叠成一摞），
+   由 JS 改成滚动。托盘只由 [data-ak-tray='true'] 打开，平时柜面还是完整的墙面。
+   托盘、方块、板三个尺寸都读 CSS 变量：柜面矮到装不下「108 的板 + 88 的托盘」
+   时，由 JS 按可用高度一起算，保证板不会被托盘吃掉半块。 */
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'][data-ak-tray='true'] [data-ak-block] {
   position: sticky;
   bottom: 0;
@@ -10695,7 +10787,7 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'][d
   position: sticky;
   bottom: 0;
   z-index: 3;
-  height: 88px;
+  height: var(--lab-tray-h, 88px);
   margin: 0;
   padding: 6px 0 0;
   box-sizing: border-box;
@@ -10991,7 +11083,23 @@ body.theme-arknights-advanced.theme-arknights-lab .ak-bar__item[aria-pressed='tr
 }
 
 /* ---------------------------------------------------------------------------
- * 9. 工作区菜单：部署控制面板 → 库面板
+ * 9. 侧栏底部栏：把应用自己的按钮排开
+ *
+ * DSH 0.2.1-rc.5 在侧栏底部多了一行「更多」（settingsArea），而 session-manager
+ * 那条「会话与工作区」仍写着 flex-basis:100%，于是它换到第二行、正好和「更多」
+ * 叠在同一行上（x=8..272 对 x=10..270，y 都是 726）——把主题样式表整个禁掉也
+ * 一样叠，是应用自己的账。柜面已经因为侧栏新加的三行面板导航少了 66px，不能再
+ * 靠把底部栏撑高来避让；让它按内容宽排回第一行（「插件市场」右边还剩 144px）
+ * 就互不侵犯。类名走 localName 匹配，不写 hHd-Xa_ 这种构建前缀。
+ * ------------------------------------------------------------------------- */
+
+body.theme-arknights-advanced.theme-arknights-lab [class*='_footerActions'] .sm-footerBtn {
+  flex: 0 1 auto;
+  width: auto;
+}
+
+/* ---------------------------------------------------------------------------
+ * 10. 工作区菜单：部署控制面板 → 库面板
  * ------------------------------------------------------------------------- */
 
 body.theme-arknights-advanced.theme-arknights-lab .ak-deploy-menu__head {
@@ -11017,7 +11125,7 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='menu-item']::bef
 }
 
 /* ---------------------------------------------------------------------------
- * 10. 品牌文案：加载屏的两行大字跟随档位
+ * 11. 品牌文案：加载屏的两行大字跟随档位
  *
  * 阵营决定署名的身份，档位决定它说什么话。lab 之下加载屏念的是这台设备的
  * 名字（RHINE / TERMINAL），三套阵营共用；boot 序列的副行同理。选择器带上
@@ -11034,7 +11142,7 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-loader-word2]::before
 }
 
 /* ---------------------------------------------------------------------------
- * 11. 窄屏
+ * 12. 窄屏
  *
  * 本层没有常驻动画（扫描带与辉光都关掉了），柜体也已经是换行的：档案板排满
  * 一行再起一行，窄侧栏不会把它们压成横滚。板的尺寸是死格宽，当前格的上浮是

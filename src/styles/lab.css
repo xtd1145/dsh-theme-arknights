@@ -421,14 +421,18 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'] [
 /* ---- 一块档案板 --------------------------------------------------------
    36px 宽、108px 高：参考里每块板的立面比例也是这个竖长条。定宽而不是
    flex-grow —— 柜面的格宽是死的，排不满右边留空，这样才不像「一组自适应卡片」。
-   6×36 + 5×5 的格距是 270px 侧栏里一排六格的算法；108 的高度让 13 个工作区
-   加一排会话方块正好落在侧栏现有的 450px 柜面里，不必滚动。 */
+   6×36 + 5×5 的格距是 270px 侧栏里一排六格的算法。
+   高度是**上限而不是承诺**：DSH 0.2.1-rc.5 在侧栏里加了「插件 / 自动化任务 /
+   更多」三行面板导航（112px），1366×768 下柜面从 221px 掉到 155px，托盘（读数带
+   + 一排方块）与 108 的板必然互压——真页面上半块板被托盘吃掉。所以 JS 按柜面
+   实际可用高度写 --lab-slab-h，柜面够高时它缺席、仍是参考原尺寸。 */
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'] {
   position: relative;
   order: 0;
   flex: 0 0 36px;
   display: block;
-  height: 108px;
+  /* 默认 108；柜面不够高时由 JS 按可用高度改写 --lab-slab-h（见下面的托盘注释）。 */
+  height: var(--lab-slab-h, 108px);
   /* 进阶版给每行留了 margin: 1px 8px。格距由容器 gap 负责，留着它会把每格撑成
      52px —— 五格放不进 223px 的侧栏，柜面会莫名多出几行。 */
   margin: 0;
@@ -459,7 +463,8 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'] > :
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='sector-row'] .ak-sector-code {
   position: absolute;
   left: 6px;
-  top: 12px;
+  /* 板被柜面压矮时标签跟着上移，但不爬到板顶以外。 */
+  top: max(5px, calc(var(--lab-slab-h, 108px) * 0.11));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -673,8 +678,10 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-block] {
   align-items: flex-start;
   gap: 2px;
   margin: 0;
-  min-height: 74px;
-  padding: 22px 7px 6px;
+  /* 托盘是 sticky 的，高度必须是确定的：内容撑高会让托盘底（读数带）盖不住
+     方块。矮柜面下 JS 写 --lab-block-h 把它压下来。 */
+  height: var(--lab-block-h, 74px);
+  padding: max(14px, calc(var(--lab-block-h, 74px) * 0.3)) 7px 6px;
   border: 0;
   border-radius: 0;
   clip-path: none;
@@ -787,10 +794,12 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-block][data-ak-active
 }
 
 /* ---- 会话托盘 ----------------------------------------------------------
-   矮窗口（768px 高只剩两百来像素）里，会话区排在整面墙后面，点开也看不见。
-   一行方块可以钉在柜面下沿：读数带加高成整条托盘底，方块坐在上面，当前板
-   滚到托盘上方；多行方块不钉（每行都会贴同一个底边，叠成一摞），由 JS 改
-   成滚动。托盘只由 [data-ak-tray='true'] 打开，平时柜面还是完整的墙面。 */
+   柜面不够高时（0.2.1-rc.5 起，1366×768 只剩 155px），会话区排在整面墙后面，
+   点开也看不见。一行方块可以钉在柜面下沿：读数带加高成整条托盘底，方块坐在
+   上面，当前板滚到托盘上方；多行方块不钉（每行都会贴同一个底边，叠成一摞），
+   由 JS 改成滚动。托盘只由 [data-ak-tray='true'] 打开，平时柜面还是完整的墙面。
+   托盘、方块、板三个尺寸都读 CSS 变量：柜面矮到装不下「108 的板 + 88 的托盘」
+   时，由 JS 按可用高度一起算，保证板不会被托盘吃掉半块。 */
 body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'][data-ak-tray='true'] [data-ak-block] {
   position: sticky;
   bottom: 0;
@@ -805,7 +814,7 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='column-field'][d
   position: sticky;
   bottom: 0;
   z-index: 3;
-  height: 88px;
+  height: var(--lab-tray-h, 88px);
   margin: 0;
   padding: 6px 0 0;
   box-sizing: border-box;
@@ -1101,7 +1110,23 @@ body.theme-arknights-advanced.theme-arknights-lab .ak-bar__item[aria-pressed='tr
 }
 
 /* ---------------------------------------------------------------------------
- * 9. 工作区菜单：部署控制面板 → 库面板
+ * 9. 侧栏底部栏：把应用自己的按钮排开
+ *
+ * DSH 0.2.1-rc.5 在侧栏底部多了一行「更多」（settingsArea），而 session-manager
+ * 那条「会话与工作区」仍写着 flex-basis:100%，于是它换到第二行、正好和「更多」
+ * 叠在同一行上（x=8..272 对 x=10..270，y 都是 726）——把主题样式表整个禁掉也
+ * 一样叠，是应用自己的账。柜面已经因为侧栏新加的三行面板导航少了 66px，不能再
+ * 靠把底部栏撑高来避让；让它按内容宽排回第一行（「插件市场」右边还剩 144px）
+ * 就互不侵犯。类名走 localName 匹配，不写 hHd-Xa_ 这种构建前缀。
+ * ------------------------------------------------------------------------- */
+
+body.theme-arknights-advanced.theme-arknights-lab [class*='_footerActions'] .sm-footerBtn {
+  flex: 0 1 auto;
+  width: auto;
+}
+
+/* ---------------------------------------------------------------------------
+ * 10. 工作区菜单：部署控制面板 → 库面板
  * ------------------------------------------------------------------------- */
 
 body.theme-arknights-advanced.theme-arknights-lab .ak-deploy-menu__head {
@@ -1127,7 +1152,7 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-tui='menu-item']::bef
 }
 
 /* ---------------------------------------------------------------------------
- * 10. 品牌文案：加载屏的两行大字跟随档位
+ * 11. 品牌文案：加载屏的两行大字跟随档位
  *
  * 阵营决定署名的身份，档位决定它说什么话。lab 之下加载屏念的是这台设备的
  * 名字（RHINE / TERMINAL），三套阵营共用；boot 序列的副行同理。选择器带上
@@ -1144,7 +1169,7 @@ body.theme-arknights-advanced.theme-arknights-lab [data-ak-loader-word2]::before
 }
 
 /* ---------------------------------------------------------------------------
- * 11. 窄屏
+ * 12. 窄屏
  *
  * 本层没有常驻动画（扫描带与辉光都关掉了），柜体也已经是换行的：档案板排满
  * 一行再起一行，窄侧栏不会把它们压成横滚。板的尺寸是死格宽，当前格的上浮是

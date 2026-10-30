@@ -172,6 +172,19 @@
       }, delay === undefined ? 120 : delay)
     }
 
+    /* 拖窗口不产生 DOM 变更，MutationObserver 不会响；而柜面一矮，托盘与档案板
+       的尺寸就得重算，否则板又会被托盘压掉半块。 */
+    let cabinetResizeBound = false
+    const bindCabinetResize = () => {
+      if (cabinetResizeBound) return
+      if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return
+      cabinetResizeBound = true
+      window.addEventListener('resize', () => {
+        if (!isEnabled() || !isTerminalLayout()) return
+        scheduleTerminalScan(160)
+      })
+    }
+
     const bindTerminalObserver = () => {
       if (terminalObserver !== null) return
       if (typeof MutationObserver === 'undefined' || typeof document === 'undefined' || document.body === null) return
@@ -695,6 +708,58 @@
       else field.scrollTop = next
     }
 
+    /* ---- 柜面不够高时把格位一起缩 ----------------------------------------
+       DSH 0.2.1-rc.5 在侧栏里加了「插件 / 自动化任务 / 更多」三行面板导航
+       （112px），1366×768 下柜面从 221px 掉到 155px：托盘（读数带 + 一排方块）
+       与 108px 的档案板加起来 196px，必然互压——真页面上半块板被托盘吃掉；
+       不展开目录时也一样，108 的板在一面 155px 的柜里只看得见一行半，第二行
+       只露个板头。所以格位尺寸按柜面**实际可用高度**算，写在这三个变量上：
+       托盘态保证「板 + 托盘」同屏，普通态保证「至少两行板」。装得下参考尺寸
+       的时候变量缺席，一切仍是参考原值。返回托盘应占的高度，供滚动定位用。 */
+    const CABINET = {
+      slabMax: 108, slabMin: 56, blockMax: 74, blockMin: 46, trayPad: 14, gap: 8,
+    }
+    const CABINET_VARS = ['--lab-slab-h', '--lab-block-h', '--lab-tray-h']
+
+    const fitCabinet = (field, tray) => {
+      const defaultTray = CABINET.blockMax + CABINET.trayPad
+      const avail = field.clientHeight
+      if (avail <= 0) return defaultTray
+      /* 同值不重写：这条在每次扫描里都会跑，写 CSSOM 会让浏览器重算整棵样式树。 */
+      const setVar = (name, value) => {
+        if (field.style.getPropertyValue(name) !== value) field.style.setProperty(name, value)
+      }
+      const clearVar = (name) => {
+        if (field.style.getPropertyValue(name) !== '') field.style.removeProperty(name)
+      }
+      if (tray) {
+        if (defaultTray + CABINET.gap + CABINET.slabMax <= avail) {
+          for (const name of CABINET_VARS) clearVar(name)
+          return defaultTray
+        }
+        const blockH = Math.max(CABINET.blockMin, Math.min(CABINET.blockMax, Math.round(avail * 0.36)))
+        const trayH = blockH + CABINET.trayPad
+        const slabH = Math.max(CABINET.slabMin,
+          Math.min(CABINET.slabMax, avail - trayH - CABINET.gap))
+        setVar('--lab-slab-h', slabH + 'px')
+        setVar('--lab-block-h', blockH + 'px')
+        setVar('--lab-tray-h', trayH + 'px')
+        return trayH
+      }
+      /* 没展开目录时柜面整面都是墙：155px 里塞 108 的板只能看见一行半，第二行
+         只露个板头，像被裁断了。按「至少看得见两行」压一次。 */
+      const rows = 2
+      const want = Math.floor((avail - CABINET.gap * (rows - 1)) / rows)
+      if (want >= CABINET.slabMax) {
+        clearVar('--lab-slab-h')
+        return defaultTray
+      }
+      setVar('--lab-slab-h', Math.max(CABINET.slabMin, want) + 'px')
+      clearVar('--lab-block-h')
+      clearVar('--lab-tray-h')
+      return defaultTray
+    }
+
     const revealOpenFolder = (field, activeRow) => {
       if (field === null) return
       const blocks = sessionBlocks(field)
@@ -706,11 +771,12 @@
 
       if (blocksInOneRow(blocks)) {
         field.setAttribute('data-ak-tray', 'true')
-        /* 托盘高 88px（读数带 + 一组方块，见 lab.css）。墙滚到「当前板
-           刚好落在托盘上方」的位置；一行板 108px，柜面矮也放得下。 */
+        /* 尺寸可能刚刚被改过，重新读一次布局再定位：目标是「当前板整块落在
+           托盘上方」，而不是只保证它在矩形里——半块板被托盘盖住也算看不见。 */
+        const trayH = fitCabinet(field, true)
         if (activeRow !== null) {
+          const limit = field.clientHeight - trayH - 4
           const rowBottom = activeRow.offsetTop + activeRow.offsetHeight - field.scrollTop
-          const limit = field.clientHeight - 92
           if (rowBottom > limit) field.scrollTop += rowBottom - limit
           if (activeRow.offsetTop - field.scrollTop < 4) {
             scrollFieldTo(field, activeRow.offsetTop - 4)
@@ -719,7 +785,8 @@
         return
       }
 
-      /* 多行方块比柜面还高：让会话区顶部贴住柜面上沿，剩下的用户自己滚。 */
+      /* 多行方块比柜面还高：让会话区顶部贴住柜面上沿，剩下的用户自己滚。
+         格位尺寸由调用方按「非托盘态」统一算，这里不插手。 */
       let delta = last.bottom - (frame.bottom - 4)
       if (delta < 0) delta = 0
       if (first.top - delta < frame.top + 22) delta = first.top - frame.top - 22
@@ -727,14 +794,17 @@
       scrollFieldTo(field, field.scrollTop + delta)
     }
 
-    /* 钉住的托盘只容得下一行；会话数量变了（新开一个会话）就把托盘收回，
-       否则后面的行会全部贴住同一个底边。 */
+    /* 钉住的托盘只容得下一行；会话数量变了（新开一个会话）就收回托盘，
+       否则后面的行会全部贴住同一个底边。返回值 = 这一轮柜面是不是托盘态，
+       调用方据此决定格位尺寸（fitCabinet）。 */
     const syncSessionTray = (field, opened, count) => {
-      if (field === null) return
-      if (field.getAttribute('data-ak-tray') !== 'true') return
+      if (field === null) return false
+      if (field.getAttribute('data-ak-tray') !== 'true') return false
       if (!opened || count === 0 || !blocksInOneRow(sessionBlocks(field))) {
         field.removeAttribute('data-ak-tray')
+        return false
       }
+      return true
     }
 
     /* ---- 悬停铭牌 --------------------------------------------------------
@@ -920,7 +990,10 @@
 
         const rowsState = paintWorkspaceRows(workspaces)
         const blocksState = paintSessionBlocks(sidebar, rowsState)
-        syncSessionTray(blocksState.field, rowsState.opened, blocksState.count)
+        const trayOn = syncSessionTray(blocksState.field, rowsState.opened, blocksState.count)
+        /* 格位尺寸跟着柜面高度走（拖窗口、应用侧栏面板增减都会改它）。这里只改
+           尺寸，不碰滚动位置——用户自己拖到的地方不能被扫描拽回去。 */
+        if (blocksState.field !== null) fitCabinet(blocksState.field, trayOn)
         if (rowsState.opened && blocksState.count > 0 && blocksState.field !== null) {
           if (terminalRevealedKey !== terminalOpenedKey) {
             revealOpenFolder(blocksState.field, rowsState.activeRow)
@@ -984,8 +1057,9 @@
         'data-ak-foreign']) {
         document.querySelectorAll('[' + name + ']').forEach((node) => node.removeAttribute(name))
       }
-      /* 刻度尺定位用的数字通道写在行内样式里，也要收回。 */
-      for (const name of ['--ak-col', '--ak-cols', '--ak-blk', '--ak-blks']) {
+      /* 刻度尺定位用的数字通道、柜面格位尺寸都写在行内样式里，也要收回。 */
+      for (const name of ['--ak-col', '--ak-cols', '--ak-blk', '--ak-blks',
+        '--lab-slab-h', '--lab-block-h', '--lab-tray-h']) {
         document.querySelectorAll('[style*="' + name + '"]').forEach((node) => node.style.removeProperty(name))
       }
     }
@@ -996,6 +1070,7 @@
         return
       }
       bindTerminalObserver()
+      bindCabinetResize()
       paintTerminalUI()
     }
 

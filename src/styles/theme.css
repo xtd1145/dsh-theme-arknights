@@ -882,17 +882,22 @@
         margin-top: 0;
         padding: 0 24px !important;
       }
-      /* The warning copy and the checkbox row stay left-aligned (they are
-         paragraphs), but the column of them is centred on the band. */
-      [role='dialog'][class*='_confirmation'] [class*='_warning'],
-      [role='dialog'][class*='_confirmation'] [class*='_acknowledgement'] {
+      /* DSH ships TWO CSS-module naming schemes at once: most packages emit
+         'hash_local' (so [class*='_local'] hits, e.g. bhn1Oq_sessionRow),
+         while this one emits 'local_hash' — the real class is
+         acknowledgement_cjd8z_38, so the underscore-first form alone matched
+         nothing and these three rules were dead code. Match both shapes.
+         (Found by 'node test/anchors.js' while adapting to 0.2.1-rc.5.
+         No backticks in here: this sheet is embedded into a JS template.) */
+      [role='dialog'][class*='_confirmation'] :is([class*='_acknowledgement'], [class*='acknowledgement_']) {
         max-width: 640px;
-      }
-      [role='dialog'][class*='_confirmation'] [class*='_acknowledgement'] {
         margin-top: 0;
       }
-      [role='dialog'][class*='_confirmation'] [class*='_acknowledgement'] input {
+      [role='dialog'][class*='_confirmation'] :is([class*='_acknowledgement'], [class*='acknowledgement_']) input {
         accent-color: var(--edge-accent);
+      }
+      [role='dialog'][class*='_confirmation'] [class*='_warning'] {
+        max-width: 640px;
       }
       [role='dialog'][class*='_confirmation'] [class*='_footer'] {
         justify-content: center;

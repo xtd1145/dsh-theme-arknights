@@ -261,6 +261,28 @@ async function main() {
         const r = el.getBoundingClientRect()
         return { w: Math.round(r.width), h: Math.round(r.height) }
       }
+      /* 侧栏底部：0.2.1-rc.5 多了一行「更多」，而 session-manager 的「会话与工作
+         区」写着 flex-basis:100% 会换到第二行，正好和它完全重叠（把主题样式表禁
+         掉也一样叠）。文本叶子两两求交，非空就是撞上了。 */
+      const leaves = Array.from(document.querySelectorAll("[data-slot='sidebar'] *")).filter((el) => {
+        if (el.children.length > 0) return false
+        const b = el.getBoundingClientRect()
+        return b.top > 600 && b.width > 0 && b.height > 0 && (el.textContent || '').trim() !== ''
+      }).map((el) => {
+        const b = el.getBoundingClientRect()
+        return { t: (el.textContent || '').trim().slice(0, 12), x: b.x, y: b.y, w: b.width, h: b.height }
+      })
+      const bottomOverlaps = []
+      for (let i = 0; i < leaves.length; i += 1) {
+        for (let j = i + 1; j < leaves.length; j += 1) {
+          const a = leaves[i]
+          const b = leaves[j]
+          if (Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 2
+            && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 2) {
+            bottomOverlaps.push(a.t + ' × ' + b.t)
+          }
+        }
+      }
       return {
         lab: true,
         rows: rows.length,
@@ -277,6 +299,7 @@ async function main() {
         blocks: blocks.length,
         plate: plate === null ? '' : plate.textContent.trim(),
         sidebarZ: sidebar === null ? null : getComputedStyle(sidebar).zIndex,
+        bottomOverlaps,
       }
     })()
   `)
@@ -391,6 +414,13 @@ async function main() {
             blocksInView: blocks.filter(inField).length,
             titled: blocks.filter((b) => String(b.getAttribute('title') || '').trim() !== '').length,
             activeInView: active.length > 0 && inField(active[0]),
+            /* 托盘是 sticky 的，「落在矩形里」不等于「看得见」：0.2.1-rc.5 侧栏
+               多了 112px 面板导航后柜面只剩 155px，当前板半截被托盘盖住，而
+               inField 仍然判它可见。这里量的是板底到会话块顶的净空。 */
+            fieldH: fieldBox === null ? null : Math.round(fieldBox.height),
+            slabH: active.length === 0 ? null : Math.round(active[0].getBoundingClientRect().height),
+            slabClear: active.length === 0 || blocks.length === 0 ? null
+              : Math.round(blocks[0].getBoundingClientRect().top - active[0].getBoundingClientRect().bottom),
             readout: field === null ? null : field.getAttribute('data-ak-blocks'),
             tray: field === null ? null : field.getAttribute('data-ak-tray'),
             empty: head === null ? null : head.getAttribute('data-ak-empty'),
@@ -434,6 +464,7 @@ async function main() {
         const probe = await readClickState(cand.key)
         console.log('  展开 ' + cand.name + ' : blocks=' + probe.blocks
           + ' 在视口=' + probe.blocksInView + ' tray=' + probe.tray
+          + ' 柜面=' + probe.fieldH + 'px 板=' + probe.slabH + 'px 净空=' + probe.slabClear
           + ' 空态=' + probe.empty)
         if (probe.blocks > 0) {
           chosen = cand
@@ -503,6 +534,8 @@ async function main() {
     check('柜面铭牌有字', String(cabinet.plate).trim() !== '', '「' + cabinet.plate + '」')
     check('柜面没有横向溢出', cabinet.field !== null && cabinet.field.spillX <= 1, String(cabinet.field === null ? '-' : cabinet.field.spillX))
     check('侧栏抬到应用整页纹理之上', cabinet.sidebarZ === '5', 'z-index=' + cabinet.sidebarZ)
+    check('侧栏底部没有互相压住的按钮', (cabinet.bottomOverlaps || []).length === 0,
+      JSON.stringify(cabinet.bottomOverlaps))
     check('每块工作区板都有名字', cabinet.rows > 0 && cabinet.names.every((n) => n !== ''),
       JSON.stringify(cabinet.names))
     check('只有一块当前板', cabinet.activeCount === 1, '实际 ' + cabinet.activeCount
@@ -537,6 +570,9 @@ async function main() {
           String(clickProbe.readout) + ' vs ' + wantReadout)
         if (clickProbe.tray === 'true') {
           check('单行托盘里当前板仍然可见', clickProbe.activeInView === true)
+          check('当前板没有被托盘压住', clickProbe.slabClear !== null && clickProbe.slabClear >= 0,
+            '板底→块顶净空 ' + clickProbe.slabClear + 'px（柜面 ' + clickProbe.fieldH
+            + 'px，板 ' + clickProbe.slabH + 'px）')
         }
       } else {
         check('没有会话的目录显示空态', clickProbe.empty === 'true',

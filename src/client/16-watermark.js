@@ -62,11 +62,14 @@
     const findVisibleHeadline = () => {
       if (typeof document === 'undefined') return null
       /* DSH 0.2 renamed the hero headline export from '*_headlineText' to
-         '*_headline' (HeroShell.module.css: "Hqq-bq_headline"); in the 0.2
-         app.asar 'headlineText' occurs 0 times across all @deepseek-ai
-         packages. Match both spellings so 0.1.2-rc.1-era builds keep working.
-         Verified against 0.2.0-rc.2: hits only Hqq-bq_headline, never
-         Hqq-bq_root/_stack/_titleGroup/_previewBadge, Dc7zOa_* or RlGAzG_*. */
+         '*_headline' (HeroShell.module.css); in the 0.2 app.asar 'headlineText'
+         occurs 0 times across all @deepseek-ai packages. Match both spellings
+         so 0.1.2-rc.1-era builds keep working.
+         The build prefix is NOT stable across upgrades — it was Hqq-bq_ on
+         0.2.0-rc.2 and is pXSMma_ on 0.2.1-rc.5 — which is exactly why this
+         matches on the localName suffix. Verified against 0.2.1-rc.5: hits
+         only pXSMma_headline ("探索未至之境"), never pXSMma_root/_stack/
+         _titleGroup/_previewBadge, Dc7zOa_* or RlGAzG_*. */
       const all = document.querySelectorAll('[class$="_headline"], [class$="_headlineText"]')
       for (const h of all) {
         const r = h.getBoundingClientRect()

@@ -389,17 +389,23 @@ if (hostTable !== null) {
 
 console.log('\n[5] 选择器锚点必须是应用里真实存在的 localName')
 
-/* 白名单 = dsh-theme-endfield 在 DSH 0.2.0-rc.2 上验证过的 CSS-module localName。
- * 这些名字来自它的样式表（它发布并跑过完整测试），所以「出现过」就等于「命中过」。
+/* 白名单 = 在本机真实装过的 DSH 里查得到的 CSS-module localName：0.2.0-rc.2 上由
+ * dsh-theme-endfield 验证过一批，0.2.1-rc.5 用 `node test/anchors.js` 全量复核
+ * （所以新增项都带确认日期）。这些名字「出现过」就等于「命中过」。
  *
  * 这条检查的价值：第一版进阶版写了 _transcript / _bubble / _role / _sectionTitle /
  * _groupLabel / _primaryButton——它们**一个都不存在**，规则全是死代码，而界面上
- * 看不出任何报错，只是「装饰没生效」。靠肉眼是查不出这种事的。 */
+ * 看不出任何报错，只是「装饰没生效」。靠肉眼是查不出这种事的。
+ *
+ * DSH 每次升级都该重跑一次 anchors.js：锚点一旦改名，这里会红，而界面只会安静地
+ * 掉装饰。 */
 const KNOWN_LOCAL_NAMES = new Set([
   /* 布局 */
   '_frame', '_header', '_body', '_footer', '_root', '_slot', '_strip', '_fade', '_trigger',
   '_centerCol', '_sidebarCol', '_rightbarCol', '_detailsCol',
   '_composerSeat', '_composerHero', '_headerActions',
+  /* 2026-10-30 rc.5 真页面确认：侧栏底部栏 = ._footArea > ._footerActions + ._settingsArea */
+  '_footArea', '_footerActions', '_settingsArea',
   /* 内容 */
   '_card', '_title', '_headline', '_label', '_icon', '_iconButton', '_badge', '_arrow', '_chevron',
   '_sessionRow', '_projectRow', '_actionRow', '_searchResultRow', '_command', '_folder',

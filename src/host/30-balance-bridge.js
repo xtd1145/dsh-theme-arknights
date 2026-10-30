@@ -22,7 +22,11 @@
  * (the failure reason is reported so the page can keep stale numbers); the
  * account route is only consulted when no key resolves at all.
  * ------------------------------------------------------------------------ */
-const DSH_CLIENT_VERSION_FALLBACK = '0.2.0-rc.2';
+/* Self-reported client tag for the account route's getBalance(client). The host
+ * does not expose its version through any service a plugin can read, so this is
+ * a fallback label only — keep it at the DSH generation this plugin was last
+ * verified against (see `npm run anchors`, which audits the same install). */
+const DSH_CLIENT_VERSION_FALLBACK = '0.2.1-rc.5';
 const BALANCE_API_URL = 'https://api.deepseek.com/user/balance';
 const BALANCE_API_TIMEOUT_MS = 8000;
 

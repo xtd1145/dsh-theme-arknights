@@ -45,7 +45,8 @@
     "test": "node scripts/build.js --check && node check.js && node test/palette-contrast.test.js",
     "shots": "node test/shoot.js",
     "build:sounds": "node scripts/build-sounds.js",
-    "verify": "node test/verify-real.js"
+    "verify": "node test/verify-real.js",
+    "anchors": "node test/anchors.js"
   },
   "dsh": {
     "bundle": {
